@@ -1,9 +1,9 @@
-// Fix: Use named imports for Firebase v9+ modular SDK.
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getMessaging } from 'firebase/messaging';
-import { getDatabase } from 'firebase/database';
+// Fix: Use compat imports for Firebase v9+ to resolve module issues.
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/database';
+import 'firebase/compat/firestore';
+import 'firebase/compat/messaging';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,11 +17,15 @@ const firebaseConfig = {
   databaseURL: "https://antamvieclam-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-// Initialize Firebase using the modular SDK
-// This ensures that the app instance is compatible with modular functions like getFirestore()
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// Initialize Firebase using the compat SDK
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const messaging = getMessaging(app);
-export const rtdb = getDatabase(app);
+export const auth = firebase.auth();
+export const db = firebase.firestore();
+export const messaging = firebase.messaging();
+export const rtdb = firebase.database();
+
+// Export compat firestore helpers
+export const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
+export const arrayUnion = firebase.firestore.FieldValue.arrayUnion;
+export const increment = firebase.firestore.FieldValue.increment;

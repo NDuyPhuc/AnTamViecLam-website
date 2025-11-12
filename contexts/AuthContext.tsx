@@ -1,16 +1,7 @@
 import React, { useContext, useState, useEffect, createContext, useCallback } from 'react';
-import {
-  User,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../services/firebase';
+import type { User } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
+import { auth, db, serverTimestamp } from '../services/firebase';
 import { UserRole, UserData } from '../types';
 import { requestNotificationPermission } from '../services/notificationService';
 import { updateUserPresence } from '../services/presenceService';
@@ -19,8 +10,8 @@ interface AuthContextType {
   currentUser: User | null;
   currentUserData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, role: UserRole) => Promise<any>;
-  login: (email: string, password: string) => Promise<any>;
+  signup: (email: string, password: string, role: UserRole) => Promise<firebase.auth.UserCredential>;
+  login: (email: string, password: string) => Promise<firebase.auth.UserCredential>;
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   refetchUserData: () => Promise<void>;
@@ -46,9 +37,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUserData(null);
         return;
     };
-    const userDocRef = doc(db, 'users', user.uid);
-    const docSnap = await getDoc(userDocRef);
-    if (docSnap.exists()) {
+    const userDocRef = db.collection('users').doc(user.uid);
+    const docSnap = await userDocRef.get();
+    if (docSnap.exists) {
       const data = docSnap.data();
       // Convert timestamp to ISO string to prevent serialization issues
       const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
@@ -63,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           profileImageUrl: data.profileImageUrl,
           fcmTokens: data.fcmTokens || [], // Ensure fcmTokens is an array
       };
-      setCurrentUserData(userData);
+      setCurrentUserData(userData as UserData);
     } else {
       console.log("No such user document!");
       setCurrentUserData(null);
@@ -78,9 +69,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
   const signup = async (email: string, password: string, role: UserRole) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
     const { user } = userCredential;
-    await setDoc(doc(db, 'users', user.uid), {
+    if (!user) {
+      throw new Error("User creation failed.");
+    }
+    await db.collection('users').doc(user.uid).set({
       uid: user.uid,
       email: user.email,
       userType: role,
@@ -95,31 +89,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = (email: string, password: string) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    return auth.signInWithEmailAndPassword(email, password);
   };
 
   const logout = () => {
     // updateUserPresence handles setting the status to offline via onDisconnect
-    return signOut(auth);
+    return auth.signOut();
   };
   
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithRedirect(provider);
   };
 
   useEffect(() => {
     const handleRedirectResult = async () => {
       try {
-        const result = await getRedirectResult(auth);
-        if (result) {
+        const result = await auth.getRedirectResult();
+        if (result && result.user) {
           const { user } = result;
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
+          const userDocRef = db.collection('users').doc(user.uid);
+          const userDoc = await userDocRef.get();
 
-          if (!userDoc.exists()) {
+          if (!userDoc.exists) {
             // Force new Google users into the profile completion flow
-            await setDoc(userDocRef, {
+            await userDocRef.set({
               uid: user.uid,
               email: user.email,
               userType: UserRole.Worker, // Default role for Google sign-up
@@ -141,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let presenceCleanup: (() => void) | undefined;
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
         // Clean up previous presence listener if it exists
         if (presenceCleanup) {
           presenceCleanup();

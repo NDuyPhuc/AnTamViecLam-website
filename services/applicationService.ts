@@ -1,15 +1,4 @@
-import {
-    collection,
-    doc,
-    getDoc,
-    onSnapshot,
-    query,
-    serverTimestamp,
-    setDoc,
-    updateDoc,
-    where
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { db, serverTimestamp } from './firebase';
 import type { Job, UserData, Application } from '../types';
 import { createNotification } from './notificationService';
 import { NotificationType } from '../types';
@@ -28,10 +17,10 @@ export const applyForJob = async (job: Job, worker: UserData): Promise<void> => 
   }
 
   const applicationId = `${job.id}_${worker.uid}`;
-  const applicationRef = doc(db, 'applications', applicationId);
+  const applicationRef = db.collection('applications').doc(applicationId);
 
-  const docSnap = await getDoc(applicationRef);
-  if (docSnap.exists()) {
+  const docSnap = await applicationRef.get();
+  if (docSnap.exists) {
     throw new Error('You have already applied for this job.');
   }
 
@@ -48,7 +37,7 @@ export const applyForJob = async (job: Job, worker: UserData): Promise<void> => 
     status: 'pending',
   };
 
-  await setDoc(applicationRef, applicationData);
+  await applicationRef.set(applicationData);
 
   // Send notification to employer
   await createNotification(
@@ -65,9 +54,9 @@ export const applyForJob = async (job: Job, worker: UserData): Promise<void> => 
  */
 export const checkIfApplied = async (jobId: string, workerId: string): Promise<boolean> => {
   const applicationId = `${jobId}_${workerId}`;
-  const applicationRef = doc(db, 'applications', applicationId);
-  const docSnap = await getDoc(applicationRef);
-  return docSnap.exists();
+  const applicationRef = db.collection('applications').doc(applicationId);
+  const docSnap = await applicationRef.get();
+  return docSnap.exists;
 };
 
 /**
@@ -75,8 +64,8 @@ export const checkIfApplied = async (jobId: string, workerId: string): Promise<b
  * This is more efficient than fetching counts per job.
  */
 export const subscribeToAllApplicationCounts = (callback: (counts: { [jobId: string]: number }) => void) => {
-    const applicationsCollection = collection(db, 'applications');
-    const unsubscribe = onSnapshot(applicationsCollection, (querySnapshot) => {
+    const applicationsCollection = db.collection('applications');
+    const unsubscribe = applicationsCollection.onSnapshot((querySnapshot) => {
         const counts: { [jobId: string]: number } = {};
         querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -101,14 +90,10 @@ export const subscribeToAllApplicationCounts = (callback: (counts: { [jobId: str
  * Sorts on the client to avoid composite index requirements.
  */
 export const subscribeToApplicationsForEmployer = (employerId: string, callback: (apps: Application[]) => void) => {
-    const applicationsCollection = collection(db, 'applications');
-    const q = query(
-        applicationsCollection,
-        where('employerId', '==', employerId)
-        // orderBy('applicationDate', 'desc') // Removed to avoid composite index
-    );
+    const applicationsCollection = db.collection('applications');
+    const q = applicationsCollection.where('employerId', '==', employerId);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = q.onSnapshot((querySnapshot) => {
         const applications: Application[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -149,14 +134,10 @@ export const subscribeToApplicationsForEmployer = (employerId: string, callback:
  * Sorts on the client to avoid composite index requirements.
  */
 export const subscribeToApplicationsForWorker = (workerId: string, callback: (apps: Application[]) => void) => {
-    const applicationsCollection = collection(db, 'applications');
-    const q = query(
-        applicationsCollection,
-        where('workerId', '==', workerId)
-        // orderBy('applicationDate', 'desc') // Removed to avoid composite index
-    );
+    const applicationsCollection = db.collection('applications');
+    const q = applicationsCollection.where('workerId', '==', workerId);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = q.onSnapshot((querySnapshot) => {
         const applications: Application[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -201,8 +182,8 @@ export const updateApplicationStatus = async (
   status: 'accepted' | 'rejected'
 ): Promise<void> => {
   // Use the application's ID to find the document in the top-level collection.
-  const applicationRef = doc(db, 'applications', application.id);
-  await updateDoc(applicationRef, { status });
+  const applicationRef = db.collection('applications').doc(application.id);
+  await applicationRef.update({ status });
 
   // Notify the worker about the status change
   const notificationType = status === 'accepted' ? NotificationType.APPLICATION_ACCEPTED : NotificationType.APPLICATION_REJECTED;

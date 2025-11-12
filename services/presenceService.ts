@@ -1,5 +1,4 @@
-import { ref, onValue, set, onDisconnect, serverTimestamp } from 'firebase/database';
-import { rtdb } from './firebase';
+import { rtdb, serverTimestamp } from './firebase';
 
 /**
  * Sets up the Realtime Database listeners to manage a user's online/offline presence.
@@ -9,7 +8,7 @@ import { rtdb } from './firebase';
  * @returns A cleanup function to be called on logout.
  */
 export const updateUserPresence = (uid: string): (() => void) => {
-  const userStatusDatabaseRef = ref(rtdb, `/status/${uid}`);
+  const userStatusDatabaseRef = rtdb.ref(`/status/${uid}`);
   const isOnlineForDatabase = {
     isOnline: true,
     lastSeen: serverTimestamp(),
@@ -21,9 +20,9 @@ export const updateUserPresence = (uid: string): (() => void) => {
 
   // Special reference to '.info/connected' which is a boolean provided by Firebase
   // that is true when the client is connected and false when it is not.
-  const connectedRef = ref(rtdb, '.info/connected');
+  const connectedRef = rtdb.ref('.info/connected');
 
-  const unsubscribe = onValue(connectedRef, (snapshot) => {
+  const listener = connectedRef.on('value', (snapshot) => {
     if (snapshot.val() === false) {
       // Client is not connected to Firebase.
       return;
@@ -31,16 +30,16 @@ export const updateUserPresence = (uid: string): (() => void) => {
 
     // When the user disconnects, set their status to offline.
     // This is the crucial part for handling browser closure, network loss, etc.
-    onDisconnect(userStatusDatabaseRef).set(isOfflineForDatabase).then(() => {
+    userStatusDatabaseRef.onDisconnect().set(isOfflineForDatabase).then(() => {
       // Once the onDisconnect is established, set the user's status to online.
-      set(userStatusDatabaseRef, isOnlineForDatabase);
+      userStatusDatabaseRef.set(isOnlineForDatabase);
     });
   });
 
   // Return a cleanup function to detach the listener when the user logs out.
   return () => {
-    unsubscribe();
+    connectedRef.off('value', listener);
     // Also explicitly set the user to offline on a clean logout.
-    set(userStatusDatabaseRef, isOfflineForDatabase);
+    userStatusDatabaseRef.set(isOfflineForDatabase);
   };
 };

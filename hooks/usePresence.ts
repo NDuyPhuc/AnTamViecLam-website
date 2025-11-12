@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { rtdb } from '../services/firebase';
-import { ref, onValue } from 'firebase/database';
 import { formatTimeAgo } from '../utils/formatters';
 
 interface PresenceStatus {
@@ -17,8 +16,8 @@ export const usePresence = (userId: string | null): PresenceStatus => {
       return;
     }
 
-    const userStatusRef = ref(rtdb, `/status/${userId}`);
-    const unsubscribe = onValue(userStatusRef, (snapshot) => {
+    const userStatusRef = rtdb.ref(`/status/${userId}`);
+    const listener = userStatusRef.on('value', (snapshot) => {
       const data = snapshot.val();
       if (data?.isOnline) {
         setPresence({ isOnline: true, statusText: 'Đang hoạt động' });
@@ -31,7 +30,7 @@ export const usePresence = (userId: string | null): PresenceStatus => {
       }
     });
 
-    return () => unsubscribe();
+    return () => userStatusRef.off('value', listener);
   }, [userId]);
 
   return presence;

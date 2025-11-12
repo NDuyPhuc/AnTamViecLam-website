@@ -1,21 +1,4 @@
-import {
-    collection,
-    doc,
-    getDoc,
-    onSnapshot,
-    query,
-    serverTimestamp,
-    setDoc,
-    where,
-    addDoc,
-    orderBy,
-    updateDoc,
-    FieldValue,
-    writeBatch,
-    getDocs,
-    increment
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { db, serverTimestamp, increment } from './firebase';
 import type { UserData, Application, Conversation, Message } from '../types';
 
 /**
@@ -27,10 +10,10 @@ export const getOrCreateConversation = async (application: Application): Promise
     const participants = [workerId, employerId].sort();
     const conversationId = participants.join('_');
 
-    const conversationRef = doc(db, 'conversations', conversationId);
-    const docSnap = await getDoc(conversationRef);
+    const conversationRef = db.collection('conversations').doc(conversationId);
+    const docSnap = await conversationRef.get();
 
-    if (!docSnap.exists()) {
+    if (!docSnap.exists) {
         const participantInfo = {
             [workerId]: {
                 fullName: application.workerName,
@@ -47,7 +30,7 @@ export const getOrCreateConversation = async (application: Application): Promise
             [employerId]: 0,
         };
 
-        await setDoc(conversationRef, {
+        await conversationRef.set({
             id: conversationId,
             participants,
             participantInfo,
@@ -64,13 +47,10 @@ export const getOrCreateConversation = async (application: Application): Promise
  * Subscribes to all conversations for a specific user.
  */
 export const subscribeToConversations = (userId: string, callback: (conversations: Conversation[]) => void) => {
-    const conversationsCollection = collection(db, 'conversations');
-    const q = query(
-        conversationsCollection,
-        where('participants', 'array-contains', userId)
-    );
+    const conversationsCollection = db.collection('conversations');
+    const q = conversationsCollection.where('participants', 'array-contains', userId);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = q.onSnapshot((querySnapshot) => {
         const conversations: Conversation[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -103,10 +83,10 @@ export const subscribeToConversations = (userId: string, callback: (conversation
  * Subscribes to messages within a specific conversation.
  */
 export const subscribeToMessages = (conversationId: string, callback: (messages: Message[]) => void) => {
-    const messagesCollection = collection(db, 'conversations', conversationId, 'messages');
-    const q = query(messagesCollection, orderBy('timestamp', 'asc'));
+    const messagesCollection = db.collection('conversations').doc(conversationId).collection('messages');
+    const q = messagesCollection.orderBy('timestamp', 'asc');
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = q.onSnapshot((querySnapshot) => {
         const messages: Message[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -134,8 +114,8 @@ export const sendMessage = async (conversationId: string, senderId: string, send
     if (!text.trim()) return;
 
     // 1. Thêm tin nhắn mới với trạng thái 'sent'
-    const messagesCollection = collection(db, 'conversations', conversationId, 'messages');
-    await addDoc(messagesCollection, {
+    const messagesCollection = db.collection('conversations').doc(conversationId).collection('messages');
+    await messagesCollection.add({
         senderId,
         text,
         timestamp: serverTimestamp(),
@@ -144,10 +124,10 @@ export const sendMessage = async (conversationId: string, senderId: string, send
     });
 
     // 2. Cập nhật tin nhắn cuối cùng và tăng số tin chưa đọc cho người nhận
-    const conversationRef = doc(db, 'conversations', conversationId);
-    const conversationSnap = await getDoc(conversationRef);
+    const conversationRef = db.collection('conversations').doc(conversationId);
+    const conversationSnap = await conversationRef.get();
 
-    if (conversationSnap.exists()) {
+    if (conversationSnap.exists) {
         const conversationData = conversationSnap.data();
         const recipientId = conversationData.participants.find((p: string) => p !== senderId);
         
@@ -157,7 +137,7 @@ export const sendMessage = async (conversationId: string, senderId: string, send
                 lastMessageTimestamp: serverTimestamp(),
                 [`unreadCounts.${recipientId}`]: increment(1),
             };
-            await updateDoc(conversationRef, updateData);
+            await conversationRef.update(updateData);
         }
     }
 };
@@ -166,9 +146,9 @@ export const sendMessage = async (conversationId: string, senderId: string, send
  * Đánh dấu cuộc trò chuyện là đã đọc bằng cách reset bộ đếm tin chưa đọc của người dùng.
  */
 export const markConversationAsRead = async (conversationId: string, userId: string): Promise<void> => {
-    const conversationRef = doc(db, 'conversations', conversationId);
+    const conversationRef = db.collection('conversations').doc(conversationId);
     try {
-        await updateDoc(conversationRef, {
+        await conversationRef.update({
             [`unreadCounts.${userId}`]: 0,
         });
     } catch (error) {
@@ -180,14 +160,14 @@ export const markConversationAsRead = async (conversationId: string, userId: str
  * Đánh dấu tất cả tin nhắn trong một cuộc trò chuyện là đã đọc bởi một người dùng.
  */
 export const markMessagesAsRead = async (conversationId: string, readByUserId: string): Promise<void> => {
-    const messagesRef = collection(db, 'conversations', conversationId, 'messages');
-    const q = query(messagesRef, where('senderId', '!=', readByUserId), where('status', '==', 'sent'));
+    const messagesRef = db.collection('conversations').doc(conversationId).collection('messages');
+    const q = messagesRef.where('senderId', '!=', readByUserId).where('status', '==', 'sent');
     
     try {
-        const querySnapshot = await getDocs(q);
+        const querySnapshot = await q.get();
         if (querySnapshot.empty) return;
 
-        const batch = writeBatch(db);
+        const batch = db.batch();
         querySnapshot.forEach(document => {
             batch.update(document.ref, { status: 'read' });
         });
@@ -205,8 +185,8 @@ export const deleteMessage = async (conversationId: string, messageId: string, c
     if (currentUserId !== messageSenderId) {
         throw new Error("You can only delete your own messages.");
     }
-    const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
-    await updateDoc(messageRef, {
+    const messageRef = db.collection('conversations').doc(conversationId).collection('messages').doc(messageId);
+    await messageRef.update({
         text: 'Tin nhắn này đã được thu hồi.',
         deleted: true,
     });

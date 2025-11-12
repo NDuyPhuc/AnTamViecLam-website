@@ -1,4 +1,3 @@
-import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import type { UserData } from '../types';
 
@@ -11,10 +10,10 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
   if (!userId) return null;
 
   try {
-    const userDocRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userDocRef);
+    const userDocRef = db.collection('users').doc(userId);
+    const docSnap = await userDocRef.get();
 
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       const data = docSnap.data();
       // Convert timestamp to ISO string to prevent serialization issues
       const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
@@ -33,7 +32,7 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
         skills: data.skills || [],
         workHistory: data.workHistory || [],
       };
-      return userProfile;
+      return userProfile as UserData;
     } else {
       console.log("No such user document!");
       return null;

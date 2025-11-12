@@ -1,79 +1,82 @@
+// Fix: Import 'GoogleGenAI' instead of the deprecated 'GoogleGenerativeAI'.
 import { GoogleGenAI, Chat } from "@google/genai";
-import { Job } from '../types';
-import { formatPay } from '../utils/formatters';
+import { PROJECT_CONTEXT } from "../constants";
 
-// The API key must be obtained exclusively from the environment variable `process.env.API_KEY`.
-// This is automatically handled by the deployment environment.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// This will hold the promise for the chat instance.
+let chatInstancePromise: Promise<Chat> | null = null;
+let ai: GoogleGenAI | null = null;
 
-let chat: Chat | null = null;
-
-const getChat = (): Chat => {
-    if(!chat) {
-        chat = ai.chats.create({
-            model: 'gemini-2.5-flash',
-            config: {
-                systemInstruction: 'Bạn là một trợ lý ảo am hiểu về luật lao động, bảo hiểm xã hội và các cơ hội việc làm tự do tại Việt Nam. Hãy trả lời các câu hỏi của người dùng một cách thân thiện, rõ ràng và hữu ích. Cung cấp thông tin chính xác và hướng dẫn họ các thủ tục cần thiết nếu được hỏi. Hãy luôn trả lời bằng tiếng Việt.',
-            },
-        });
+/**
+ * Gets the singleton instance of the GoogleGenAI client.
+ * It initializes it if it hasn't been initialized yet.
+ */
+const getAiClient = (): GoogleGenAI => {
+    if (ai) {
+        return ai;
     }
-    return chat;
-}
+    // Fix: Initialize with the recommended { apiKey: ... } object structure.
+    // The API key MUST be obtained exclusively from the environment variable.
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return ai;
+};
 
-interface AppContext {
-    jobs: Job[];
-    insuranceInfo: any;
-    projectContext: string;
-}
+/**
+ * Gets the singleton instance of the Chat client.
+ */
+const getChatClient = async (): Promise<Chat> => {
+    if (chatInstancePromise) {
+        return chatInstancePromise;
+    }
+    
+    chatInstancePromise = new Promise(async (resolve, reject) => {
+        try {
+            const aiClient = getAiClient();
+            const chat = aiClient.chats.create({
+                model: 'gemini-2.5-flash',
+                config: {
+                    systemInstruction: PROJECT_CONTEXT,
+                }
+            });
+            resolve(chat);
+        } catch (error) {
+            chatInstancePromise = null;
+            reject(error);
+        }
+    });
+    
+    return chatInstancePromise;
+};
 
-const formatAppContext = (context: AppContext): string => {
-    const { jobs, insuranceInfo, projectContext } = context;
-
-    // Format job listings
-    const openJobs = jobs.filter(job => job.status === 'OPEN');
-    const jobsContext = openJobs.length > 0
-        ? openJobs.map(job => 
-            `- ${job.title} tại ${job.addressString} (Trạng thái: Đang tuyển, Lương: ${formatPay(job.payRate, job.payType)})`
-          ).join('\n')
-        : "Hiện tại không có công việc nào đang mở.";
-
-    // Format insurance info (simple example)
-    const insuranceContext = `
-- Tên chương trình: Tích Lũy Tự Động cho BHXH.
-- Mô tả: Tự động trích 2% thu nhập từ công việc để đóng vào quỹ BHXH.
-- Số tiền đã tích lũy tháng này: ${new Intl.NumberFormat('vi-VN').format(insuranceInfo.autoDeductAccumulatedThisMonth)} VNĐ.
-    `.trim();
-
-    return `
-### BỐI CẢNH TỪ ỨNG DỤNG "AN TÂM VIỆC LÀM" ###
-
-**1. GIỚI THIỆU DỰ ÁN:**
-${projectContext}
-
-**2. THÔNG TIN BẢO HIỂM:**
-${insuranceContext}
-
-**3. DANH SÁCH CÁC CÔNG VIỆC ĐANG MỞ:**
-${jobsContext}
-
-----------------------------------------------------
-DỰA VÀO BỐI CẢNH TRÊN, HÃY TRẢ LỜI CÂU HỎI SAU CỦA NGƯỜI DÙNG:
-    `.trim();
-}
-
-
-export const sendMessageToBot = async (message: string, context: AppContext): Promise<string> => {
+/**
+ * Sends a message to the chatbot.
+ */
+export const sendMessageToBot = async (message: string, context: any): Promise<string> => {
     try {
-        const chatInstance = getChat();
+        const chat = await getChatClient();
         
-        // Construct the full prompt with context
-        const formattedContext = formatAppContext(context);
-        const fullPrompt = `${formattedContext}\n\n"${message}"`;
+        // Constructing a detailed prompt with context
+        const contextPrompt = `
+            DƯỚI ĐÂY LÀ DỮ LIỆU HIỆN TẠI CỦA NỀN TẢNG (dưới dạng JSON, chỉ dùng để tham khảo):
+            - Một vài công việc đang có: ${JSON.stringify(context.jobs.slice(0, 3), null, 2)}
+            - Thông tin bảo hiểm mẫu: ${JSON.stringify(context.insuranceInfo, null, 2)}
+            
+            Câu hỏi của người dùng: "${message}"
+            
+            HÃY TRẢ LỜI CÂU HỎI DỰA TRÊN VAI TRÒ VÀ BỐI CẢNH CỦA BẠN.
+        `;
 
-        const response = await chatInstance.sendMessage({ message: fullPrompt });
+        const response = await chat.sendMessage({ message: contextPrompt });
+        // Fix: Use the '.text' accessor to get the response string.
         return response.text;
     } catch (error) {
-        console.error('Lỗi khi gửi tin nhắn:', error);
-        throw error;
+        console.error('Error sending message to bot:', error);
+        // Reset the chat instance if there's an error, in case it's a connection issue
+        chatInstancePromise = null;
+        // Check if error is an instance of Error to safely access message property
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("API key not valid")) {
+             throw new Error('API key không hợp lệ. Vui lòng kiểm tra lại.');
+        }
+        throw new Error('Không thể nhận phản hồi từ AI. Vui lòng thử lại.');
     }
 };

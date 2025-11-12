@@ -1,7 +1,6 @@
-import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, arrayUnion, getDoc } from 'firebase/firestore';
-import { db, messaging } from './firebase';
+import { db, serverTimestamp, arrayUnion } from './firebase';
+import { messaging } from './firebase';
 import { Notification as NotificationData, NotificationType, UserData } from '../types';
-import { getToken, onMessage } from 'firebase/messaging';
 
 // QUAN TRỌNG: Thay thế giá trị này bằng VAPID key thực tế của bạn từ Firebase console
 // Firebase Console -> Project Settings -> Cloud Messaging -> Web configuration -> Web Push certificates
@@ -30,18 +29,18 @@ export const requestNotificationPermission = async (userId: string) => {
  */
 const saveMessagingDeviceToken = async (userId: string) => {
     try {
-        const fcmToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+        const fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY });
         if (fcmToken) {
             console.log('FCM Token:', fcmToken);
-            const userDocRef = doc(db, 'users', userId);
+            const userDocRef = db.collection('users').doc(userId);
             // Sử dụng arrayUnion để thêm token mà không tạo bản sao.
-            await updateDoc(userDocRef, {
+            await userDocRef.update({
                 fcmTokens: arrayUnion(fcmToken),
             });
             console.log('FCM token saved for user:', userId);
 
             // Lắng nghe các tin nhắn khi ứng dụng đang mở (foreground)
-            onMessage(messaging, (payload) => {
+            messaging.onMessage((payload) => {
                 console.log('Foreground message received. ', payload);
                 // Trong ứng dụng thực tế, bạn nên hiển thị một thông báo tùy chỉnh trong ứng dụng (ví dụ: toast)
                 // thay vì một alert mặc định.
@@ -65,8 +64,8 @@ export const createNotification = async (
     link: string
 ): Promise<void> => {
     try {
-        const notificationsCollection = collection(db, 'notifications');
-        await addDoc(notificationsCollection, {
+        const notificationsCollection = db.collection('notifications');
+        await notificationsCollection.add({
             userId,
             type,
             message,
@@ -83,15 +82,10 @@ export const createNotification = async (
  * Subscribes to notifications for a specific user.
  */
 export const subscribeToNotifications = (userId: string, callback: (notifications: NotificationData[]) => void) => {
-    const notificationsCollection = collection(db, 'notifications');
-    const q = query(
-        notificationsCollection,
-        where('userId', '==', userId)
-        // Removed orderBy('createdAt', 'desc') to avoid needing a composite index.
-        // Sorting is now handled on the client-side.
-    );
+    const notificationsCollection = db.collection('notifications');
+    const q = notificationsCollection.where('userId', '==', userId);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = q.onSnapshot((querySnapshot) => {
         const notifications: NotificationData[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
@@ -119,8 +113,8 @@ export const subscribeToNotifications = (userId: string, callback: (notification
  * Marks a single notification as read.
  */
 export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
-    const notificationRef = doc(db, 'notifications', notificationId);
-    await updateDoc(notificationRef, { isRead: true });
+    const notificationRef = db.collection('notifications').doc(notificationId);
+    await notificationRef.update({ isRead: true });
 };
 
 /**
@@ -130,9 +124,9 @@ export const markAllNotificationsAsRead = async (userId: string, notifications: 
     const unreadNotifications = notifications.filter(n => !n.isRead);
     if (unreadNotifications.length === 0) return;
 
-    const batch = writeBatch(db);
+    const batch = db.batch();
     unreadNotifications.forEach(notification => {
-        const notificationRef = doc(db, 'notifications', notification.id);
+        const notificationRef = db.collection('notifications').doc(notification.id);
         batch.update(notificationRef, { isRead: true });
     });
 

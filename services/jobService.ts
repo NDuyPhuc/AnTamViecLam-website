@@ -1,14 +1,13 @@
-import { collection, onSnapshot, query, orderBy, serverTimestamp, doc, setDoc, where, updateDoc, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, serverTimestamp } from './firebase';
 import type { Job, UserData, UserRole } from '../types';
 import { NotificationType } from '../types';
 import { createNotification } from './notificationService';
 
 export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
-  const jobsCollection = collection(db, 'jobs');
-  const q = query(jobsCollection, orderBy('createdAt', 'desc'));
+  const jobsCollection = db.collection('jobs');
+  const q = jobsCollection.orderBy('createdAt', 'desc');
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+  const unsubscribe = q.onSnapshot((querySnapshot) => {
     const jobs: Job[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -46,10 +45,10 @@ export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
 };
 
 export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: Job[]) => void) => {
-  const jobsCollection = collection(db, 'jobs');
-  const q = query(jobsCollection, where('employerId', '==', employerId), orderBy('createdAt', 'desc'));
+  const jobsCollection = db.collection('jobs');
+  const q = jobsCollection.where('employerId', '==', employerId).orderBy('createdAt', 'desc');
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+  const unsubscribe = q.onSnapshot((querySnapshot) => {
     const jobs: Job[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data();
@@ -84,8 +83,8 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
 };
 
 export const updateJobStatus = async (jobId: string, status: 'OPEN' | 'CLOSED') => {
-    const jobRef = doc(db, 'jobs', jobId);
-    await updateDoc(jobRef, { status });
+    const jobRef = db.collection('jobs').doc(jobId);
+    await jobRef.update({ status });
 };
 
 
@@ -100,11 +99,11 @@ const notifyMatchingWorkers = async (jobId: string, jobData: NewJobData) => {
     const jobProvince = jobData.addressString.split(',').pop()?.trim();
     if (!jobProvince) return;
   
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("userType", "==", "WORKER"));
+    const usersRef = db.collection("users");
+    const q = usersRef.where("userType", "==", "WORKER");
   
     try {
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await q.get();
       querySnapshot.forEach((doc) => {
         const worker = doc.data() as UserData;
         if (worker.address && worker.address.includes(jobProvince)) {
@@ -126,8 +125,8 @@ export const addJob = async (jobData: NewJobData, employer: UserData) => {
     throw new Error("Nhà tuyển dụng phải có họ tên đầy đủ để đăng tin.");
   }
   
-  const jobsCollection = collection(db, 'jobs');
-  const newDocRef = doc(jobsCollection); 
+  const jobsCollection = db.collection('jobs');
+  const newDocRef = jobsCollection.doc(); 
 
   const { coordinates, ...restOfJobData } = jobData;
   const locationString = `[${coordinates.lat}° N, ${coordinates.lng}° E]`;
@@ -144,7 +143,7 @@ export const addJob = async (jobData: NewJobData, employer: UserData) => {
     location: locationString,
   }
 
-  await setDoc(newDocRef, newJob);
+  await newDocRef.set(newJob);
 
   // After job is successfully added, find and notify matching workers
   await notifyMatchingWorkers(newDocRef.id, jobData);

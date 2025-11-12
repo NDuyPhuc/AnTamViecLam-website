@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import { uploadImage } from '../../services/cloudinaryService';
 import UserIcon from '../icons/UserIcon';
@@ -52,8 +51,8 @@ const CompleteProfilePage: React.FC = () => {
             imageUrl = await uploadImage(avatarFile);
         }
 
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userDocRef, {
+        const userDocRef = db.collection('users').doc(currentUser.uid);
+        await userDocRef.update({
             fullName,
             phoneNumber,
             address,

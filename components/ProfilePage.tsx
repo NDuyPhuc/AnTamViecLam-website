@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { uploadImage } from '../services/cloudinaryService';
 import UserIcon from './icons/UserIcon';
@@ -279,7 +278,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
             imageUrl = await uploadImage(avatarFile);
         }
 
-        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDocRef = db.collection('users').doc(currentUser.uid);
         const dataToUpdate: any = {
             fullName,
             phoneNumber,
@@ -293,7 +292,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
             dataToUpdate.workHistory = workHistory;
         }
 
-        await updateDoc(userDocRef, dataToUpdate);
+        await userDocRef.update(dataToUpdate);
         
         await refetchUserData();
         setSuccess('Cập nhật hồ sơ thành công!');
