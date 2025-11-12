@@ -1,6 +1,6 @@
 import { collection, onSnapshot, query, where, addDoc, serverTimestamp, doc, updateDoc, writeBatch, arrayUnion, getDoc } from 'firebase/firestore';
 import { db, messaging } from './firebase';
-import { Notification, NotificationType, UserData } from '../types';
+import { Notification as NotificationData, NotificationType, UserData } from '../types';
 import { getToken, onMessage } from 'firebase/messaging';
 
 // QUAN TRỌNG: Thay thế giá trị này bằng VAPID key thực tế của bạn từ Firebase console
@@ -82,7 +82,7 @@ export const createNotification = async (
 /**
  * Subscribes to notifications for a specific user.
  */
-export const subscribeToNotifications = (userId: string, callback: (notifications: Notification[]) => void) => {
+export const subscribeToNotifications = (userId: string, callback: (notifications: NotificationData[]) => void) => {
     const notificationsCollection = collection(db, 'notifications');
     const q = query(
         notificationsCollection,
@@ -92,7 +92,7 @@ export const subscribeToNotifications = (userId: string, callback: (notification
     );
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const notifications: Notification[] = [];
+        const notifications: NotificationData[] = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
             const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
@@ -100,7 +100,7 @@ export const subscribeToNotifications = (userId: string, callback: (notification
                 id: doc.id,
                 ...data,
                 createdAt,
-            } as Notification);
+            } as NotificationData);
         });
 
         // Sort notifications on the client side by creation date, newest first.
@@ -126,7 +126,7 @@ export const markNotificationAsRead = async (notificationId: string): Promise<vo
 /**
  * Marks all unread notifications for a user as read.
  */
-export const markAllNotificationsAsRead = async (userId: string, notifications: Notification[]): Promise<void> => {
+export const markAllNotificationsAsRead = async (userId: string, notifications: NotificationData[]): Promise<void> => {
     const unreadNotifications = notifications.filter(n => !n.isRead);
     if (unreadNotifications.length === 0) return;
 
