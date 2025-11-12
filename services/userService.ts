@@ -1,0 +1,45 @@
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
+import type { UserData } from '../types';
+
+/**
+ * Fetches the public profile data for a specific user.
+ * @param userId The UID of the user to fetch.
+ * @returns A UserData object or null if not found.
+ */
+export const getUserProfile = async (userId: string): Promise<UserData | null> => {
+  if (!userId) return null;
+
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(userDocRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      // Convert timestamp to ISO string to prevent serialization issues
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      
+      // Construct a safe public profile, excluding sensitive data if any were present.
+      const userProfile: UserData = {
+        uid: data.uid,
+        email: data.email,
+        userType: data.userType,
+        createdAt: createdAt,
+        fullName: data.fullName || 'Người dùng ẩn danh',
+        phoneNumber: data.phoneNumber, // Note: consider privacy implications
+        address: data.address,
+        profileImageUrl: data.profileImageUrl,
+        bio: data.bio || '',
+        skills: data.skills || [],
+        workHistory: data.workHistory || [],
+      };
+      return userProfile;
+    } else {
+      console.log("No such user document!");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    throw error;
+  }
+};

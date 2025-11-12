@@ -1,0 +1,7 @@
+{
+  "name": "An Tâm Việc Làm cho Lao Động Tự Do",
+  "description": "Một nền tảng số giúp người lao động tự do tại Việt Nam tìm việc làm thời vụ, tham gia bảo hiểm xã hội tự nguyện, tạo ảnh AI và nhận tư vấn từ chatbot thông minh.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
