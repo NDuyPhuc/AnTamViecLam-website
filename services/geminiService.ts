@@ -1,17 +1,10 @@
-
-
-
 import { GoogleGenAI, Chat } from "@google/genai";
 import { Job } from '../types';
 import { formatPay } from '../utils/formatters';
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  console.error("API_KEY environment variable not set.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+// The API key must be obtained exclusively from the environment variable `process.env.API_KEY`.
+// This is automatically handled by the deployment environment.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 let chat: Chat | null = null;
 
