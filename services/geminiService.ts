@@ -1,17 +1,15 @@
-
 import { ChatMessage, MessageAuthor } from "../types";
 import { GoogleGenAI } from "@google/genai";
 
 // --- CẤU HÌNH CLIENT SIDE (PREVIEW / LOCAL) ---
-// Dùng Key Mới (Hy vọng key này không bị giới hạn Android/IP chặt chẽ như key cũ)
-// Nếu key này cũng lỗi, bạn cần vào Google AI Studio tạo một key mới hoàn toàn "Get API Key".
-const CLIENT_SIDE_API_KEY = "AIzaSyBxIX5Od28Go9qkG6SdLrZhcLPpLe3bR0E"; 
+// Sử dụng Key do người dùng cung cấp (Key cũ, hy vọng hỗ trợ Web)
+const CLIENT_SIDE_API_KEY = "AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c"; 
 // ----------------------------------------------
 
 /**
  * Gửi tin nhắn đến chatbot.
  * Chiến thuật "Hybrid":
- * 1. Thử gọi Backend (/api/chat) với Key Mới.
+ * 1. Thử gọi Backend (/api/chat) với Key Server.
  * 2. Nếu thất bại hoặc timeout (do đang ở Preview) -> Fallback sang Client SDK.
  */
 export const sendMessageToBot = async (
@@ -31,7 +29,15 @@ export const sendMessageToBot = async (
         HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN.
     `;
 
-    const formattedHistory = history.map(msg => ({
+    // Lọc bỏ tin nhắn chào hỏi ban đầu của Bot nếu nó là tin nhắn đầu tiên
+    // để đảm bảo history gửi đi bắt đầu bằng User (nếu có thể) hoặc tuân thủ flow hội thoại
+    const historyToSend = history.filter((msg, index) => {
+        // Giữ lại tất cả, trừ khi là tin nhắn đầu tiên VÀ là của Bot (lời chào mặc định)
+        // Tuy nhiên, Gemini khá linh hoạt, nên ta cứ gửi format chuẩn.
+        return true; 
+    });
+
+    const formattedHistory = historyToSend.map(msg => ({
         role: msg.author === MessageAuthor.User ? 'user' : 'model',
         parts: [{ text: msg.text }]
     }));
@@ -50,7 +56,7 @@ export const sendMessageToBot = async (
         // --- CHIẾN THUẬT 1: Gọi Backend Vercel (Ưu tiên) ---
         console.log("👉 [Step 1] Thử gọi Backend (/api/chat)...");
         
-        // Timeout 4.5s: Tăng lên để Vercel Serverless Function có thời gian khởi động (Cold start)
+        // Timeout 5s: Thời gian chờ tối đa theo yêu cầu
         const response = await fetchWithTimeout('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -59,7 +65,7 @@ export const sendMessageToBot = async (
                 history: formattedHistory,
                 systemInstruction: systemInstruction
             })
-        }, 4500);
+        }, 5000);
         
         // Kiểm tra nếu response trả về JSON hợp lệ
         const contentType = response.headers.get("content-type");
@@ -103,9 +109,9 @@ export const sendMessageToBot = async (
             
             // Check lỗi quota hoặc permission
             if (clientError.message?.includes("403") || clientError.toString().includes("PERMISSION_DENIED")) {
-                 return "🤖 Lỗi quyền truy cập (API Key bị chặn). Vui lòng kiểm tra lại cấu hình Key.";
+                 return "🤖 Lỗi quyền truy cập (API Key bị chặn). Vui lòng kiểm tra cấu hình Key trên Google Cloud Console (bỏ giới hạn Android App nếu đang chạy Web).";
             }
-            return "🤖 Hệ thống đang bảo trì hoặc mất kết nối mạng. Vui lòng thử lại sau.";
+            return "🤖 Hệ thống đang bảo trì hoặc mất kết nối mạng. Vui lòng thử lại sau ít phút.";
         }
     }
 };

@@ -1,8 +1,12 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { sendMessageToBot } from '../services/geminiService';
+import { subscribeToAiChatHistory, saveAiChatMessage, clearAiChatHistory } from '../services/aiChatService';
+import { useAuth } from '../contexts/AuthContext';
 import { ChatMessage, MessageAuthor, Job } from '../types';
 import UserIcon from './icons/UserIcon';
 import BotIcon from './icons/BotIcon';
+import TrashIcon from './icons/TrashIcon';
 import { MOCK_INSURANCE_DATA, PROJECT_CONTEXT } from '../constants';
 
 const ChatBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
@@ -23,58 +27,110 @@ interface ChatbotProps {
 }
 
 const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { author: MessageAuthor.Bot, text: 'Xin chào! Tôi có thể giúp gì cho bạn về công việc hoặc chính sách bảo hiểm xã hội?' }
-  ]);
+  const { currentUser } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Lời chào mặc định
+  const defaultGreeting: ChatMessage = { 
+      author: MessageAuthor.Bot, 
+      text: 'Xin chào! Tôi có thể giúp gì cho bạn về công việc hoặc chính sách bảo hiểm xã hội?' 
+  };
+
+  // Subscribe to Firestore history
+  useEffect(() => {
+      if (!currentUser) return;
+
+      const unsubscribe = subscribeToAiChatHistory(currentUser.uid, (history) => {
+          if (history.length === 0) {
+              setMessages([defaultGreeting]);
+          } else {
+              setMessages(history);
+          }
+      });
+
+      return () => unsubscribe();
+  }, [currentUser]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  useEffect(scrollToBottom, [messages]);
+  useEffect(scrollToBottom, [messages, isLoading]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !currentUser) return;
 
-    const userMessage: ChatMessage = { author: MessageAuthor.User, text: input };
+    const userInput = input;
+    const userMessage: ChatMessage = { author: MessageAuthor.User, text: userInput };
     
-    // Keep a reference to the current history BEFORE adding the new message
-    // because the new message is sent as the 'prompt' in the API call.
-    const currentHistory = [...messages];
-
-    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
+      // 1. Lưu tin nhắn User vào Firestore
+      await saveAiChatMessage(currentUser.uid, userMessage);
+
       const appContext = {
         jobs: allJobs,
         insuranceInfo: MOCK_INSURANCE_DATA,
         projectContext: PROJECT_CONTEXT,
       };
       
-      // Pass the history (excluding the just-added message which is handled as the 'prompt' inside the service/backend)
-      // Wait, actually, let's pass the history as context.
-      // The service will take 'input' as the new prompt.
+      // 2. Gọi AI (Gửi kèm lịch sử hiện tại để AI nhớ ngữ cảnh)
+      // Lưu ý: messages lúc này chưa có tin nhắn mới nhất do async của Firestore, 
+      // nên ta tạo mảng tempHistory để gửi đi.
+      const tempHistory = [...messages, userMessage];
       
-      const botResponseText = await sendMessageToBot(input, currentHistory, appContext);
+      const botResponseText = await sendMessageToBot(userInput, tempHistory, appContext);
       
+      // 3. Lưu tin nhắn Bot vào Firestore
       const botMessage: ChatMessage = { author: MessageAuthor.Bot, text: botResponseText };
-      setMessages(prev => [...prev, botMessage]);
+      await saveAiChatMessage(currentUser.uid, botMessage);
+
     } catch (error) {
-      const errorMessage: ChatMessage = { author: MessageAuthor.Bot, text: 'Xin lỗi, tôi đang gặp sự cố. Vui lòng thử lại sau.' };
+      console.error("Chat error:", error);
+      const errorMessage: ChatMessage = { author: MessageAuthor.Bot, text: 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.' };
+      // Không lưu tin nhắn lỗi vào DB để tránh rác, chỉ hiện tạm thời hoặc lưu nếu cần
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleClearHistory = async () => {
+      if (!currentUser) return;
+      if (window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử trò chuyện không?")) {
+          await clearAiChatHistory(currentUser.uid);
+          setMessages([defaultGreeting]);
+      }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-md overflow-hidden relative">
+        {/* Header nhỏ cho Chatbot */}
+        <div className="px-4 py-2 bg-gray-50 border-b flex justify-between items-center">
+            <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span className="text-xs font-medium text-gray-500">Trợ lý AI trực tuyến</span>
+            </div>
+            {messages.length > 1 && (
+                <button 
+                    onClick={handleClearHistory}
+                    className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                    title="Xóa lịch sử trò chuyện"
+                >
+                    <TrashIcon className="w-5 h-5" />
+                </button>
+            )}
+        </div>
+
         <div className="flex-1 p-4 space-y-6 overflow-y-auto">
             {messages.map((msg, index) => (
                 <ChatBubble key={index} message={msg} />
