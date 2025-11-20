@@ -43,13 +43,15 @@ export const sendMessageToBot = async (
         const data = await response.json();
 
         if (!response.ok) {
-            console.error("Backend API Error:", data);
+            // Handle specific HTTP status codes
+            if (response.status === 429) {
+                throw new Error(data.error || 'Hệ thống đang bận. Vui lòng thử lại sau 30 giây.');
+            }
             
-            // Pass the specific error message from backend to the UI if possible
+            console.error("Backend API Error:", data);
             if (data.error) {
                 throw new Error(data.error);
             }
-            
             throw new Error('Lỗi kết nối với máy chủ AI');
         }
 
@@ -60,12 +62,12 @@ export const sendMessageToBot = async (
         
         // Return user-friendly error message based on the error content
         if (error.message && error.message.includes("Android")) {
-             return "Lỗi cấu hình: API Key đang bị chặn. Vui lòng báo Admin tạo Key mới (Unrestricted) và Redeploy Vercel.";
+             return "Lỗi cấu hình: API Key đang bị chặn. Vui lòng báo Admin tạo Key mới (Unrestricted).";
         }
-        if (error.message && error.message.includes("API Key")) {
-            return `Lỗi hệ thống: ${error.message}`;
+        if (error.message && (error.message.includes("Quota") || error.message.includes("429") || error.message.includes("quá tải"))) {
+            return "⚠️ Chatbot đang quá tải lượt truy cập miễn phí. Vui lòng đợi 30 giây và thử lại câu hỏi ngắn hơn.";
         }
 
-        return 'Hệ thống đang bận hoặc gặp sự cố. Vui lòng thử lại sau giây lát.';
+        return `Hệ thống gặp sự cố: ${error.message || 'Vui lòng thử lại sau.'}`;
     }
 };

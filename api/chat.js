@@ -20,26 +20,19 @@ export default async function handler(req, res) {
   try {
     const { prompt, history } = req.body;
 
-    // 1. Tìm API Key từ nhiều nguồn biến môi trường khác nhau để đảm bảo tìm thấy
+    // 1. Tìm API Key
     const apiKey = process.env.VITE_API_KEY || 
                    process.env.API_KEY || 
                    process.env.GOOGLE_API_KEY ||
                    process.env.NEXT_PUBLIC_API_KEY;
 
-    // 2. Debug Log (Xem trong Vercel Functions tab)
-    if (apiKey) {
-        console.log(`Server is using API Key starting with: ${apiKey.substring(0, 4)}...`);
-    } else {
-        console.error("Server Error: No API Key found in environment variables.");
-    }
-
     if (!apiKey) {
       return res.status(500).json({ 
-        error: 'Server chưa tìm thấy API Key. Vui lòng kiểm tra Environment Variables trên Vercel và Redeploy.' 
+        error: 'Server chưa tìm thấy API Key. Vui lòng kiểm tra Environment Variables trên Vercel.' 
       });
     }
 
-    // 3. Chuẩn bị dữ liệu
+    // 2. Chuẩn bị dữ liệu
     const contents = history.map(msg => ({
       role: msg.role,
       parts: [{ text: msg.text }]
@@ -50,8 +43,8 @@ export default async function handler(req, res) {
       parts: [{ text: prompt }]
     });
 
-    // 4. Đổi sang model gemini-1.5-flash (Ổn định hơn)
-    const MODEL_NAME = 'gemini-1.5-flash';
+    // 3. Sử dụng model gemini-2.5-flash theo chuẩn mới nhất
+    const MODEL_NAME = 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     const response = await fetch(apiUrl, {
@@ -71,18 +64,26 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    // 4. Xử lý các lỗi cụ thể từ Google
     if (!response.ok) {
-      console.error("Google API Error Full:", JSON.stringify(data, null, 2));
+      console.error("Google API Error:", JSON.stringify(data, null, 2));
+
+      // Lỗi 429: Quota Exceeded (Hết lượt gọi miễn phí trong phút)
+      if (response.status === 429) {
+          return res.status(429).json({
+              error: 'Hệ thống AI đang quá tải (Hết lượt gọi miễn phí trong phút). Vui lòng đợi 30 giây rồi thử lại.'
+          });
+      }
       
-      // Xử lý lỗi Key Android cụ thể
+      // Lỗi Key Android
       if (data.error && data.error.message && data.error.message.includes("Android client application")) {
           return res.status(403).json({
-              error: `API Key hiện tại (${apiKey.substring(0,4)}...) vẫn bị nhận diện là Android Key. Hãy tạo Key mới loại "No restriction" và REDEPLOY lại Vercel.`
+              error: `Lỗi Key: API Key bị giới hạn Android. Hãy dùng Key "Unrestricted" mới.`
           });
       }
 
       const errorMessage = data.error?.message || 'Lỗi từ Google Gemini API';
-      return res.status(response.status).json({ error: errorMessage, details: data.error });
+      return res.status(response.status).json({ error: errorMessage });
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
