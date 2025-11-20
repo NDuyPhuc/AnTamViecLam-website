@@ -292,6 +292,7 @@ const App: React.FC = () => {
                                 allJobs={allJobs}
                                 currentUserData={currentUserData!}
                                 onViewOnMap={handleViewJobOnMap}
+                                onJobSelect={handleSelectJobForDetail}
                             />
                         );
                     case View.Insurance:

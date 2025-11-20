@@ -1,40 +1,69 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Job, UserData } from '../types';
 import { analyzeJobMatches, JobRecommendation } from '../services/geminiService';
 import { calculateDistance, parseLocationString } from '../utils/formatters';
-import Spinner from './Spinner';
+import { db } from '../services/firebase'; 
 import SparklesIcon from './icons/SparklesIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import ShieldExclamationIcon from './icons/ShieldExclamationIcon';
+import InformationCircleIcon from './icons/InformationCircleIcon';
+import XIcon from './icons/XIcon';
+import LightBulbIcon from './icons/LightBulbIcon';
+import CheckCircleIcon from './icons/CheckCircleIcon';
 
 interface AdvancedJobRecommendationsProps {
     userLocation: { lat: number; lng: number } | null;
     allJobs: Job[];
     currentUserData: UserData;
     onViewOnMap: (job: Job) => void;
+    onJobSelect: (job: Job) => void;
 }
 
 const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
     userLocation,
     allJobs,
     currentUserData,
-    onViewOnMap
+    onViewOnMap,
+    onJobSelect
 }) => {
     const [radius, setRadius] = useState(5); // Default 5km
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [recommendations, setRecommendations] = useState<JobRecommendation[]>([]);
     const [hasAnalyzed, setHasAnalyzed] = useState(false);
+    
+    // State for AI Detail Modal
+    const [selectedAiJob, setSelectedAiJob] = useState<{ rec: JobRecommendation, job: Job } | null>(null);
 
-    // Filter jobs locally first based on radius to save AI tokens & speed up
+    // Load history on mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const userDoc = await db.collection('users').doc(currentUserData.uid).get();
+                const data = userDoc.data();
+                if (data && data.lastRecommendations) {
+                    const history = data.lastRecommendations;
+                    if (history.results && Array.isArray(history.results) && history.results.length > 0) {
+                        setRecommendations(history.results);
+                        setRadius(history.radius || 5);
+                        setHasAnalyzed(true);
+                    }
+                }
+            } catch (error) {
+                console.error("Failed to load recommendation history", error);
+            }
+        };
+        loadHistory();
+    }, [currentUserData.uid]);
+
+    // Filter jobs locally first based on radius
     const nearbyJobs = useMemo(() => {
         if (!userLocation) return [];
         return allJobs.filter(job => {
             const coords = parseLocationString(job.location);
             if (!coords) return false;
             const dist = calculateDistance(userLocation.lat, userLocation.lng, coords.lat, coords.lng);
-            // Store distance on job object temporarily for AI context
             job.distance = dist; 
             return dist <= radius && job.status === 'OPEN';
         });
@@ -49,16 +78,31 @@ const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
 
         setIsAnalyzing(true);
         try {
-            // Limit to top 20 closest jobs to ensure speed if list is huge
             const jobsToAnalyze = nearbyJobs.sort((a, b) => (a.distance || 0) - (b.distance || 0)).slice(0, 20);
             
             const results = await analyzeJobMatches(currentUserData, jobsToAnalyze);
             setRecommendations(results);
+            setHasAnalyzed(true);
+
+            await db.collection('users').doc(currentUserData.uid).update({
+                lastRecommendations: {
+                    timestamp: new Date().toISOString(),
+                    radius: radius,
+                    results: results
+                }
+            });
+
         } catch (error) {
             console.error("Analysis failed", error);
         } finally {
             setIsAnalyzing(false);
-            setHasAnalyzed(true);
+        }
+    };
+
+    const openAiModal = (rec: JobRecommendation) => {
+        const job = nearbyJobs.find(j => j.id === rec.jobId);
+        if (job) {
+            setSelectedAiJob({ rec, job });
         }
     };
 
@@ -80,7 +124,6 @@ const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
                         Sử dụng AI để phân tích hồ sơ của bạn, so sánh khoảng cách, kỹ năng và mức lương để tìm ra công việc phù hợp nhất trong khu vực.
                     </p>
                 </div>
-                {/* Abstract decorative shapes */}
                 <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-white opacity-10 rounded-full"></div>
                 <div className="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-purple-400 opacity-20 rounded-full"></div>
             </div>
@@ -144,7 +187,6 @@ const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
                 )}
             </div>
 
-            {/* Results */}
             {hasAnalyzed && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -165,7 +207,6 @@ const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
 
                                 return (
                                     <div key={rec.jobId} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md hover:border-indigo-300 transition-all flex flex-col h-full relative overflow-hidden">
-                                        {/* Header with Score */}
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
                                                 <h4 className="text-lg font-bold text-gray-800 line-clamp-1" title={job.title}>{job.title}</h4>
@@ -176,7 +217,6 @@ const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
                                             </div>
                                         </div>
 
-                                        {/* Details */}
                                         <div className="flex items-center text-xs text-gray-500 mb-4 space-x-3">
                                             <span className="flex items-center bg-gray-100 px-2 py-1 rounded">
                                                 <MapPinIcon className="w-3 h-3 mr-1" />
@@ -188,54 +228,165 @@ const AdvancedJobRecommendations: React.FC<AdvancedJobRecommendationsProps> = ({
                                             </span>
                                         </div>
 
-                                        {/* AI Analysis Content */}
                                         <div className="space-y-4 flex-grow">
                                             <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-                                                <p className="text-xs font-bold text-indigo-800 uppercase tracking-wide mb-1">💡 AI đánh giá</p>
-                                                <p className="text-sm text-indigo-900 leading-relaxed">{rec.reason}</p>
+                                                <p className="text-xs font-bold text-indigo-800 uppercase tracking-wide mb-1 flex items-center gap-1">
+                                                    <SparklesIcon className="w-3 h-3" />
+                                                    AI đánh giá
+                                                </p>
+                                                <p className="text-sm text-indigo-900 leading-relaxed line-clamp-3">{rec.reason}</p>
                                             </div>
                                             
-                                            {rec.environmentAnalysis && (
-                                                <div className="text-xs text-gray-600">
-                                                    <span className="font-semibold text-gray-700">Môi trường & Rủi ro:</span> {rec.environmentAnalysis}
-                                                </div>
-                                            )}
-
-                                            <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
                                                 <div>
-                                                    <p className="font-semibold text-green-700 text-xs mb-1 flex items-center">
-                                                        <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                                                        Ưu điểm
-                                                    </p>
+                                                    <p className="font-semibold text-green-700 text-xs mb-1">Ưu điểm chính</p>
                                                     <ul className="text-xs text-gray-600 space-y-0.5">
                                                         {rec.pros.slice(0, 2).map((p, i) => <li key={i} className="truncate">• {p}</li>)}
                                                     </ul>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-red-700 text-xs mb-1 flex items-center">
-                                                        <ShieldExclamationIcon className="w-3 h-3 mr-1" />
-                                                        Cân nhắc
-                                                    </p>
+                                                     <p className="font-semibold text-red-700 text-xs mb-1">Lưu ý</p>
                                                     <ul className="text-xs text-gray-600 space-y-0.5">
-                                                        {rec.cons.slice(0, 2).map((c, i) => <li key={i} className="truncate">• {c}</li>)}
+                                                        {rec.cons.slice(0, 1).map((c, i) => <li key={i} className="truncate">• {c}</li>)}
                                                     </ul>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Action Button */}
-                                        <button
-                                            onClick={() => onViewOnMap(job)}
-                                            className="mt-5 w-full bg-white text-indigo-600 font-bold py-2 px-4 rounded-lg border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-400 transition-colors flex items-center justify-center gap-2"
-                                        >
-                                            <MapPinIcon className="w-4 h-4" />
-                                            Xem vị trí
-                                        </button>
+                                        <div className="mt-5 grid grid-cols-2 gap-3">
+                                            <button
+                                                onClick={() => openAiModal(rec)}
+                                                className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                            >
+                                                <SparklesIcon className="w-4 h-4" />
+                                                Chi tiết AI
+                                            </button>
+                                            <button
+                                                onClick={() => onViewOnMap(job)}
+                                                className="w-full bg-white text-indigo-600 font-bold py-2 px-4 rounded-lg border border-indigo-200 hover:bg-indigo-50 hover:border-indigo-400 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <MapPinIcon className="w-4 h-4" />
+                                                Xem vị trí
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })}
                         </div>
                     )}
+                </div>
+            )}
+
+            {selectedAiJob && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in"
+                    onClick={() => setSelectedAiJob(null)}
+                >
+                    <div 
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative animate-fade-in-up max-h-[90vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-6 bg-indigo-600 text-white flex justify-between items-start">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <SparklesIcon className="w-6 h-6 text-yellow-300" />
+                                    <span className="font-bold text-indigo-100 uppercase tracking-wider text-xs">Phân tích chuyên sâu</span>
+                                </div>
+                                <h2 className="text-2xl font-bold">{selectedAiJob.job.title}</h2>
+                                <p className="text-indigo-100 text-sm mt-1">{selectedAiJob.job.employerName}</p>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedAiJob(null)}
+                                className="text-white hover:bg-white/20 rounded-full p-1 transition-colors"
+                            >
+                                <XIcon className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto space-y-6">
+                             <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <div className={`w-16 h-16 rounded-full border-4 ${getScoreColor(selectedAiJob.rec.matchScore)} flex items-center justify-center bg-white text-xl font-bold shadow-sm`}>
+                                    {selectedAiJob.rec.matchScore}%
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-lg">Mức độ phù hợp</h3>
+                                    <p className="text-sm text-gray-600">Dựa trên hồ sơ kỹ năng, vị trí và mong muốn của bạn.</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="flex items-center font-bold text-gray-800 mb-2">
+                                    <LightBulbIcon className="w-5 h-5 text-indigo-500 mr-2" />
+                                    Tại sao công việc này phù hợp?
+                                </h4>
+                                <p className="text-gray-700 leading-relaxed bg-indigo-50 p-4 rounded-lg border border-indigo-100 text-sm">
+                                    {selectedAiJob.rec.reason}
+                                </p>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 className="flex items-center font-bold text-gray-800 mb-3">
+                                        <CheckCircleIcon className="w-5 h-5 text-green-500 mr-2" />
+                                        Ưu điểm
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {selectedAiJob.rec.pros.map((p, i) => (
+                                            <li key={i} className="flex items-start text-sm text-gray-700">
+                                                <span className="mr-2 text-green-500">•</span>
+                                                {p}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="flex items-center font-bold text-gray-800 mb-3">
+                                        <ShieldExclamationIcon className="w-5 h-5 text-red-500 mr-2" />
+                                        Cần cân nhắc
+                                    </h4>
+                                    <ul className="space-y-2">
+                                        {selectedAiJob.rec.cons.map((c, i) => (
+                                            <li key={i} className="flex items-start text-sm text-gray-700">
+                                                <span className="mr-2 text-red-500">•</span>
+                                                {c}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+
+                            {selectedAiJob.rec.environmentAnalysis && (
+                                <div>
+                                    <h4 className="font-bold text-gray-800 mb-2">Phân tích môi trường & Rủi ro</h4>
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-sm text-gray-700">
+                                        {selectedAiJob.rec.environmentAnalysis}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-6 bg-gray-50 border-t flex flex-col sm:flex-row gap-3">
+                            <button 
+                                onClick={() => {
+                                    onJobSelect(selectedAiJob.job);
+                                }}
+                                className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center gap-2"
+                            >
+                                <InformationCircleIcon className="w-5 h-5" />
+                                Xem tin tuyển dụng & Ứng tuyển
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    onViewOnMap(selectedAiJob.job);
+                                    setSelectedAiJob(null);
+                                }}
+                                className="w-full bg-white text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-100 border border-gray-300 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <MapPinIcon className="w-5 h-5" />
+                                Xem vị trí trên bản đồ
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
