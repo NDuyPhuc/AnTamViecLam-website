@@ -20,12 +20,11 @@ export default async function handler(req, res) {
   try {
     const { prompt, history } = req.body;
 
-    // 1. Tìm API Key (Ưu tiên biến môi trường, fallback sang key bạn cung cấp nếu server chưa nhận env)
+    // CẬP NHẬT API KEY MỚI NHẤT TẠI ĐÂY
     const apiKey = process.env.VITE_API_KEY || 
                    process.env.API_KEY || 
                    process.env.GOOGLE_API_KEY ||
-                   process.env.NEXT_PUBLIC_API_KEY ||
-                   'AIzaSyCB_MqUl4A1k8SNTkrf5vwmmBtvCpSi5IM'; // Fallback key for immediate fix
+                   'AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c'; 
 
     if (!apiKey) {
       return res.status(500).json({ 
@@ -33,7 +32,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Chuẩn bị dữ liệu
     const contents = history.map(msg => ({
       role: msg.role,
       parts: [{ text: msg.text }]
@@ -44,59 +42,41 @@ export default async function handler(req, res) {
       parts: [{ text: prompt }]
     });
 
-    // 3. Sử dụng model gemini-1.5-flash (Ổn định hơn cho Free Tier)
-    const MODEL_NAME = 'gemini-1.5-flash';
+    // Sử dụng gemini-2.5-flash thay vì 1.5-flash
+    const MODEL_NAME = 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'AnTamViecLam-App/1.0'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: contents,
         generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 1000,
+            maxOutputTokens: 800,
         }
       })
     });
 
     const data = await response.json();
 
-    // 4. Xử lý các lỗi cụ thể từ Google
     if (!response.ok) {
       console.error("Google API Error:", JSON.stringify(data, null, 2));
-
-      // Lỗi 429: Quota Exceeded
+      
       if (response.status === 429) {
-          return res.status(429).json({
-              error: 'Chatbot đang quá tải lượt dùng miễn phí. Vui lòng đợi 1 phút rồi thử lại.'
-          });
+          return res.status(429).json({ error: 'Quota Exceeded' });
       }
       
-      // Lỗi Key
-      if (data.error && data.error.message && (data.error.message.includes("API key not valid") || data.error.message.includes("blocked"))) {
-          return res.status(403).json({
-              error: `Lỗi xác thực API Key. Vui lòng kiểm tra lại cấu hình.`
-          });
-      }
-
-      const errorMessage = data.error?.message || 'Lỗi từ Google Gemini API';
-      return res.status(response.status).json({ error: errorMessage });
+      return res.status(response.status).json({ 
+          error: data.error?.message || 'Lỗi từ Google API' 
+      });
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    
-    if (!text) {
-        return res.status(500).json({ error: 'Không nhận được phản hồi nội dung từ Gemini.' });
-    }
-
     res.status(200).json({ text });
 
   } catch (error) {
-    console.error('Internal Server Error in api/chat.js:', error);
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    console.error('Internal Server Error:', error);
+    res.status(500).json({ error: error.message });
   }
 }

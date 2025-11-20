@@ -1,8 +1,13 @@
+import { GoogleGenAI } from "@google/genai";
 import { ChatMessage, MessageAuthor } from "../types";
 
+// Sử dụng API Key trực tiếp để đảm bảo hoạt động ngay lập tức
+const API_KEY = process.env.API_KEY || 'AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c';
+
+const ai = new GoogleGenAI({ apiKey: API_KEY });
+
 /**
- * Sends a message to the chatbot via the backend API.
- * This keeps the API Key secure on the server side.
+ * Sends a message to the chatbot using Google GenAI SDK directly.
  */
 export const sendMessageToBot = async (
     message: string, 
@@ -10,60 +15,65 @@ export const sendMessageToBot = async (
     context: any
 ): Promise<string> => {
     try {
-        // 1. Construct the prompt with context
-        const contextPrompt = `
-            DƯỚI ĐÂY LÀ DỮ LIỆU HIỆN TẠI CỦA NỀN TẢNG (dưới dạng JSON, chỉ dùng để tham khảo):
-            - Một vài công việc đang có: ${JSON.stringify(context.jobs.slice(0, 3), null, 2)}
-            - Thông tin bảo hiểm mẫu: ${JSON.stringify(context.insuranceInfo, null, 2)}
-            - Bối cảnh dự án: ${context.projectContext}
+        // 1. Xây dựng System Instruction từ context
+        const systemInstruction = `
+            ${context.projectContext}
+
+            DƯỚI ĐÂY LÀ DỮ LIỆU HIỆN TẠI CỦA NỀN TẢNG (dùng để tham khảo trả lời):
+            - Một vài công việc đang có: ${JSON.stringify(context.jobs.slice(0, 3))}
+            - Thông tin bảo hiểm mẫu: ${JSON.stringify(context.insuranceInfo)}
             
-            Câu hỏi của người dùng: "${message}"
-            
-            HÃY TRẢ LỜI CÂU HỎI DỰA TRÊN VAI TRÒ VÀ BỐI CẢNH CỦA BẠN.
+            HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN VÀ ĐI VÀO TRỌNG TÂM.
         `;
 
-        // 2. Map client history to Gemini format (role: 'user' | 'model')
-        const mappedHistory = history.map(msg => ({
+        // 2. Chuyển đổi lịch sử chat sang định dạng của Gemini
+        // Lưu ý: SDK mới hỗ trợ truyền mảng Content cho lịch sử
+        const contents = history.map(msg => ({
             role: msg.author === MessageAuthor.User ? 'user' : 'model',
-            text: msg.text
+            parts: [{ text: msg.text }]
         }));
 
-        // 3. Call the secure backend endpoint
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                prompt: contextPrompt,
-                history: mappedHistory
-            }),
+        // Thêm tin nhắn mới nhất của người dùng vào cuối danh sách
+        contents.push({
+            role: 'user',
+            parts: [{ text: message }]
         });
 
-        const data = await response.json();
+        // 3. Gọi model gemini-2.5-flash (Model mới nhất, thay thế cho 1.5)
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            config: {
+                systemInstruction: systemInstruction,
+                temperature: 0.7,
+            }
+        });
 
-        if (!response.ok) {
-            console.error("Backend API Error:", data);
-            // Throwing error here so it gets caught by the catch block below
-            throw new Error(data.error || `Lỗi kết nối: ${response.status}`);
+        const text = response.text;
+
+        if (!text) {
+            throw new Error("Không nhận được phản hồi từ AI.");
         }
 
-        return data.text;
+        return text;
 
     } catch (error: any) {
-        console.error('Error sending message to bot:', error);
+        console.error('Lỗi khi gọi Gemini:', error);
         
-        // Return user-friendly error message based on the error content
         const errMsg = error.message || "";
 
-        if (errMsg.includes("Android") || errMsg.includes("API Key")) {
-             return "⚠️ Lỗi cấu hình: API Key chưa hợp lệ hoặc bị chặn. Vui lòng báo Admin kiểm tra.";
-        }
-        
-        if (errMsg.includes("quá tải") || errMsg.includes("429") || errMsg.includes("Quota")) {
-            return "⏳ Chatbot đang nhận quá nhiều câu hỏi. Vui lòng đợi khoảng 30 giây và thử lại nhé!";
+        if (errMsg.includes("429") || errMsg.includes("Quota") || errMsg.includes("resource has been exhausted")) {
+            return "⏳ Chatbot đang quá tải (429). Vui lòng đợi khoảng 1 phút và thử lại!";
         }
 
-        return `🤖 Hệ thống đang bảo trì hoặc gặp sự cố: "${errMsg}". Vui lòng thử lại sau.`;
+        if (errMsg.includes("API key")) {
+             return "⚠️ Lỗi cấu hình API Key. Vui lòng kiểm tra lại mã khóa.";
+        }
+
+        if (errMsg.includes("404") || errMsg.includes("not found")) {
+            return "⚠️ Lỗi Model (404). Hệ thống đang cập nhật phiên bản AI mới nhất.";
+        }
+
+        return `🤖 Hệ thống đang gặp sự cố: "${errMsg}". Vui lòng thử lại sau.`;
     }
 };
