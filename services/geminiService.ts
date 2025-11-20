@@ -1,67 +1,103 @@
+
 import { ChatMessage, MessageAuthor } from "../types";
+import { GoogleGenAI } from "@google/genai";
+
+// --- CẤU HÌNH CLIENT SIDE (PREVIEW / LOCAL) ---
+// Đây là Key CŨ (Dùng cho môi trường Preview/Dev)
+const CLIENT_SIDE_API_KEY = "AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c"; 
+// ----------------------------------------------
 
 /**
- * Sends a message to the chatbot via the Vercel Serverless Function (/api/chat).
- * This avoids calling Google GenAI directly from the client, preventing CORS and API Key Restriction errors.
+ * Gửi tin nhắn đến chatbot.
+ * Chiến thuật "Hybrid":
+ * 1. Thử gọi Backend (/api/chat).
+ * 2. Nếu thất bại hoặc timeout quá 1.5s -> Fallback ngay sang Client SDK.
  */
 export const sendMessageToBot = async (
     message: string, 
     history: ChatMessage[], 
     context: any
 ): Promise<string> => {
+    console.group("🤖 [GeminiService] Start");
+
+    const systemInstruction = `
+        ${context.projectContext}
+
+        DƯỚI ĐÂY LÀ DỮ LIỆU HIỆN TẠI CỦA NỀN TẢNG:
+        - Công việc mẫu: ${JSON.stringify(context.jobs.slice(0, 3))}
+        - Bảo hiểm: ${JSON.stringify(context.insuranceInfo)}
+        
+        HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN.
+    `;
+
+    const formattedHistory = history.map(msg => ({
+        role: msg.author === MessageAuthor.User ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+    }));
+
+    // Hàm helper để ép timeout
+    const fetchWithTimeout = (url: string, options: any, duration: number) => {
+        return Promise.race([
+            fetch(url, options),
+            new Promise<Response>((_, reject) => 
+                setTimeout(() => reject(new Error("Timeout")), duration)
+            )
+        ]);
+    };
+
     try {
-        // 1. Xây dựng System Instruction từ context (Client side construction)
-        const systemInstruction = `
-            ${context.projectContext}
-
-            DƯỚI ĐÂY LÀ DỮ LIỆU HIỆN TẠI CỦA NỀN TẢNG (dùng để tham khảo trả lời):
-            - Một vài công việc đang có: ${JSON.stringify(context.jobs.slice(0, 3))}
-            - Thông tin bảo hiểm mẫu: ${JSON.stringify(context.insuranceInfo)}
-            
-            HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN VÀ ĐI VÀO TRỌNG TÂM.
-        `;
-
-        // 2. Chuyển đổi lịch sử chat sang định dạng JSON mà API Backend mong đợi
-        const formattedHistory = history.map(msg => ({
-            role: msg.author === MessageAuthor.User ? 'user' : 'model',
-            parts: [{ text: msg.text }]
-        }));
-
-        // 3. Gọi API Route (Backend Proxy)
-        // URL tương đối '/api/chat' sẽ tự động trỏ về domain hiện tại (Vercel)
-        const response = await fetch('/api/chat', {
+        // --- CHIẾN THUẬT 1: Gọi Backend Vercel ---
+        console.log("👉 [Step 1] Thử gọi Backend (/api/chat)...");
+        
+        // Ép timeout cứng 1.5 giây
+        const response = await fetchWithTimeout('/api/chat', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: message,
                 history: formattedHistory,
                 systemInstruction: systemInstruction
             })
-        });
-
-        // Kiểm tra nếu phản hồi không phải JSON (ví dụ 404 page HTML hoặc 500 text)
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            const text = await response.text();
-            console.error("Non-JSON response from server:", text);
-            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        if (!response.ok) {
-             // Ném lỗi chi tiết nhận được từ backend (VD: API Key missing, Google Error)
-             throw new Error(data.error || `Lỗi server: ${response.status}`);
-        }
-
-        return data.text;
-
-    } catch (error: any) {
-        console.error('Lỗi khi gọi API Chat:', error);
+        }, 1500);
         
-        // Trả về thông báo lỗi thân thiện cho người dùng
-        return "🤖 Hệ thống đang gặp sự cố kết nối. Vui lòng thử lại sau ít phút.";
+        const contentType = response.headers.get("content-type");
+        if (response.ok && contentType && contentType.includes("application/json")) {
+            const data = await response.json();
+            if (data.text) {
+                console.log("✅ [Backend Vercel] Thành công!");
+                console.groupEnd();
+                return data.text;
+            }
+        }
+        throw new Error("Backend response invalid or 404");
+
+    } catch (backendError) {
+        // --- CHIẾN THUẬT 2: Gọi Client SDK (Fallback cho Preview) ---
+        console.warn(`⚠️ [Backend Error] ${backendError instanceof Error ? backendError.message : "Failed"}`);
+        console.log("👉 [Step 2] Chuyển sang gọi trực tiếp (Client SDK) bằng Key dự phòng...");
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
+            
+            const result = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [
+                    ...formattedHistory,
+                    { role: 'user', parts: [{ text: message }] }
+                ],
+                config: {
+                    systemInstruction: systemInstruction,
+                }
+            });
+
+            console.log("✅ [Client SDK] Thành công!");
+            console.groupEnd();
+            return result.text || "Xin lỗi, tôi không thể trả lời lúc này.";
+            
+        } catch (clientError: any) {
+            console.error("❌ [Critical] Cả 2 cách đều thất bại:", clientError);
+            console.groupEnd();
+            return "🤖 Hệ thống đang bảo trì hoặc mất kết nối mạng. Vui lòng thử lại sau.";
+        }
     }
 };
