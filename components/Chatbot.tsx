@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
 import { sendMessageToBot } from '../services/geminiService';
 import { ChatMessage, MessageAuthor, Job } from '../types';
@@ -43,6 +41,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: ChatMessage = { author: MessageAuthor.User, text: input };
+    
+    // Keep a reference to the current history BEFORE adding the new message
+    // because the new message is sent as the 'prompt' in the API call.
+    const currentHistory = [...messages];
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -53,7 +56,13 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
         insuranceInfo: MOCK_INSURANCE_DATA,
         projectContext: PROJECT_CONTEXT,
       };
-      const botResponseText = await sendMessageToBot(input, appContext);
+      
+      // Pass the history (excluding the just-added message which is handled as the 'prompt' inside the service/backend)
+      // Wait, actually, let's pass the history as context.
+      // The service will take 'input' as the new prompt.
+      
+      const botResponseText = await sendMessageToBot(input, currentHistory, appContext);
+      
       const botMessage: ChatMessage = { author: MessageAuthor.Bot, text: botResponseText };
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
