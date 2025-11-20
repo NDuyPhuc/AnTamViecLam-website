@@ -99,40 +99,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const loginWithGoogle = async () => {
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithRedirect(provider);
+    try {
+        const result = await auth.signInWithPopup(provider);
+        if (result && result.user) {
+            const { user } = result;
+            const userDocRef = db.collection('users').doc(user.uid);
+            const userDoc = await userDocRef.get();
+            if (!userDoc.exists) {
+                // This logic creates a new user document if they are signing in for the first time
+                await userDocRef.set({
+                    uid: user.uid,
+                    email: user.email,
+                    userType: UserRole.Worker, // Default role for Google sign-up
+                    createdAt: serverTimestamp(),
+                    fullName: null, // Force new users into the profile completion flow
+                    phoneNumber: null,
+                    address: null,
+                    profileImageUrl: user.photoURL || null, // Pre-fill avatar if available
+                    fcmTokens: [],
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error with Google Sign-in Popup:", error);
+        // Rethrow the error to be handled by the calling component (AuthPage)
+        throw error;
+    }
   };
 
   useEffect(() => {
-    const handleRedirectResult = async () => {
-      try {
-        const result = await auth.getRedirectResult();
-        if (result && result.user) {
-          const { user } = result;
-          const userDocRef = db.collection('users').doc(user.uid);
-          const userDoc = await userDocRef.get();
-
-          if (!userDoc.exists) {
-            // Force new Google users into the profile completion flow
-            await userDocRef.set({
-              uid: user.uid,
-              email: user.email,
-              userType: UserRole.Worker, // Default role for Google sign-up
-              createdAt: serverTimestamp(),
-              fullName: null,
-              phoneNumber: null,
-              address: null,
-              profileImageUrl: user.photoURL || null, // Pre-fill avatar if available
-              fcmTokens: [],
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error handling Google redirect result:", error);
-      }
-    };
-    
-    handleRedirectResult();
-
     let presenceCleanup: (() => void) | undefined;
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
