@@ -1,4 +1,5 @@
-import { ChatMessage, MessageAuthor } from "../types";
+
+import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 
 // --- CẤU HÌNH CLIENT SIDE (PREVIEW / LOCAL) ---
@@ -113,5 +114,94 @@ export const sendMessageToBot = async (
             }
             return "🤖 Hệ thống đang bảo trì hoặc mất kết nối mạng. Vui lòng thử lại sau ít phút.";
         }
+    }
+};
+
+// --- TÍNH NĂNG MỚI: PHÂN TÍCH GỢI Ý VIỆC LÀM ---
+
+export interface JobRecommendation {
+    jobId: string;
+    matchScore: number; // 0-100
+    reason: string;
+    pros: string[];
+    cons: string[];
+    environmentAnalysis: string;
+}
+
+export const analyzeJobMatches = async (
+    userProfile: UserData,
+    nearbyJobs: Job[]
+): Promise<JobRecommendation[]> => {
+    if (!nearbyJobs.length) return [];
+
+    // Chuẩn bị dữ liệu tinh gọn để gửi AI (tiết kiệm token & tăng tốc độ)
+    const simplifiedJobs = nearbyJobs.map(j => ({
+        id: j.id,
+        title: j.title,
+        description: j.description.substring(0, 500), // Giới hạn độ dài để xử lý nhanh hơn
+        pay: `${j.payRate} ${j.payType}`,
+        distance: `${j.distance?.toFixed(1)} km`,
+        type: j.jobType,
+        employer: j.employerName
+    }));
+
+    const userSummary = {
+        name: userProfile.fullName,
+        bio: userProfile.bio,
+        skills: userProfile.skills,
+        history: userProfile.workHistory?.map(w => `${w.title} tại ${w.company}`),
+    };
+
+    const prompt = `
+        Bạn là chuyên gia tư vấn nghề nghiệp AI. Hãy phân tích mức độ phù hợp của các công việc sau cho người dùng này.
+        
+        NGƯỜI DÙNG: ${JSON.stringify(userSummary)}
+        
+        DANH SÁCH CÔNG VIỆC (Đã lọc theo bán kính): ${JSON.stringify(simplifiedJobs)}
+
+        YÊU CẦU PHÂN TÍCH:
+        Đánh giá từng công việc dựa trên:
+        1. Khoảng cách (càng gần càng tốt).
+        2. Kỹ năng & Kinh nghiệm phù hợp.
+        3. Mức lương & Loại hình (Thời vụ/Bán thời gian...).
+        4. Phân tích Rủi ro & Môi trường (dựa trên mô tả và tên công việc).
+        5. Độ tuổi/Giới tính (suy luận logic từ mô tả nếu có yêu cầu ngầm, ví dụ bốc vác nặng cần sức khỏe tốt).
+
+        OUTPUT JSON FORMAT (BẮT BUỘC):
+        Trả về mảng JSON thuần túy, không markdown:
+        [
+            {
+                "jobId": "id_của_job",
+                "matchScore": 85, // Số nguyên 0-100
+                "reason": "Lý do chính tại sao phù hợp (ngắn gọn)",
+                "pros": ["Điểm mạnh 1", "Điểm mạnh 2"],
+                "cons": ["Rủi ro hoặc điểm yếu"],
+                "environmentAnalysis": "Nhận xét về môi trường/tính chất (vd: Ngoài trời, ồn ào, văn phòng...)"
+            }
+        ]
+    `;
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            config: {
+                responseMimeType: "application/json", // Ép kiểu JSON để xử lý siêu nhanh
+                temperature: 0.3, // Giảm sáng tạo để tăng độ chính xác phân tích
+            }
+        });
+
+        const jsonText = response.text;
+        if (!jsonText) return [];
+
+        const recommendations = JSON.parse(jsonText) as JobRecommendation[];
+        
+        // Sắp xếp theo điểm số cao nhất
+        return recommendations.sort((a, b) => b.matchScore - a.matchScore);
+
+    } catch (error) {
+        console.error("Error analyzing jobs:", error);
+        return [];
     }
 };

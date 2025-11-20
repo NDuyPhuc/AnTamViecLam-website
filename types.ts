@@ -1,9 +1,11 @@
+
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
   Messaging = 'MESSAGING',
   Chatbot = 'CHATBOT',
   Profile = 'PROFILE',
+  Recommendations = 'RECOMMENDATIONS',
 }
 
 export interface Job {

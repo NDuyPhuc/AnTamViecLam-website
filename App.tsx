@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -21,6 +22,7 @@ import { subscribeToAllApplicationCounts } from './services/applicationService';
 import { calculateDistance, parseLocationString } from './utils/formatters';
 import PublicProfileModal from './components/PublicProfileModal';
 import { getOrCreateConversation } from './services/messagingService';
+import AdvancedJobRecommendations from './components/AdvancedJobRecommendations';
 
 type JobViewMode = 'list' | 'map';
 
@@ -123,10 +125,10 @@ const App: React.FC = () => {
 
   const handleViewJobOnMap = (jobToView: Job) => {
     if (!jobToView) return;
-    setSelectedJob(null); // Close modal
-    setActiveView(View.Jobs);
-    setJobViewMode('map');
-    setFocusedJobId(jobToView.id);
+    setSelectedJob(null); // Close modal if open
+    setActiveView(View.Jobs); // Switch to Jobs View
+    setJobViewMode('map'); // Switch to Map Mode
+    setFocusedJobId(jobToView.id); // Focus on the job
   };
 
   const handleNavigateToConversation = (conversationId: string) => {
@@ -282,6 +284,15 @@ const App: React.FC = () => {
                             )}
 
                         </div>
+                        );
+                    case View.Recommendations:
+                        return (
+                            <AdvancedJobRecommendations 
+                                userLocation={userLocation}
+                                allJobs={allJobs}
+                                currentUserData={currentUserData!}
+                                onViewOnMap={handleViewJobOnMap}
+                            />
                         );
                     case View.Insurance:
                         return <InsuranceDashboard />;

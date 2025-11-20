@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { View, UserRole, Notification } from '../types';
 import BriefcaseIcon from './icons/BriefcaseIcon';
@@ -7,6 +8,7 @@ import ChatBubbleIcon from './icons/ChatBubbleIcon';
 import UserCircleIcon from './icons/UserCircleIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
 import BellIcon from './icons/BellIcon';
+import SparklesIcon from './icons/SparklesIcon';
 import NotificationsPanel from './NotificationsPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '../services/notificationService';
@@ -16,6 +18,7 @@ import ShieldCheckIconSolid from './icons/ShieldCheckIconSolid';
 import PaperAirplaneIconSolid from './icons/PaperAirplaneIconSolid';
 import ChatBubbleIconSolid from './icons/ChatBubbleIconSolid';
 import UserCircleIconSolid from './icons/UserCircleIconSolid';
+import SparklesIconSolid from './icons/SparklesIconSolid';
 
 interface HeaderProps {
   activeView: View;
@@ -40,7 +43,7 @@ const MobileNavItem: React.FC<{
             }`}
         >
             {isActive ? activeIcon : icon}
-            <span className="text-xs font-medium">{label}</span>
+            <span className="text-[10px] font-medium text-center leading-tight">{label}</span>
             {hasUnread && (
               <span className="absolute top-1 right-3 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white"></span>
             )}
@@ -118,13 +121,23 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
   };
 
 
-  const navItems = [
+  let navItems = [
     { view: View.Jobs, label: 'Tìm Việc', icon: <BriefcaseIcon className="w-6 h-6" />, activeIcon: <BriefcaseIconSolid className="w-6 h-6" /> },
     { view: View.Insurance, label: 'Bảo Hiểm', icon: <ShieldCheckIcon className="w-6 h-6" />, activeIcon: <ShieldCheckIconSolid className="w-6 h-6" /> },
     { view: View.Messaging, label: 'Tin Nhắn', icon: <PaperAirplaneIcon className="w-6 h-6" />, activeIcon: <PaperAirplaneIconSolid className="w-6 h-6" />, hasUnread: unreadMessageCount > 0 },
     { view: View.Chatbot, label: 'Hỏi Đáp', icon: <ChatBubbleIcon className="w-6 h-6" />, activeIcon: <ChatBubbleIconSolid className="w-6 h-6" /> },
     { view: View.Profile, label: 'Hồ Sơ', icon: <UserCircleIcon className="w-6 h-6" />, activeIcon: <UserCircleIconSolid className="w-6 h-6" /> },
   ];
+
+  // Chỉ thêm mục Gợi ý AI cho Người lao động
+  if (currentUserData?.userType === UserRole.Worker) {
+      navItems.splice(1, 0, { 
+          view: View.Recommendations, 
+          label: 'Gợi ý AI', 
+          icon: <SparklesIcon className="w-6 h-6" />, 
+          activeIcon: <SparklesIconSolid className="w-6 h-6" /> 
+      });
+  }
 
   return (
     <>
@@ -158,7 +171,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
                             className="flex items-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                           >
                               <PlusCircleIcon className="w-5 h-5 mr-2" />
-                              Đăng tin tuyển dụng
+                              Đăng tin
                           </button>
                       )}
 
@@ -176,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
                       </div>
 
                       <div className="flex items-center space-x-3">
-                          <span className="text-sm text-gray-600 text-right">
+                          <span className="text-sm text-gray-600 text-right hidden lg:block">
                             Chào, <span className="font-semibold">{currentUserData.fullName || currentUser.email}</span>
                           </span>
                           {currentUserData.profileImageUrl ? (
@@ -199,7 +212,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
        {/* --- Mobile Bottom Nav --- */}
        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
             <div className="max-w-7xl mx-auto px-2">
-                <nav className="grid grid-cols-5 gap-1 h-full items-center p-1.5">
+                <nav className={`grid grid-cols-${navItems.length} gap-1 h-full items-center p-1.5`}>
                     {navItems.map(item => (
                         <MobileNavItem 
                             key={item.view}
