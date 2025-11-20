@@ -43,16 +43,9 @@ export const sendMessageToBot = async (
         const data = await response.json();
 
         if (!response.ok) {
-            // Handle specific HTTP status codes
-            if (response.status === 429) {
-                throw new Error(data.error || 'Hệ thống đang bận. Vui lòng thử lại sau 30 giây.');
-            }
-            
             console.error("Backend API Error:", data);
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            throw new Error('Lỗi kết nối với máy chủ AI');
+            // Throwing error here so it gets caught by the catch block below
+            throw new Error(data.error || `Lỗi kết nối: ${response.status}`);
         }
 
         return data.text;
@@ -61,13 +54,16 @@ export const sendMessageToBot = async (
         console.error('Error sending message to bot:', error);
         
         // Return user-friendly error message based on the error content
-        if (error.message && error.message.includes("Android")) {
-             return "Lỗi cấu hình: API Key đang bị chặn. Vui lòng báo Admin tạo Key mới (Unrestricted).";
+        const errMsg = error.message || "";
+
+        if (errMsg.includes("Android") || errMsg.includes("API Key")) {
+             return "⚠️ Lỗi cấu hình: API Key chưa hợp lệ hoặc bị chặn. Vui lòng báo Admin kiểm tra.";
         }
-        if (error.message && (error.message.includes("Quota") || error.message.includes("429") || error.message.includes("quá tải"))) {
-            return "⚠️ Chatbot đang quá tải lượt truy cập miễn phí. Vui lòng đợi 30 giây và thử lại câu hỏi ngắn hơn.";
+        
+        if (errMsg.includes("quá tải") || errMsg.includes("429") || errMsg.includes("Quota")) {
+            return "⏳ Chatbot đang nhận quá nhiều câu hỏi. Vui lòng đợi khoảng 30 giây và thử lại nhé!";
         }
 
-        return `Hệ thống gặp sự cố: ${error.message || 'Vui lòng thử lại sau.'}`;
+        return `🤖 Hệ thống đang bảo trì hoặc gặp sự cố: "${errMsg}". Vui lòng thử lại sau.`;
     }
 };

@@ -20,15 +20,16 @@ export default async function handler(req, res) {
   try {
     const { prompt, history } = req.body;
 
-    // 1. Tìm API Key
+    // 1. Tìm API Key (Ưu tiên biến môi trường, fallback sang key bạn cung cấp nếu server chưa nhận env)
     const apiKey = process.env.VITE_API_KEY || 
                    process.env.API_KEY || 
                    process.env.GOOGLE_API_KEY ||
-                   process.env.NEXT_PUBLIC_API_KEY;
+                   process.env.NEXT_PUBLIC_API_KEY ||
+                   'AIzaSyCB_MqUl4A1k8SNTkrf5vwmmBtvCpSi5IM'; // Fallback key for immediate fix
 
     if (!apiKey) {
       return res.status(500).json({ 
-        error: 'Server chưa tìm thấy API Key. Vui lòng kiểm tra Environment Variables trên Vercel.' 
+        error: 'Server chưa tìm thấy API Key. Vui lòng kiểm tra cấu hình.' 
       });
     }
 
@@ -43,8 +44,8 @@ export default async function handler(req, res) {
       parts: [{ text: prompt }]
     });
 
-    // 3. Sử dụng model gemini-2.5-flash theo chuẩn mới nhất
-    const MODEL_NAME = 'gemini-2.5-flash';
+    // 3. Sử dụng model gemini-1.5-flash (Ổn định hơn cho Free Tier)
+    const MODEL_NAME = 'gemini-1.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     const response = await fetch(apiUrl, {
@@ -68,17 +69,17 @@ export default async function handler(req, res) {
     if (!response.ok) {
       console.error("Google API Error:", JSON.stringify(data, null, 2));
 
-      // Lỗi 429: Quota Exceeded (Hết lượt gọi miễn phí trong phút)
+      // Lỗi 429: Quota Exceeded
       if (response.status === 429) {
           return res.status(429).json({
-              error: 'Hệ thống AI đang quá tải (Hết lượt gọi miễn phí trong phút). Vui lòng đợi 30 giây rồi thử lại.'
+              error: 'Chatbot đang quá tải lượt dùng miễn phí. Vui lòng đợi 1 phút rồi thử lại.'
           });
       }
       
-      // Lỗi Key Android
-      if (data.error && data.error.message && data.error.message.includes("Android client application")) {
+      // Lỗi Key
+      if (data.error && data.error.message && (data.error.message.includes("API key not valid") || data.error.message.includes("blocked"))) {
           return res.status(403).json({
-              error: `Lỗi Key: API Key bị giới hạn Android. Hãy dùng Key "Unrestricted" mới.`
+              error: `Lỗi xác thực API Key. Vui lòng kiểm tra lại cấu hình.`
           });
       }
 
