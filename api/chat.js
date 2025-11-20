@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // Cấu hình CORS để cho phép request từ frontend
+  // Cấu hình CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -20,40 +20,45 @@ export default async function handler(req, res) {
   try {
     const { prompt, history } = req.body;
 
-    // Lấy API Key từ biến môi trường.
-    // Ưu tiên VITE_API_KEY (thường dùng trong Vercel project settings cho Vite app)
-    const apiKey = process.env.VITE_API_KEY || process.env.API_KEY;
+    // 1. Tìm API Key từ nhiều nguồn biến môi trường khác nhau để đảm bảo tìm thấy
+    const apiKey = process.env.VITE_API_KEY || 
+                   process.env.API_KEY || 
+                   process.env.GOOGLE_API_KEY ||
+                   process.env.NEXT_PUBLIC_API_KEY;
+
+    // 2. Debug Log (Xem trong Vercel Functions tab)
+    if (apiKey) {
+        console.log(`Server is using API Key starting with: ${apiKey.substring(0, 4)}...`);
+    } else {
+        console.error("Server Error: No API Key found in environment variables.");
+    }
 
     if (!apiKey) {
-      console.error("Server Error: API Key is missing.");
       return res.status(500).json({ 
-        error: 'API Key chưa được cấu hình trên Vercel. Vui lòng kiểm tra Environment Variables.' 
+        error: 'Server chưa tìm thấy API Key. Vui lòng kiểm tra Environment Variables trên Vercel và Redeploy.' 
       });
     }
 
-    // Chuẩn bị dữ liệu cho Gemini REST API
-    // Map history từ client (role: 'user'/'model') sang format của Gemini
+    // 3. Chuẩn bị dữ liệu
     const contents = history.map(msg => ({
       role: msg.role,
       parts: [{ text: msg.text }]
     }));
 
-    // Thêm câu hỏi mới nhất của người dùng
     contents.push({
       role: 'user',
       parts: [{ text: prompt }]
     });
 
-    // Gọi Google Gemini API
-    // Lưu ý: Sử dụng model gemini-2.5-flash hoặc gemini-1.5-flash tùy vào key của bạn hỗ trợ
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // 4. Đổi sang model gemini-1.5-flash (Ổn định hơn)
+    const MODEL_NAME = 'gemini-1.5-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Thêm User-Agent để tránh bị chặn bởi một số firewall đơn giản
-        'User-Agent': 'AnTamViecLam-VercelServer/1.0'
+        'User-Agent': 'AnTamViecLam-App/1.0'
       },
       body: JSON.stringify({
         contents: contents,
@@ -67,12 +72,12 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Google API Error:", JSON.stringify(data, null, 2));
+      console.error("Google API Error Full:", JSON.stringify(data, null, 2));
       
-      // Kiểm tra lỗi Android Blocked cụ thể để báo lỗi rõ ràng hơn
+      // Xử lý lỗi Key Android cụ thể
       if (data.error && data.error.message && data.error.message.includes("Android client application")) {
           return res.status(403).json({
-              error: "API Key hiện tại bị giới hạn cho Android App. Vui lòng tạo API Key mới (Unrestricted) và cập nhật vào Vercel Environment Variables."
+              error: `API Key hiện tại (${apiKey.substring(0,4)}...) vẫn bị nhận diện là Android Key. Hãy tạo Key mới loại "No restriction" và REDEPLOY lại Vercel.`
           });
       }
 
@@ -80,7 +85,6 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: errorMessage, details: data.error });
     }
 
-    // Trích xuất câu trả lời
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!text) {
