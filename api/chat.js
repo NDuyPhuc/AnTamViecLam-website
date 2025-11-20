@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // Cấu hình CORS cho phép gọi từ Frontend
+  // Cấu hình CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -21,20 +21,24 @@ export default async function handler(req, res) {
   try {
     const { message, history, systemInstruction } = req.body;
 
-    // Ưu tiên lấy key từ biến môi trường server
-    const apiKey = process.env.API_KEY || process.env.VITE_API_KEY || 'AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c';
+    // QUAN TRỌNG: Chỉ lấy key từ biến môi trường. 
+    // Tuyệt đối không hardcode key vào đây để tránh lộ và tránh lỗi Android Restriction khi chạy trên Server Vercel.
+    const apiKey = process.env.API_KEY;
 
     if (!apiKey) {
-      return res.status(500).json({ error: 'API Key chưa được cấu hình trên server.' });
+      console.error("Server Error: API_KEY is missing in Vercel Environment Variables.");
+      return res.status(500).json({ error: 'Server Misconfiguration: Missing API Key.' });
     }
 
-    // Chuẩn bị payload theo định dạng REST API của Google Gemini
+    // Model Gemini 2.5 Flash
+    const MODEL_NAME = 'gemini-2.5-flash';
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+
     const payload = {
       contents: [
-        ...(history || []), // Lịch sử chat đã được format từ client
-        { role: 'user', parts: [{ text: message }] } // Tin nhắn mới
+        ...(history || []),
+        { role: 'user', parts: [{ text: message }] }
       ],
-      // Gemini 1.5/2.5 hỗ trợ system_instruction qua REST API
       system_instruction: systemInstruction ? {
         parts: [{ text: systemInstruction }]
       } : undefined,
@@ -43,9 +47,6 @@ export default async function handler(req, res) {
         maxOutputTokens: 800,
       }
     };
-
-    const MODEL_NAME = 'gemini-2.5-flash';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
 
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -56,22 +57,25 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Google Gemini API Error:", JSON.stringify(data, null, 2));
+      // Log lỗi chi tiết ra Vercel Function Logs để debug
+      console.error("Gemini API Error:", JSON.stringify(data, null, 2));
+      
+      // Trả về lỗi cho client
       return res.status(response.status).json({ 
-        error: data.error?.message || 'Lỗi khi gọi Google API từ server.' 
+        error: data.error?.message || 'Lỗi từ Google Gemini API.' 
       });
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (!text) {
-        return res.status(500).json({ error: 'Không nhận được phản hồi văn bản từ AI.' });
+        return res.status(500).json({ error: 'AI không trả về nội dung văn bản.' });
     }
 
     res.status(200).json({ text });
 
   } catch (error) {
-    console.error('Server Function Error:', error);
-    res.status(500).json({ error: error.toString() });
+    console.error('Vercel Function Crash:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 }

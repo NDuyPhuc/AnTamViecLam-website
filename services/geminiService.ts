@@ -11,7 +11,6 @@ export const sendMessageToBot = async (
 ): Promise<string> => {
     try {
         // 1. Xây dựng System Instruction từ context (Client side construction)
-        // Chúng ta xây dựng chuỗi này ở client vì client đang giữ data context.
         const systemInstruction = `
             ${context.projectContext}
 
@@ -23,14 +22,13 @@ export const sendMessageToBot = async (
         `;
 
         // 2. Chuyển đổi lịch sử chat sang định dạng JSON mà API Backend mong đợi
-        // API Gemini dùng role 'user' và 'model'.
         const formattedHistory = history.map(msg => ({
             role: msg.author === MessageAuthor.User ? 'user' : 'model',
             parts: [{ text: msg.text }]
         }));
 
         // 3. Gọi API Route (Backend Proxy)
-        // Lưu ý: '/api/chat' sẽ được Vercel xử lý.
+        // URL tương đối '/api/chat' sẽ tự động trỏ về domain hiện tại (Vercel)
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -43,11 +41,19 @@ export const sendMessageToBot = async (
             })
         });
 
+        // Kiểm tra nếu phản hồi không phải JSON (ví dụ 404 page HTML hoặc 500 text)
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            const text = await response.text();
+            console.error("Non-JSON response from server:", text);
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        }
+
         const data = await response.json();
 
         if (!response.ok) {
-             // Ném lỗi để catch block bên dưới xử lý hiển thị
-             throw new Error(data.error || `Server error: ${response.status}`);
+             // Ném lỗi chi tiết nhận được từ backend (VD: API Key missing, Google Error)
+             throw new Error(data.error || `Lỗi server: ${response.status}`);
         }
 
         return data.text;
@@ -55,7 +61,7 @@ export const sendMessageToBot = async (
     } catch (error: any) {
         console.error('Lỗi khi gọi API Chat:', error);
         
-        // Trả về thông báo lỗi thân thiện cho người dùng thay vì crash app
-        return "🤖 Hệ thống đang gặp sự cố kết nối hoặc quá tải. Vui lòng thử lại sau ít phút.";
+        // Trả về thông báo lỗi thân thiện cho người dùng
+        return "🤖 Hệ thống đang gặp sự cố kết nối. Vui lòng thử lại sau ít phút.";
     }
 };
