@@ -20,9 +20,11 @@ export default async function handler(req, res) {
   try {
     const { message, history, systemInstruction } = req.body;
 
-    const apiKey = process.env.API_KEY;
+    // Sử dụng API Key trực tiếp theo yêu cầu
+    const apiKey = "AIzaSyBxIX5Od28Go9qkG6SdLrZhcLPpLe3bR0E";
+    
     if (!apiKey) {
-      return res.status(500).json({ error: "Missing API key in server environment variables" });
+      return res.status(500).json({ error: "Missing API key" });
     }
 
     const MODEL_NAME = "gemini-2.5-flash";
@@ -42,12 +44,12 @@ export default async function handler(req, res) {
       }
     };
 
-    // 🔥 FIX QUAN TRỌNG: Override headers để Google không detect là Android
+    // 🔥 FIX: Override headers để Google không detect là Android Client
     const googleHeaders = {
       "Content-Type": "application/json",
-      "User-Agent": "Vercel-Server", // ÉP thành server
-      "X-Android-Package": "",       // Xóa header Android nếu có
-      "X-Android-Cert": "",          // Xóa header Android nếu có
+      "User-Agent": "Vercel-Server", // ÉP thành server agent
+      "X-Android-Package": "",       // Xóa header Android
+      "X-Android-Cert": "",          // Xóa header Android
     };
 
     const response = await fetch(apiUrl, {
