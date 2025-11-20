@@ -20,7 +20,6 @@ export default async function handler(req, res) {
   try {
     const { prompt, history } = req.body;
 
-    // CẬP NHẬT API KEY MỚI NHẤT TẠI ĐÂY
     const apiKey = process.env.VITE_API_KEY || 
                    process.env.API_KEY || 
                    process.env.GOOGLE_API_KEY ||
@@ -28,7 +27,7 @@ export default async function handler(req, res) {
 
     if (!apiKey) {
       return res.status(500).json({ 
-        error: 'Server chưa tìm thấy API Key. Vui lòng kiểm tra cấu hình.' 
+        error: 'Server chưa tìm thấy API Key.' 
       });
     }
 
@@ -42,7 +41,6 @@ export default async function handler(req, res) {
       parts: [{ text: prompt }]
     });
 
-    // Sử dụng gemini-2.5-flash thay vì 1.5-flash
     const MODEL_NAME = 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
@@ -63,8 +61,10 @@ export default async function handler(req, res) {
     if (!response.ok) {
       console.error("Google API Error:", JSON.stringify(data, null, 2));
       
-      if (response.status === 429) {
-          return res.status(429).json({ error: 'Quota Exceeded' });
+      if (response.status === 403) {
+        return res.status(403).json({ 
+            error: 'API Key bị chặn (403). Có thể do giới hạn Android/iOS hoặc IP không hợp lệ.' 
+        });
       }
       
       return res.status(response.status).json({ 
