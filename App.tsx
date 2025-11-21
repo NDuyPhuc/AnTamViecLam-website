@@ -68,53 +68,41 @@ const App: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
+
+  // State for filters
   const [locationFilter, setLocationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   
   useEffect(() => {
     // Robust Service Worker registration
     if ('serviceWorker' in navigator) {
-      const registerServiceWorker = () => {
-        // Explicitly using sw.js to match the file we have
-        const swUrl = `/sw.js`; 
+      // Use the load event to ensure the page is fully loaded
+      window.addEventListener('load', () => {
+        const swUrl = `${window.location.origin}/sw.js`;
         navigator.serviceWorker.register(swUrl)
           .then((registration) => {
-            console.log('Service Worker registered successfully with scope:', registration.scope);
+            console.log('Service Worker registered with scope:', registration.scope);
           })
           .catch((error) => {
             console.error('Service Worker registration failed:', error);
           });
-      };
+      });
+    }
 
-      if (document.readyState === 'complete') {
-        registerServiceWorker();
-      } else {
-        window.addEventListener('load', registerServiceWorker);
-        return () => window.removeEventListener('load', registerServiceWorker);
+    // Get user's location
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationError(null);
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        setLocationError("Không thể lấy vị trí của bạn. Hãy thử cho phép truy cập vị trí trong trình duyệt để xem các công việc gần bạn.");
       }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-        (position) => {
-            setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            });
-            setLocationError(null);
-        },
-        (error) => {
-            console.error("Geolocation error:", error);
-            if (error.code === 1) {
-                setLocationError("Bạn đã từ chối quyền truy cập vị trí. Hãy bật lại trong cài đặt trình duyệt để tìm việc gần bạn.");
-            } else {
-                setLocationError("Không thể lấy vị trí hiện tại.");
-            }
-        }
-        );
-    }
+    );
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
@@ -124,11 +112,12 @@ const App: React.FC = () => {
     
     const unsubscribeCounts = subscribeToAllApplicationCounts(setApplicationCounts);
 
+    // Cleanup subscription on unmount
     return () => {
         unsubscribeJobs();
         unsubscribeCounts();
     };
-  }, []);
+  }, []); // Run only once when the component mounts.
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -136,10 +125,10 @@ const App: React.FC = () => {
 
   const handleViewJobOnMap = (jobToView: Job) => {
     if (!jobToView) return;
-    setSelectedJob(null);
-    setActiveView(View.Jobs);
-    setJobViewMode('map');
-    setFocusedJobId(jobToView.id);
+    setSelectedJob(null); // Close modal if open
+    setActiveView(View.Jobs); // Switch to Jobs View
+    setJobViewMode('map'); // Switch to Map Mode
+    setFocusedJobId(jobToView.id); // Focus on the job
   };
 
   const handleNavigateToConversation = (conversationId: string) => {
@@ -151,7 +140,7 @@ const App: React.FC = () => {
       if (!application) return;
       try {
         const conversationId = await getOrCreateConversation(application);
-        if (viewingProfile) setViewingProfile(null);
+        if (viewingProfile) setViewingProfile(null); // Close profile modal
         handleNavigateToConversation(conversationId);
       } catch (error) {
           console.error("Failed to start conversation:", error);
@@ -216,6 +205,7 @@ const App: React.FC = () => {
       jobs = jobs.filter(job => job.jobType === typeFilter);
     }
 
+    // Sort by distance if location is available
     if (userLocation) {
         jobs.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     }
@@ -227,54 +217,7 @@ const App: React.FC = () => {
     };
   }, [allJobs, locationFilter, typeFilter, userLocation]);
 
-  if (loading) {
-    return <Spinner fullScreen />;
-  }
-
-  if (!currentUser) {
-    return <UnauthenticatedApp />;
-  }
-
-  if (currentUser && currentUserData && !currentUserData.fullName) {
-      return <CompleteProfilePage />;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
-      <Header 
-        activeView={activeView} 
-        setActiveView={setActiveView} 
-        onPostJobClick={() => setIsPostJobModalOpen(true)}
-        onNotificationNavigate={handleNotificationNavigate}
-      />
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-10">
-        {renderContent()}
-      </main>
-
-      {selectedJob && (
-        <JobDetailModal 
-            job={selectedJob} 
-            onClose={handleCloseModal} 
-            onViewOnMap={() => handleViewJobOnMap(selectedJob)}
-        />
-      )}
-      
-      {isPostJobModalOpen && (
-        <PostJobModal onClose={() => setIsPostJobModalOpen(false)} />
-      )}
-
-      {viewingProfile && (
-          <PublicProfileModal 
-            userId={viewingProfile.userId} 
-            onClose={() => setViewingProfile(null)}
-            onStartChat={viewingProfile.applicationContext ? () => handleStartConversationWithUser(viewingProfile.applicationContext!) : undefined}
-          />
-      )}
-    </div>
-  );
-
-  function renderContent() {
+  const renderContent = () => {
     const contentKey = activeView;
     return (
        <div key={contentKey} className="animate-fade-in-up" style={{ animationDuration: '0.4s' }}>
@@ -356,28 +299,63 @@ const App: React.FC = () => {
                         return <InsuranceDashboard />;
                     case View.Messaging:
                         return (
-                            <div className="h-[calc(100vh-140px)] md:h-[600px]">
-                                <Messaging 
-                                    initialSelectedConversationId={selectedConversationId} 
+                            <div className="h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)]">
+                                <Messaging
+                                    initialSelectedConversationId={selectedConversationId}
                                     clearInitialSelection={() => setSelectedConversationId(null)}
                                 />
                             </div>
                         );
                     case View.Chatbot:
                         return (
-                            <div className="h-[calc(100vh-140px)] md:h-[600px]">
-                                <Chatbot allJobs={allJobs} />
+                            <div className="h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)]">
+                                <Chatbot allJobs={filteredJobs} />
                             </div>
                         );
                     case View.Profile:
-                        return <ProfilePage onViewProfile={(userId, app) => setViewingProfile({ userId, applicationContext: app })} />;
+                        return <ProfilePage onViewProfile={(userId, application) => setViewingProfile({userId, applicationContext: application})} />;
                     default:
-                        return <div>Chọn một mục từ menu</div>;
+                        return null;
                 }
             })()}
        </div>
     );
+  };
+  
+  if (loading) {
+    return <Spinner fullScreen message="Đang tải ứng dụng..." />;
   }
+  
+  if (!currentUser) {
+    return <UnauthenticatedApp />;
+  }
+
+  if (!currentUserData || !currentUserData.fullName) {
+    return <CompleteProfilePage />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header 
+        activeView={activeView} 
+        setActiveView={setActiveView} 
+        onPostJobClick={() => setIsPostJobModalOpen(true)}
+        onNotificationNavigate={handleNotificationNavigate} 
+      />
+      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10 pb-28 md:pb-10">
+        {renderContent()}
+      </main>
+      {selectedJob && <JobDetailModal job={selectedJob} onClose={handleCloseModal} onViewOnMap={() => handleViewJobOnMap(selectedJob)} />}
+      {isPostJobModalOpen && <PostJobModal onClose={() => setIsPostJobModalOpen(false)} />}
+      {viewingProfile && (
+        <PublicProfileModal 
+            userId={viewingProfile.userId} 
+            onClose={() => setViewingProfile(null)}
+            onStartChat={viewingProfile.applicationContext ? () => handleStartConversationWithUser(viewingProfile.applicationContext!) : undefined}
+        />
+      )}
+    </div>
+  );
 };
 
 export default App;

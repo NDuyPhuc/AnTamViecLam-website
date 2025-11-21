@@ -1,5 +1,4 @@
-
-import { db, serverTimestamp } from './firebase';
+import { db } from './firebase';
 import type { UserData } from '../types';
 
 /**
@@ -32,7 +31,6 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
         bio: data.bio || '',
         skills: data.skills || [],
         workHistory: data.workHistory || [],
-        isVerified: data.isVerified || false,
       };
       return userProfile as UserData;
     } else {
@@ -43,23 +41,4 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
     console.error("Error fetching user profile:", error);
     throw error;
   }
-};
-
-/**
- * Updates the user's verified status after successful eKYC and saves the KYC data.
- * @param userId The user's ID
- * @param kycData The raw data returned from the eKYC provider (images, face data, etc.)
- */
-export const verifyUser = async (userId: string, kycData?: any): Promise<void> => {
-    if (!userId) return;
-    try {
-        await db.collection('users').doc(userId).update({
-            isVerified: true,
-            kycData: kycData || null, // Store the full KYC result object (base64 images, etc.)
-            verifiedAt: serverTimestamp()
-        });
-    } catch (error) {
-        console.error("Error verifying user:", error);
-        throw error;
-    }
 };
