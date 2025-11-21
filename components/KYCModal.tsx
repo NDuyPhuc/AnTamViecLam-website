@@ -37,23 +37,50 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     };
   }, []);
 
+  const loadScript = (): Promise<void> => {
+      return new Promise((resolve, reject) => {
+          if ((window as any).aie_aic) {
+              resolve();
+              return;
+          }
+          
+          // Kiểm tra xem script đã tồn tại trong DOM chưa
+          const existingScript = document.querySelector('script[src*="api.1aie.com"]');
+          if (existingScript) {
+              // Nếu đang tải thì đợi, nếu xong rồi thì resolve
+              // Đơn giản hóa: giả sử nó sẽ load xong
+              resolve(); 
+              return;
+          }
+
+          const script = document.createElement('script');
+          // Sử dụng key chính xác từ file xác thực
+          script.src = "https://api.1aie.com/?key=5e28838e59319365a1e71bd72958139e&active=aic";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Không thể tải thư viện eKYC."));
+          document.body.appendChild(script);
+      });
+  };
+
   const startKYC = async () => {
     setError('');
     setStatus('loading');
 
-    // Allow UI to update before heavy lifting
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Check if the library is loaded
-    const aie_aic = (window as any).aie_aic;
-    if (typeof aie_aic !== 'function') {
-        setError('Thư viện eKYC chưa tải xong. Vui lòng đợi vài giây và thử lại, hoặc tải lại trang.');
-        setStatus('idle');
-        return;
-    }
-
     try {
-        // 1. Create a clean, isolated container directly on document.body
+        // 1. Tải thư viện động (Dynamic Import)
+        await loadScript();
+
+        // Allow UI to update and library to parse
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Check if the library is loaded
+        const aie_aic = (window as any).aie_aic;
+        if (typeof aie_aic !== 'function') {
+            throw new Error('Thư viện eKYC chưa sẵn sàng. Vui lòng thử lại.');
+        }
+
+        // 2. Create a clean, isolated container directly on document.body
         // Using a unique ID prevents conflicts with previous instances
         const containerId = `aic-portal-${Date.now()}`;
         const div = document.createElement('div');
@@ -74,7 +101,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
         document.body.appendChild(div);
         aiContainerRef.current = div;
 
-        // 2. Minimal Configuration for Stability
+        // 3. Minimal Configuration for Stability
         const config = {
             type: "kyc", 
             kyc: {
@@ -128,13 +155,13 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             }
         };
 
-        // 3. Initialize Library
+        // 4. Initialize Library
         console.log("Initializing 1AIE on container:", containerId);
         aie_aic(containerId, config);
 
     } catch (e: any) {
         console.error("eKYC Start Error:", e);
-        setError(`Không thể khởi động camera: ${e.message || 'Lỗi không xác định'}`);
+        setError(`Lỗi: ${e.message || 'Không thể khởi động camera'}`);
         setStatus('idle');
         cleanupAI();
     }
@@ -198,7 +225,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             {status === 'loading' && (
                 <div className="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center text-center p-4">
                     <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <h4 className="text-xl font-bold text-indigo-600">Đang khởi động máy ảnh...</h4>
+                    <h4 className="text-xl font-bold text-indigo-600">Đang tải & khởi động...</h4>
                     <p className="text-gray-500 mt-2 max-w-xs">Vui lòng chọn <strong>"Cho phép" (Allow)</strong> nếu trình duyệt yêu cầu quyền truy cập camera.</p>
                 </div>
             )}
