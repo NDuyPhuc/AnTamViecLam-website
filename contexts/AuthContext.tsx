@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           address: data.address,
           profileImageUrl: data.profileImageUrl,
           fcmTokens: data.fcmTokens || [],
-          // Map worker-specific fields
+          // Worker-specific profile fields
           bio: data.bio || '',
           skills: data.skills || [],
           workHistory: data.workHistory || [],
@@ -112,34 +112,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithGoogle = async () => {
     const provider = new firebase.auth.GoogleAuthProvider();
     try {
-        const result = await auth.signInWithPopup(provider);
-        if (result && result.user) {
-            const { user } = result;
-            const userDocRef = db.collection('users').doc(user.uid);
-            const userDoc = await userDocRef.get();
-            if (!userDoc.exists) {
-                // This logic creates a new user document if they are signing in for the first time
-                await userDocRef.set({
-                    uid: user.uid,
-                    email: user.email,
-                    userType: UserRole.Worker, // Default role for Google sign-up
-                    createdAt: serverTimestamp(),
-                    fullName: null, // Force new users into the profile completion flow
-                    phoneNumber: null,
-                    address: null,
-                    profileImageUrl: user.photoURL || null, // Pre-fill avatar if available
-                    fcmTokens: [],
-                    bio: '',
-                    skills: [],
-                    workHistory: [],
-                    cvUrl: null,
-                    cvName: null,
-                });
-            }
-        }
+        await auth.signInWithPopup(provider);
+        // NOTE: We do NOT create the user document here anymore.
+        // We let CompleteProfilePage handle the role selection and document creation 
+        // if the user document doesn't exist.
     } catch (error) {
         console.error("Error with Google Sign-in Popup:", error);
-        // Rethrow the error to be handled by the calling component (AuthPage)
         throw error;
     }
   };
@@ -157,8 +135,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser(user);
         if (user) {
             await fetchUserData(user);
-            // After user is logged in, ask for permission to send notifications.
-            // This will only show the prompt once, then the browser remembers the choice.
+            // Only setup extras if userData exists (meaning they finished profile completion)
+            // However, requestNotificationPermission is safe to call early
             await requestNotificationPermission(user.uid);
             // Start presence tracking
             presenceCleanup = updateUserPresence(user.uid);
