@@ -1,9 +1,12 @@
+
+
 import React, { useEffect, useState } from 'react';
 import type { Job } from '../types';
 import { formatPay } from '../utils/formatters';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { applyForJob, checkIfApplied } from '../services/applicationService';
+import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
 
 interface JobDetailModalProps {
   job: Job;
@@ -16,6 +19,17 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [applyError, setApplyError] = useState('');
+  
+  // Application Form State
+  const [showApplyForm, setShowApplyForm] = useState(false);
+  const [contactPhone, setContactPhone] = useState('');
+  const [introduction, setIntroduction] = useState('');
+
+  useEffect(() => {
+    if (currentUserData?.phoneNumber) {
+        setContactPhone(currentUserData.phoneNumber);
+    }
+  }, [currentUserData]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -40,16 +54,29 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
     };
   }, [onClose, job.id, currentUser, currentUserData]);
 
-  const handleApply = async () => {
-    if (!currentUser || !currentUserData) {
+  const handleStartApply = () => {
+      if (!currentUser || !currentUserData) {
         setApplyError("Bạn cần đăng nhập để ứng tuyển.");
         return;
+      }
+      setShowApplyForm(true);
+  };
+
+  const handleConfirmApply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentUser || !currentUserData) return;
+    
+    if (!contactPhone.trim()) {
+        setApplyError("Vui lòng nhập số điện thoại liên hệ.");
+        return;
     }
+
     setIsApplying(true);
     setApplyError('');
     try {
-        await applyForJob(job, currentUserData);
+        await applyForJob(job, currentUserData, introduction, contactPhone);
         setHasApplied(true);
+        setShowApplyForm(false);
     } catch (error) {
         console.error("Application failed:", error);
         setApplyError("Đã có lỗi xảy ra khi ứng tuyển. Vui lòng thử lại.");
@@ -68,10 +95,10 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
         role="dialog"
     >
       <div 
-        className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden relative animate-fade-in-up"
+        className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden relative animate-fade-in-up max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-         <div className="p-6">
+         <div className="p-6 overflow-y-auto flex-grow">
             <div className="flex items-start justify-between">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800">{job.title}</h2>
@@ -105,41 +132,89 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                        {job.description}
                     </p>
                 </div>
-                 <div>
-                    <h4 className="font-semibold text-gray-700">Thông tin liên hệ</h4>
-                    <p className="text-gray-600">
-                        Để ứng tuyển, vui lòng liên hệ nhà tuyển dụng qua thông tin trên hồ sơ của họ hoặc ứng tuyển trực tiếp qua nền tảng.
-                    </p>
-                </div>
-                {applyError && <p className="text-red-500 text-xs mt-2">{applyError}</p>}
             </div>
 
+            {/* Application Form Section */}
+            {showApplyForm && !hasApplied && (
+                <div className="mt-6 bg-indigo-50 p-4 rounded-lg border border-indigo-100 animate-fade-in">
+                    <h3 className="font-bold text-indigo-800 mb-3 flex items-center">
+                        <PaperAirplaneIcon className="w-5 h-5 mr-2" />
+                        Đơn Ứng Tuyển
+                    </h3>
+                    <form onSubmit={handleConfirmApply} className="space-y-3">
+                        <div>
+                            <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ</label>
+                            <input 
+                                type="tel" 
+                                id="contactPhone"
+                                value={contactPhone}
+                                onChange={(e) => setContactPhone(e.target.value)}
+                                className="w-full p-2 border border-indigo-200 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                placeholder="Nhập số điện thoại..."
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="introduction" className="block text-sm font-medium text-gray-700 mb-1">Lời nhắn / Giới thiệu ngắn (Tùy chọn)</label>
+                            <textarea 
+                                id="introduction"
+                                value={introduction}
+                                onChange={(e) => setIntroduction(e.target.value)}
+                                rows={3}
+                                className="w-full p-2 border border-indigo-200 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                placeholder="VD: Tôi có kinh nghiệm làm việc này 2 năm, tôi có xe máy riêng..."
+                            ></textarea>
+                        </div>
+                        {applyError && <p className="text-red-500 text-sm">{applyError}</p>}
+                        <div className="flex gap-3 pt-2">
+                             <button 
+                                type="submit"
+                                disabled={isApplying}
+                                className="flex-1 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-400 flex items-center justify-center"
+                            >
+                                {isApplying ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : null}
+                                Gửi hồ sơ
+                            </button>
+                             <button 
+                                type="button"
+                                onClick={() => setShowApplyForm(false)}
+                                className="px-4 py-2 bg-white text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium"
+                            >
+                                Hủy
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
          </div>
-         <div className="px-6 py-4 bg-gray-50 border-t flex flex-col sm:flex-row gap-3">
-             {currentUserData?.userType === 'WORKER' && !isEmployerViewingOwnJob && (
-                <button 
-                    onClick={handleApply}
-                    disabled={isApplying || hasApplied}
-                    className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 disabled:bg-indigo-400 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                    {isApplying && <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
-                    {hasApplied ? 'Đã ứng tuyển' : (isApplying ? 'Đang gửi...' : 'Ứng tuyển ngay')}
+
+         {!showApplyForm && (
+             <div className="px-6 py-4 bg-gray-50 border-t flex flex-col sm:flex-row gap-3 mt-auto">
+                 {currentUserData?.userType === 'WORKER' && !isEmployerViewingOwnJob && (
+                    <button 
+                        onClick={handleStartApply}
+                        disabled={isApplying || hasApplied}
+                        className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 disabled:bg-indigo-400 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                        {hasApplied ? 'Đã ứng tuyển' : 'Ứng tuyển ngay'}
+                    </button>
+                 )}
+                 <button
+                    onClick={onViewOnMap}
+                    className="w-full bg-white text-indigo-600 font-bold py-2 px-4 rounded-lg hover:bg-indigo-50 border border-indigo-500 transition-colors duration-300"
+                  >
+                    Xem vị trí trên bản đồ
+                  </button>
+                 <button 
+                    onClick={onClose}
+                    className="w-full bg-white text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 border border-gray-300 transition-colors duration-300"
+                    aria-label="Đóng"
+                 >
+                    Đóng
                 </button>
-             )}
-             <button
-                onClick={onViewOnMap}
-                className="w-full bg-white text-indigo-600 font-bold py-2 px-4 rounded-lg hover:bg-indigo-50 border border-indigo-500 transition-colors duration-300"
-              >
-                Xem vị trí trên bản đồ
-              </button>
-             <button 
-                onClick={onClose}
-                className="w-full bg-white text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 border border-gray-300 transition-colors duration-300"
-                aria-label="Đóng"
-             >
-                Đóng
-            </button>
-         </div>
+             </div>
+         )}
       </div>
        <style>{`
         @keyframes fade-in-up {

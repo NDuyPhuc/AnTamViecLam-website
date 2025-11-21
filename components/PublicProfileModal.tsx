@@ -1,6 +1,8 @@
 
+
+
 import React, { useState, useEffect } from 'react';
-import type { UserData } from '../types';
+import type { UserData, Application } from '../types';
 import { getUserProfile } from '../services/userService';
 import Spinner from './Spinner';
 import UserIcon from './icons/UserIcon';
@@ -10,16 +12,18 @@ import XIcon from './icons/XIcon';
 import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
 import IdentificationIcon from './icons/IdentificationIcon';
 import LightBulbIcon from './icons/LightBulbIcon';
-import DocumentTextIcon from './icons/DocumentTextIcon'; // Import DocumentTextIcon
+import DocumentTextIcon from './icons/DocumentTextIcon';
+import ChatBubbleLeftRightIcon from './icons/ChatBubbleLeftRightIcon';
 
 interface PublicProfileModalProps {
   userId: string;
+  application?: Application;
   onClose: () => void;
   onStartChat?: () => void; // Optional: only available if employer has received an application
 }
 
-const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ icon, title, children }) => (
-    <div>
+const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode; className?: string }> = ({ icon, title, children, className = "" }) => (
+    <div className={className}>
         <div className="flex items-center mb-3">
             <div className="w-8 h-8 flex items-center justify-center text-gray-500">{icon}</div>
             <h4 className="text-lg font-bold text-gray-800">{title}</h4>
@@ -29,7 +33,7 @@ const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.
 );
 
 
-const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose, onStartChat }) => {
+const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, application, onClose, onStartChat }) => {
     const [profile, setProfile] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -96,10 +100,14 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
                                                 <p>{profile.address}</p>
                                             </div>
                                         )}
-                                        {/* Display Phone Number if available (Visible to employer/authorized viewer) */}
-                                        {profile.phoneNumber && (
+                                        
+                                        {/* Contact Info Logic:
+                                            - If Viewing Application: Show Application's Contact Phone (most relevant)
+                                            - Else: Show Profile Phone (if authorized/available)
+                                        */}
+                                        {(application?.contactPhoneNumber || profile.phoneNumber) && (
                                             <p className="text-sm text-gray-600 mt-1">
-                                                SĐT: <span className="font-medium">{profile.phoneNumber}</span>
+                                                SĐT: <span className="font-medium">{application?.contactPhoneNumber || profile.phoneNumber}</span>
                                             </p>
                                         )}
                                          {profile.email && (
@@ -132,6 +140,26 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
 
                         {/* Body */}
                         <div className="flex-grow p-6 sm:p-8 overflow-y-auto space-y-8">
+                             
+                             {/* APPLICATION CONTEXT SECTION - Displays specific intro for this job application */}
+                             {application && (application.introduction) && (
+                                <Section 
+                                    icon={<ChatBubbleLeftRightIcon className="w-6 h-6 text-indigo-600"/>} 
+                                    title="Thông tin ứng tuyển"
+                                    className="bg-indigo-50 p-4 rounded-xl border border-indigo-100"
+                                >
+                                    <div className="space-y-2">
+                                        {application.introduction && (
+                                            <div>
+                                                <p className="text-xs font-bold text-indigo-800 uppercase mb-1">Lời nhắn từ ứng viên</p>
+                                                <p className="text-gray-700 italic">"{application.introduction}"</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </Section>
+                             )}
+
+
                              {/* CV Section */}
                              {profile.cvUrl && (
                                 <Section icon={<DocumentTextIcon className="w-6 h-6"/>} title="Hồ sơ năng lực (CV)">

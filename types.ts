@@ -1,5 +1,6 @@
 
 
+
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
@@ -88,6 +89,9 @@ export interface Application {
   // New fields for quick CV access
   cvUrl?: string | null;
   cvName?: string | null;
+  // New fields for better application context
+  introduction?: string;
+  contactPhoneNumber?: string;
 }
 
 export enum NotificationType {

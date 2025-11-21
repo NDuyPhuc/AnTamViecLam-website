@@ -1,4 +1,6 @@
 
+
+
 import { db, serverTimestamp } from './firebase';
 import type { Job, UserData, Application } from '../types';
 import { createNotification } from './notificationService';
@@ -9,7 +11,12 @@ import { NotificationType } from '../types';
  * Creates an application document in a top-level "applications" collection.
  * Uses a composite ID "jobId_workerId" to prevent duplicate applications.
  */
-export const applyForJob = async (job: Job, worker: UserData): Promise<void> => {
+export const applyForJob = async (
+    job: Job, 
+    worker: UserData,
+    introduction: string = '',
+    contactPhoneNumber: string = ''
+): Promise<void> => {
   if (worker.userType !== 'WORKER') {
     throw new Error('Only workers can apply for jobs.');
   }
@@ -39,6 +46,9 @@ export const applyForJob = async (job: Job, worker: UserData): Promise<void> => 
     // Snapshot CV info at time of application
     cvUrl: worker.cvUrl || null,
     cvName: worker.cvName || null,
+    // New application context fields
+    introduction: introduction,
+    contactPhoneNumber: contactPhoneNumber || worker.phoneNumber || '',
   };
 
   await applicationRef.set(applicationData);
@@ -119,6 +129,8 @@ export const subscribeToApplicationsForEmployer = (employerId: string, callback:
                 status: data.status,
                 cvUrl: data.cvUrl || null,
                 cvName: data.cvName || null,
+                introduction: data.introduction || '',
+                contactPhoneNumber: data.contactPhoneNumber || '',
             };
             applications.push(application);
         });
@@ -165,6 +177,8 @@ export const subscribeToApplicationsForWorker = (workerId: string, callback: (ap
                 status: data.status,
                 cvUrl: data.cvUrl || null,
                 cvName: data.cvName || null,
+                introduction: data.introduction || '',
+                contactPhoneNumber: data.contactPhoneNumber || '',
             };
             applications.push(application);
         });

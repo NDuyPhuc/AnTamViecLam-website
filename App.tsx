@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -350,6 +352,7 @@ const App: React.FC = () => {
       {viewingProfile && (
         <PublicProfileModal 
             userId={viewingProfile.userId} 
+            application={viewingProfile.applicationContext}
             onClose={() => setViewingProfile(null)}
             onStartChat={viewingProfile.applicationContext ? () => handleStartConversationWithUser(viewingProfile.applicationContext!) : undefined}
         />
