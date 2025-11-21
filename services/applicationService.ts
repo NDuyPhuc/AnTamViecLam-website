@@ -1,3 +1,4 @@
+
 import { db, serverTimestamp } from './firebase';
 import type { Job, UserData, Application } from '../types';
 import { createNotification } from './notificationService';
@@ -35,6 +36,9 @@ export const applyForJob = async (job: Job, worker: UserData): Promise<void> => 
     employerProfileImageUrl: job.employerProfileUrl || null,
     applicationDate: serverTimestamp(),
     status: 'pending',
+    // Snapshot CV info at time of application
+    cvUrl: worker.cvUrl || null,
+    cvName: worker.cvName || null,
   };
 
   await applicationRef.set(applicationData);
@@ -113,6 +117,8 @@ export const subscribeToApplicationsForEmployer = (employerId: string, callback:
                 employerProfileImageUrl: data.employerProfileImageUrl,
                 applicationDate: applicationDate,
                 status: data.status,
+                cvUrl: data.cvUrl || null,
+                cvName: data.cvName || null,
             };
             applications.push(application);
         });
@@ -157,6 +163,8 @@ export const subscribeToApplicationsForWorker = (workerId: string, callback: (ap
                 employerProfileImageUrl: data.employerProfileImageUrl,
                 applicationDate: applicationDate,
                 status: data.status,
+                cvUrl: data.cvUrl || null,
+                cvName: data.cvName || null,
             };
             applications.push(application);
         });

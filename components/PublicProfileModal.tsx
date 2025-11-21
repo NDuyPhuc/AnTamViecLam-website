@@ -33,6 +33,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
     const [profile, setProfile] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [showPdfPreview, setShowPdfPreview] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -42,6 +43,10 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
                 const userProfile = await getUserProfile(userId);
                 if (userProfile) {
                     setProfile(userProfile);
+                    // Auto-show PDF preview if it's a PDF
+                    if (userProfile.cvUrl && userProfile.cvUrl.toLowerCase().endsWith('.pdf')) {
+                        setShowPdfPreview(true);
+                    }
                 } else {
                     setError('Không tìm thấy hồ sơ người dùng.');
                 }
@@ -127,18 +132,44 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
 
                         {/* Body */}
                         <div className="flex-grow p-6 sm:p-8 overflow-y-auto space-y-8">
-                             {/* CV Download Section */}
+                             {/* CV Section */}
                              {profile.cvUrl && (
-                                <Section icon={<DocumentTextIcon className="w-6 h-6"/>} title="Hồ sơ đính kèm">
-                                    <a 
-                                        href={profile.cvUrl} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
-                                    >
-                                        <DocumentTextIcon className="w-5 h-5 mr-2" />
-                                        <span className="font-medium">{profile.cvName || 'Tải xuống CV / Hồ sơ năng lực'}</span>
-                                    </a>
+                                <Section icon={<DocumentTextIcon className="w-6 h-6"/>} title="Hồ sơ năng lực (CV)">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-3">
+                                             <a 
+                                                href={profile.cvUrl} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                                            >
+                                                <DocumentTextIcon className="w-5 h-5 mr-2" />
+                                                <span className="font-medium">Tải xuống / Mở trong tab mới</span>
+                                            </a>
+                                            {profile.cvUrl.toLowerCase().endsWith('.pdf') && (
+                                                 <button
+                                                    onClick={() => setShowPdfPreview(!showPdfPreview)}
+                                                    className="text-sm text-gray-500 underline hover:text-indigo-600"
+                                                 >
+                                                     {showPdfPreview ? 'Ẩn xem trước' : 'Xem trước nhanh'}
+                                                 </button>
+                                            )}
+                                        </div>
+
+                                        {showPdfPreview && profile.cvUrl && (
+                                            <div className="w-full h-[500px] border rounded-lg overflow-hidden bg-gray-100 mt-2 relative group">
+                                                 {/* Using Cloudinary PDF raw link in iframe works in most browsers */}
+                                                <iframe 
+                                                    src={profile.cvUrl} 
+                                                    className="w-full h-full" 
+                                                    title="CV Preview"
+                                                />
+                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-50 opacity-0 group-hover:opacity-0 transition-opacity">
+                                                    <p className="text-gray-500">Đang tải bản xem trước...</p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </Section>
                             )}
 

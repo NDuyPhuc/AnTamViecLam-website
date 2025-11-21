@@ -1,4 +1,5 @@
 
+
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
@@ -84,6 +85,9 @@ export interface Application {
   employerProfileImageUrl: string | null;
   applicationDate: string; // ISO string
   status: 'pending' | 'accepted' | 'rejected';
+  // New fields for quick CV access
+  cvUrl?: string | null;
+  cvName?: string | null;
 }
 
 export enum NotificationType {

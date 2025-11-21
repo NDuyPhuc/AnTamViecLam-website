@@ -64,9 +64,23 @@ const ApplicantCard: React.FC<{
                     <UserIcon className="w-12 h-12 flex-shrink-0" />
                 )}
                 <div className="flex-grow">
-                     <button onClick={onViewProfile} className="font-semibold text-gray-800 hover:text-indigo-600 text-left">
-                        {application.workerName}
-                    </button>
+                     <div className="flex items-center gap-2">
+                         <button onClick={onViewProfile} className="font-semibold text-gray-800 hover:text-indigo-600 text-left">
+                            {application.workerName}
+                        </button>
+                        {application.cvUrl && (
+                            <a 
+                                href={application.cvUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-xs flex items-center text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100"
+                                title="Mở CV trong tab mới"
+                            >
+                                <DocumentTextIcon className="w-3 h-3 mr-1"/>
+                                CV
+                            </a>
+                        )}
+                     </div>
                     <p className="text-sm text-gray-600">
                         Đã ứng tuyển vào: <span className="font-medium text-indigo-600">{application.jobTitle}</span>
                     </p>
