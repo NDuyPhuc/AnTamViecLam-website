@@ -75,6 +75,8 @@ const App: React.FC = () => {
   
   useEffect(() => {
     // Robust Service Worker registration
+    // Fix: "The document is in an invalid state" often happens if registration is called
+    // before the document is fully loaded or during unstable states.
     if ('serviceWorker' in navigator) {
       const registerServiceWorker = () => {
         const swUrl = `${window.location.origin}/sw.js`;
@@ -88,8 +90,10 @@ const App: React.FC = () => {
       };
 
       if (document.readyState === 'complete') {
+        // Document already fully loaded
         registerServiceWorker();
       } else {
+        // Wait for the load event to ensure safe state
         window.addEventListener('load', registerServiceWorker);
       }
 
@@ -230,7 +234,55 @@ const App: React.FC = () => {
     };
   }, [allJobs, locationFilter, typeFilter, userLocation]);
 
-  const renderContent = () => {
+  if (loading) {
+    return <Spinner fullScreen />;
+  }
+
+  if (!currentUser) {
+    return <UnauthenticatedApp />;
+  }
+
+  // If user is logged in but has no profile data (or empty fullName), show completion page
+  if (currentUser && currentUserData && !currentUserData.fullName) {
+      return <CompleteProfilePage />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900">
+      <Header 
+        activeView={activeView} 
+        setActiveView={setActiveView} 
+        onPostJobClick={() => setIsPostJobModalOpen(true)}
+        onNotificationNavigate={handleNotificationNavigate}
+      />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-10">
+        {renderContent()}
+      </main>
+
+      {selectedJob && (
+        <JobDetailModal 
+            job={selectedJob} 
+            onClose={handleCloseModal} 
+            onViewOnMap={() => handleViewJobOnMap(selectedJob)}
+        />
+      )}
+      
+      {isPostJobModalOpen && (
+        <PostJobModal onClose={() => setIsPostJobModalOpen(false)} />
+      )}
+
+      {viewingProfile && (
+          <PublicProfileModal 
+            userId={viewingProfile.userId} 
+            onClose={() => setViewingProfile(null)}
+            onStartChat={viewingProfile.applicationContext ? () => handleStartConversationWithUser(viewingProfile.applicationContext!) : undefined}
+          />
+      )}
+    </div>
+  );
+
+  function renderContent() {
     const contentKey = activeView;
     return (
        <div key={contentKey} className="animate-fade-in-up" style={{ animationDuration: '0.4s' }}>
@@ -305,3 +357,35 @@ const App: React.FC = () => {
                                 allJobs={allJobs}
                                 currentUserData={currentUserData!}
                                 onViewOnMap={handleViewJobOnMap}
+                                onJobSelect={handleSelectJobForDetail}
+                            />
+                        );
+                    case View.Insurance:
+                        return <InsuranceDashboard />;
+                    case View.Messaging:
+                        return (
+                            <div className="h-[calc(100vh-140px)] md:h-[600px]">
+                                <Messaging 
+                                    initialSelectedConversationId={selectedConversationId} 
+                                    clearInitialSelection={() => setSelectedConversationId(null)}
+                                />
+                            </div>
+                        );
+                    case View.Chatbot:
+                        return (
+                            <div className="h-[calc(100vh-140px)] md:h-[600px]">
+                                <Chatbot allJobs={allJobs} />
+                            </div>
+                        );
+                    case View.Profile:
+                        return <ProfilePage onViewProfile={(userId, app) => setViewingProfile({ userId, applicationContext: app })} />;
+                    default:
+                        return <div>Chọn một mục từ menu</div>;
+                }
+            })()}
+       </div>
+    );
+  }
+};
+
+export default App;

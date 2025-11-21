@@ -19,7 +19,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     setError('');
     setStatus('loading');
 
-    // Check if library is available using type assertion to avoid TS errors
+    // Access the global function from the loaded script
     const aie_aic = (window as any).aie_aic;
 
     if (typeof aie_aic !== 'function') {
@@ -29,55 +29,58 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     }
 
     try {
-        // Configuration provided by user documentation
+        // Detailed configuration as per user request
         const config = {
             type: "kyc", 
             kyc: {
-                collect: "manual", 
+                collect: "manual", // Manual collection
                 type: "image", 
                 video: { 
                     frame_rate: 30, 
                     duration: 60, 
                     file_name: "aic_kyc_video" 
                 },
-                // Angles to capture
+                // Required angles
                 get: ["faceStraight", "faceRight", "faceLeft"], 
                 
                 width: "80%", 
                 position: "top", 
-                send_button: true, 
+                send_button: true, // Show send button
                 switch_button: true,
                 
-                // UI/UX Configuration
+                // AI/UX Configuration
                 kyc_data: {
-                    face: 4, 
+                    face: 4, // Auto crop
                     gender: false, 
-                    liveness: true, // Check for real person
+                    liveness: true, // Liveness check
                     look_left: 20, 
                     look_right: 20, 
                     board_info: "frame" 
                 }
             },
-            brand: "An Tâm Việc Làm KYC", 
+            brand: "An Tâm Việc Làm", // Customized brand name
             width: "100%", 
             video: "all", 
             
-            // Result Callback
+            // Callback function to handle results
             function: async function(res: any, location: any) {
                 console.log("Kết quả KYC:", res);
                 
-                // res contains Base64 data: res.faceStraight, res.faceLeft, res.faceRight
+                // res object structure example: 
+                // { faceStraight: "base64...", faceLeft: "base64...", faceRight: "base64..." }
+                
                 if (res && (Object.keys(res).length > 0)) {
                      setStatus('processing');
                      
                      try {
                          if (currentUser) {
-                             // Save verified data to Firebase as requested
+                             // Send the result payload to the backend/firebase via userService
                              await verifyUser(currentUser.uid, res);
+                             
                              setStatus('success');
                              setTimeout(() => {
                                  onSuccess();
-                             }, 1500);
+                             }, 2000);
                          }
                      } catch (err) {
                          console.error(err);
@@ -85,13 +88,14 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                          setStatus('idle');
                      }
                 } else {
-                    setError('Không nhận được dữ liệu xác minh. Vui lòng thử lại.');
+                    // Handle cancellation or empty result
+                    setError('Không nhận được dữ liệu xác minh hoặc người dùng đã hủy.');
                     setStatus('idle');
                 }
             }
         };
 
-        // Init 1AIE Camera on "body"
+        // Initialize the camera on the document body
         aie_aic("body", config);
 
     } catch (e: any) {
@@ -124,7 +128,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Xác minh danh tính</h2>
             <p className="text-gray-600 mb-8">
-                Sử dụng công nghệ AI Camera để xác thực khuôn mặt (Thẳng, Trái, Phải). Dữ liệu sẽ được lưu an toàn trên hệ thống.
+                Vui lòng thực hiện quay các góc mặt (Thẳng, Trái, Phải) theo hướng dẫn để xác thực tài khoản.
             </p>
 
             {error && (
