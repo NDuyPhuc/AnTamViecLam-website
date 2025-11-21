@@ -14,9 +14,20 @@ export const uploadFile = async (file: File): Promise<string> => {
   formData.append('file', file);
   formData.append('upload_preset', UPLOAD_PRESET);
 
-  // Changed from '/image/upload' to '/auto/upload' to support PDFs and other documents as well as images
+  // Determine resource type based on file mime type
+  // PDFs and Docs should be treated as 'raw' to avoid "PDF delivery" security restrictions (401)
+  // associated with the 'image' pipeline in some Cloudinary accounts.
+  let resourceType = 'auto';
+  if (
+      file.type === 'application/pdf' || 
+      file.type.includes('word') || 
+      file.type.includes('document')
+  ) {
+      resourceType = 'raw';
+  }
+
   try {
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`, {
       method: 'POST',
       body: formData,
     });
