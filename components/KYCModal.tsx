@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import XIcon from './icons/XIcon';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import { verifyUser } from '../services/userService';
@@ -15,6 +15,15 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
   const [status, setStatus] = useState<'idle' | 'loading' | 'processing' | 'success'>('idle');
   const [error, setError] = useState('');
 
+  // Cleanup effect: Ensure global elements are removed if the component unmounts
+  useEffect(() => {
+    return () => {
+      // Optional: If the library leaves any global artifacts, we can try to clean them here.
+      // Since we are now mounting to a specific div ID, React removing that div should be sufficient
+      // for most libraries.
+    };
+  }, []);
+
   const startKYC = () => {
     setError('');
     setStatus('loading');
@@ -23,61 +32,60 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     const aie_aic = (window as any).aie_aic;
 
     if (typeof aie_aic !== 'function') {
-       setError('Hệ thống eKYC chưa sẵn sàng (thư viện chưa tải xong). Vui lòng kiểm tra kết nối mạng hoặc thử lại sau vài giây.');
+       setError('Hệ thống eKYC chưa sẵn sàng (thư viện chưa tải xong). Vui lòng kiểm tra kết nối mạng hoặc tải lại trang.');
        setStatus('idle');
        return;
     }
 
     try {
-        // Detailed configuration as per user request
+        const containerId = "#aic-component-container";
+        
+        // Config based on user requirement
         const config = {
             type: "kyc", 
             kyc: {
-                collect: "manual", // Manual collection
+                collect: "manual", 
                 type: "image", 
                 video: { 
                     frame_rate: 30, 
                     duration: 60, 
                     file_name: "aic_kyc_video" 
                 },
-                // Required angles
                 get: ["faceStraight", "faceRight", "faceLeft"], 
                 
-                width: "80%", 
+                width: "100%", // Width relative to the container
                 position: "top", 
-                send_button: true, // Show send button
+                send_button: true, 
                 switch_button: true,
                 
-                // AI/UX Configuration
                 kyc_data: {
-                    face: 4, // Auto crop
+                    face: 4, 
                     gender: false, 
-                    liveness: true, // Liveness check
+                    liveness: true, 
                     look_left: 20, 
                     look_right: 20, 
                     board_info: "frame" 
                 }
             },
-            brand: "An Tâm Việc Làm", // Customized brand name
+            brand: "An Tâm Việc Làm", 
             width: "100%", 
             video: "all", 
             
-            // Callback function to handle results
+            // Callback function
             function: async function(res: any, location: any) {
                 console.log("Kết quả KYC:", res);
-                
-                // res object structure example: 
-                // { faceStraight: "base64...", faceLeft: "base64...", faceRight: "base64..." }
                 
                 if (res && (Object.keys(res).length > 0)) {
                      setStatus('processing');
                      
                      try {
                          if (currentUser) {
-                             // Send the result payload to the backend/firebase via userService
+                             // Save data to Firestore
                              await verifyUser(currentUser.uid, res);
                              
                              setStatus('success');
+                             
+                             // Wait a moment for the user to see the success message, then close
                              setTimeout(() => {
                                  onSuccess();
                              }, 2000);
@@ -88,15 +96,15 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                          setStatus('idle');
                      }
                 } else {
-                    // Handle cancellation or empty result
                     setError('Không nhận được dữ liệu xác minh hoặc người dùng đã hủy.');
                     setStatus('idle');
                 }
             }
         };
 
-        // Initialize the camera on the document body
-        aie_aic("body", config);
+        // IMPORTANT: Attach to the specific div inside this component, NOT "body".
+        // This ensures that when React unmounts this modal, the camera UI is removed.
+        aie_aic(containerId, config);
 
     } catch (e: any) {
         console.error("eKYC Init Error:", e);
@@ -107,73 +115,86 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
 
   return (
     <div 
-        className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in"
+        className="fixed inset-0 bg-black bg-opacity-75 z-50 flex justify-center items-center p-4 animate-fade-in"
         onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden relative flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
-        >
-            <XIcon className="w-6 h-6" />
-        </button>
+        <div className="p-4 border-b flex justify-between items-center">
+             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <ShieldCheckIcon className="w-6 h-6 text-indigo-600" />
+                Xác minh danh tính (eKYC)
+            </h2>
+            <button 
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+                <XIcon className="w-6 h-6" />
+            </button>
+        </div>
 
-        <div className="p-8 text-center">
-            <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <ShieldCheckIcon className="w-10 h-10 text-indigo-600" />
-            </div>
+        <div className="p-6 overflow-y-auto flex-grow flex flex-col items-center justify-center min-h-[400px] relative bg-gray-50">
             
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Xác minh danh tính</h2>
-            <p className="text-gray-600 mb-8">
-                Vui lòng thực hiện quay các góc mặt (Thẳng, Trái, Phải) theo hướng dẫn để xác thực tài khoản.
-            </p>
-
             {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-6">
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-4 w-full text-center border border-red-100">
                     {error}
                 </div>
             )}
 
             {status === 'idle' && (
-                <button
-                    onClick={startKYC}
-                    className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 transition-all transform hover:scale-[1.02] shadow-md"
-                >
-                    Bắt đầu Camera
-                </button>
+                <div className="text-center max-w-md">
+                    <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <ShieldCheckIcon className="w-10 h-10 text-indigo-600" />
+                    </div>
+                    <p className="text-gray-600 mb-8 text-lg">
+                        Vui lòng chuẩn bị quay các góc mặt (Thẳng, Trái, Phải) để xác thực tài khoản.
+                    </p>
+                    <button
+                        onClick={startKYC}
+                        className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-indigo-700 transition-all transform hover:scale-[1.02] shadow-md text-lg"
+                    >
+                        Bắt đầu Camera
+                    </button>
+                </div>
             )}
 
+            {/* Container for the 1AIE Camera Library */}
+            <div 
+                id="aic-component-container" 
+                className={`w-full h-full min-h-[400px] bg-black rounded-xl overflow-hidden shadow-inner ${status === 'loading' || status === 'idle' || status === 'success' ? 'hidden' : 'block'}`}
+            ></div>
+
             {status === 'loading' && (
-                <div className="flex flex-col items-center justify-center py-2">
-                    <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p className="text-sm text-indigo-600 font-medium">Đang khởi động máy ảnh...</p>
+                <div className="flex flex-col items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-indigo-600 font-semibold">Đang khởi động máy ảnh...</p>
                 </div>
             )}
 
             {status === 'processing' && (
-                 <div className="flex flex-col items-center justify-center py-2">
-                    <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p className="text-sm text-green-600 font-medium">Đang lưu dữ liệu xác thực...</p>
+                 <div className="absolute inset-0 bg-white/90 z-10 flex flex-col items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-green-600 font-bold text-lg">Đang xử lý dữ liệu...</p>
                 </div>
             )}
 
             {status === 'success' && (
-                <div className="flex flex-col items-center justify-center py-2 animate-fade-in-up">
-                    <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <div className="absolute inset-0 bg-white z-20 flex flex-col items-center justify-center animate-fade-in-up">
+                    <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                    <p className="text-lg font-bold text-green-600">Xác minh thành công!</p>
+                    <p className="text-2xl font-bold text-green-600">Xác minh thành công!</p>
+                    <p className="text-gray-500 mt-2">Đang quay lại hồ sơ...</p>
                 </div>
             )}
             
-            <div className="mt-6 text-xs text-gray-400">
-                Powered by 1AIE Smart AI
-            </div>
+        </div>
+        <div className="p-3 border-t bg-gray-50 text-center text-xs text-gray-400">
+             Công nghệ nhận diện khuôn mặt bởi 1AIE Smart AI
         </div>
       </div>
     </div>

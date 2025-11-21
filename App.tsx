@@ -75,8 +75,6 @@ const App: React.FC = () => {
   
   useEffect(() => {
     // Robust Service Worker registration
-    // Fix: "The document is in an invalid state" often happens if registration is called
-    // before the document is fully loaded or during unstable states.
     if ('serviceWorker' in navigator) {
       const registerServiceWorker = () => {
         const swUrl = `${window.location.origin}/sw.js`;
@@ -89,17 +87,14 @@ const App: React.FC = () => {
           });
       };
 
+      // Fix: "The document is in an invalid state" can happen if we register too early.
+      // Check if the window load event has already fired.
       if (document.readyState === 'complete') {
-        // Document already fully loaded
         registerServiceWorker();
       } else {
-        // Wait for the load event to ensure safe state
         window.addEventListener('load', registerServiceWorker);
+        return () => window.removeEventListener('load', registerServiceWorker);
       }
-
-      return () => {
-        window.removeEventListener('load', registerServiceWorker);
-      };
     }
   }, []);
 

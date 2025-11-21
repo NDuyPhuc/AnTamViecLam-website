@@ -55,7 +55,7 @@ export const verifyUser = async (userId: string, kycData?: any): Promise<void> =
     try {
         await db.collection('users').doc(userId).update({
             isVerified: true,
-            kycData: kycData || null, // Store the full KYC result (images, confidence, etc.)
+            kycData: kycData || null, // Store the full KYC result object (base64 images, etc.)
             verifiedAt: serverTimestamp()
         });
     } catch (error) {
