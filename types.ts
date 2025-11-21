@@ -1,4 +1,5 @@
 
+
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
@@ -64,10 +65,12 @@ export interface UserData {
   address?: string | null;
   profileImageUrl?: string | null;
   fcmTokens?: string[]; // For push notifications
+  isVerified?: boolean; // eKYC status
   // Worker-specific profile fields
   bio?: string;
   skills?: string[];
   workHistory?: WorkExperience[];
+  lastRecommendations?: any; // Store last AI recommendation results
 }
 
 export interface Application {

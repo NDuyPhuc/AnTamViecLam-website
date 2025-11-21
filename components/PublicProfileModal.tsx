@@ -10,6 +10,7 @@ import XIcon from './icons/XIcon';
 import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
 import IdentificationIcon from './icons/IdentificationIcon';
 import LightBulbIcon from './icons/LightBulbIcon';
+import VerifiedBadge from './icons/VerifiedBadge';
 
 interface PublicProfileModalProps {
   userId: string;
@@ -83,7 +84,14 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
                                         <UserIcon className="w-20 h-20"/>
                                     )}
                                     <div>
-                                        <h2 className="text-3xl font-bold text-gray-800">{profile.fullName}</h2>
+                                        <h2 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                                            {profile.fullName}
+                                            {profile.isVerified && (
+                                                <span title="Tài khoản đã xác minh">
+                                                    <VerifiedBadge className="w-6 h-6" />
+                                                </span>
+                                            )}
+                                        </h2>
                                         {profile.address && (
                                             <div className="flex items-center text-gray-500 mt-1">
                                                 <MapPinIcon className="w-4 h-4 mr-1.5"/>

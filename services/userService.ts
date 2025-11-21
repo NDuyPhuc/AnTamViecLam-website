@@ -1,3 +1,4 @@
+
 import { db } from './firebase';
 import type { UserData } from '../types';
 
@@ -31,6 +32,7 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
         bio: data.bio || '',
         skills: data.skills || [],
         workHistory: data.workHistory || [],
+        isVerified: data.isVerified || false,
       };
       return userProfile as UserData;
     } else {
@@ -41,4 +43,19 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
     console.error("Error fetching user profile:", error);
     throw error;
   }
+};
+
+/**
+ * Updates the user's verified status after successful eKYC.
+ */
+export const verifyUser = async (userId: string): Promise<void> => {
+    if (!userId) return;
+    try {
+        await db.collection('users').doc(userId).update({
+            isVerified: true
+        });
+    } catch (error) {
+        console.error("Error verifying user:", error);
+        throw error;
+    }
 };

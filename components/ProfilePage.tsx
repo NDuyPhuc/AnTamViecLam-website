@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -9,8 +10,10 @@ import { subscribeToJobsByEmployer, updateJobStatus } from '../services/jobServi
 import { subscribeToApplicationsForEmployer, updateApplicationStatus, subscribeToApplicationsForWorker } from '../services/applicationService';
 import XCircleIcon from './icons/XCircleIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
-// Fix: Import TrashIcon component.
 import TrashIcon from './icons/TrashIcon';
+import VerifiedBadge from './icons/VerifiedBadge';
+import ShieldCheckIcon from './icons/ShieldCheckIcon';
+import KYCModal from './KYCModal';
 
 interface ProfilePageProps {
     onViewProfile: (userId: string, application: Application) => void;
@@ -142,6 +145,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isKYCModalOpen, setIsKYCModalOpen] = useState(false);
 
   // Employer's data state
   const [myJobs, setMyJobs] = useState<Job[]>([]);
@@ -319,6 +323,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
     }
   };
 
+  const handleKYCSuccess = async () => {
+      setIsKYCModalOpen(false);
+      await refetchUserData();
+      setSuccess("Xác minh tài khoản thành công!");
+  };
+
   // --- Skill handlers ---
   const handleAddSkill = () => {
     if (currentSkill.trim() && !skills.includes(currentSkill.trim())) {
@@ -361,30 +371,67 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                     className="hidden"
                     accept="image/png, image/jpeg, image/jpg"
                 />
-                <button 
-                    type="button" 
-                    onClick={handleAvatarClick}
-                    className="relative w-32 h-32 rounded-full group bg-gray-100 flex items-center justify-center cursor-pointer border-2 border-dashed hover:border-indigo-400 transition-all"
-                    aria-label="Thay đổi ảnh đại diện"
-                >
-                    {avatarPreview || (currentUserData && currentUserData.profileImageUrl) ? (
-                        <img 
-                            src={avatarPreview || currentUserData.profileImageUrl!} 
-                            alt="Xem trước" 
-                            className="w-full h-full rounded-full object-cover"
-                        />
-                    ) : (
-                        <UserIcon className="w-full h-full text-gray-400 p-8" />
+                <div className="relative">
+                    <button 
+                        type="button" 
+                        onClick={handleAvatarClick}
+                        className="relative w-32 h-32 rounded-full group bg-gray-100 flex items-center justify-center cursor-pointer border-2 border-dashed hover:border-indigo-400 transition-all"
+                        aria-label="Thay đổi ảnh đại diện"
+                    >
+                        {avatarPreview || (currentUserData && currentUserData.profileImageUrl) ? (
+                            <img 
+                                src={avatarPreview || currentUserData.profileImageUrl!} 
+                                alt="Xem trước" 
+                                className="w-full h-full rounded-full object-cover"
+                            />
+                        ) : (
+                            <UserIcon className="w-full h-full text-gray-400 p-8" />
+                        )}
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-full flex items-center justify-center transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                    </button>
+                    {currentUserData.isVerified && (
+                        <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md" title="Tài khoản đã xác minh">
+                            <VerifiedBadge className="w-6 h-6" />
+                        </div>
                     )}
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-full flex items-center justify-center transition-opacity">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    </div>
-                </button>
+                </div>
                  <p className="text-sm text-gray-500">Nhấp vào ảnh để thay đổi</p>
             </div>
+
+             {/* Verification Section */}
+             <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <ShieldCheckIcon className={`w-6 h-6 ${currentUserData.isVerified ? 'text-green-500' : 'text-gray-400'}`} />
+                    <div>
+                        <p className="font-semibold text-gray-800">Trạng thái xác minh</p>
+                        <p className="text-xs text-gray-500">
+                            {currentUserData.isVerified 
+                                ? "Tài khoản của bạn đã được xác thực danh tính." 
+                                : "Xác thực để tăng độ uy tín với nhà tuyển dụng."}
+                        </p>
+                    </div>
+                </div>
+                {currentUserData.isVerified ? (
+                    <span className="flex items-center text-green-600 font-bold text-sm bg-white px-3 py-1 rounded-full shadow-sm">
+                        <VerifiedBadge className="w-4 h-4 mr-1" />
+                        Đã xác minh
+                    </span>
+                ) : (
+                    <button 
+                        type="button"
+                        onClick={() => setIsKYCModalOpen(true)}
+                        className="text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-semibold shadow-sm"
+                    >
+                        Xác minh ngay
+                    </button>
+                )}
+            </div>
+
              <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
@@ -524,6 +571,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
             </div>
         </form>
       </div>
+
+      {isKYCModalOpen && (
+          <KYCModal 
+            onClose={() => setIsKYCModalOpen(false)} 
+            onSuccess={handleKYCSuccess}
+          />
+      )}
 
        {/* Employer Dashboard */}
       {currentUserData.userType === UserRole.Employer && (
