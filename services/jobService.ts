@@ -82,6 +82,39 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
   return unsubscribe;
 };
 
+export const getJobById = async (jobId: string): Promise<Job | null> => {
+    try {
+        const docRef = db.collection('jobs').doc(jobId);
+        const doc = await docRef.get();
+        
+        if (doc.exists) {
+            const data = doc.data();
+            const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+            
+            return {
+                id: doc.id,
+                title: data?.title,
+                description: data?.description || '',
+                employerId: data?.employerId,
+                employerName: data?.employerName,
+                employerProfileUrl: data?.employerProfileUrl,
+                addressString: data?.addressString,
+                location: data?.location,
+                payRate: data?.payRate,
+                payType: data?.payType,
+                jobType: data?.jobType || 'Thời vụ',
+                status: data?.status,
+                createdAt: createdAt,
+                hiredWorkerId: data?.hiredWorkerId,
+            } as Job;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error fetching job by ID:", error);
+        return null;
+    }
+};
+
 export const updateJobStatus = async (jobId: string, status: 'OPEN' | 'CLOSED') => {
     const jobRef = db.collection('jobs').doc(jobId);
     await jobRef.update({ status });

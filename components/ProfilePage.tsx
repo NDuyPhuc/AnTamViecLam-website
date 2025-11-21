@@ -6,7 +6,7 @@ import { uploadFile } from '../services/cloudinaryService'; // This now handles 
 import UserIcon from './icons/UserIcon';
 import Spinner from './Spinner';
 import { UserRole, Job, Application, WorkExperience } from '../types';
-import { subscribeToJobsByEmployer, updateJobStatus } from '../services/jobService';
+import { subscribeToJobsByEmployer, updateJobStatus, getJobById } from '../services/jobService';
 import { subscribeToApplicationsForEmployer, updateApplicationStatus, subscribeToApplicationsForWorker } from '../services/applicationService';
 import XCircleIcon from './icons/XCircleIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
@@ -16,18 +16,30 @@ import CheckCircleIcon from './icons/CheckCircleIcon';
 
 interface ProfilePageProps {
     onViewProfile: (userId: string, application: Application) => void;
+    onJobSelect: (job: Job) => void;
 }
 
-const EmployerJobCard: React.FC<{ job: Job, onStatusChange: (jobId: string, status: 'OPEN' | 'CLOSED') => void, isUpdating: boolean }> = ({ job, onStatusChange, isUpdating }) => {
+const EmployerJobCard: React.FC<{ 
+    job: Job, 
+    onStatusChange: (jobId: string, status: 'OPEN' | 'CLOSED') => void, 
+    isUpdating: boolean,
+    onClick: (job: Job) => void
+}> = ({ job, onStatusChange, isUpdating, onClick }) => {
     const isClosed = job.status === 'CLOSED';
     return (
-        <div className="bg-white p-4 rounded-lg border flex items-center justify-between">
+        <div 
+            onClick={() => onClick(job)}
+            className="bg-white p-4 rounded-lg border flex items-center justify-between cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all"
+        >
             <div>
                 <p className="font-semibold text-gray-800">{job.title}</p>
                 <p className="text-sm text-gray-500">{job.addressString}</p>
             </div>
             <button
-                onClick={() => onStatusChange(job.id, isClosed ? 'OPEN' : 'CLOSED')}
+                onClick={(e) => {
+                    e.stopPropagation(); // Prevent opening details when clicking action button
+                    onStatusChange(job.id, isClosed ? 'OPEN' : 'CLOSED');
+                }}
                 disabled={isUpdating}
                 className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors disabled:opacity-50 ${
                     isClosed 
@@ -75,6 +87,7 @@ const ApplicantCard: React.FC<{
                                 rel="noopener noreferrer"
                                 className="text-xs flex items-center text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 hover:bg-indigo-100"
                                 title="Mở CV trong tab mới"
+                                onClick={(e) => e.stopPropagation()}
                             >
                                 <DocumentTextIcon className="w-3 h-3 mr-1"/>
                                 CV
@@ -108,7 +121,10 @@ const ApplicantCard: React.FC<{
     );
 };
 
-const WorkerApplicationCard: React.FC<{ application: Application }> = ({ application }) => {
+const WorkerApplicationCard: React.FC<{ 
+    application: Application,
+    onClick: (jobId: string) => void
+}> = ({ application, onClick }) => {
     const statusInfo = {
         pending: { text: 'Đang chờ', className: 'bg-yellow-100 text-yellow-800' },
         accepted: { text: 'Đã chấp nhận', className: 'bg-green-100 text-green-800' },
@@ -117,7 +133,10 @@ const WorkerApplicationCard: React.FC<{ application: Application }> = ({ applica
     const currentStatus = statusInfo[application.status] || statusInfo.pending;
 
     return (
-        <div className="bg-white p-4 rounded-lg border flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div 
+            onClick={() => onClick(application.jobId)}
+            className="bg-white p-4 rounded-lg border flex flex-col sm:flex-row items-center justify-between gap-3 cursor-pointer hover:shadow-md hover:border-indigo-200 transition-all"
+        >
             <div className="flex-grow text-left w-full sm:w-auto">
                 <p className="font-semibold text-gray-800">{application.jobTitle}</p>
                 <p className="text-sm text-gray-500">Nhà tuyển dụng: <span className="font-medium">{application.employerName}</span></p>
@@ -135,7 +154,7 @@ const WorkerApplicationCard: React.FC<{ application: Application }> = ({ applica
 };
 
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
+const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect }) => {
   const { currentUser, currentUserData, refetchUserData, logout } = useAuth();
 
   // Basic info state
@@ -174,6 +193,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
   // Worker's data state
   const [myApplications, setMyApplications] = useState<Application[]>([]);
   const [myAppsLoading, setMyAppsLoading] = useState(true);
+  
+  const [isFetchingJob, setIsFetchingJob] = useState(false);
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -266,6 +287,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
           setUpdatingApplicationId(null);
       }
   };
+  
+  const handleViewJobDetail = async (jobId: string) => {
+      setIsFetchingJob(true);
+      try {
+          // Try finding in local list first (for employers)
+          const localJob = myJobs.find(j => j.id === jobId);
+          if (localJob) {
+              onJobSelect(localJob);
+          } else {
+              // Fetch from server (for workers or missing data)
+              const job = await getJobById(jobId);
+              if (job) {
+                  onJobSelect(job);
+              } else {
+                  alert("Công việc này không còn tồn tại hoặc đã bị xóa.");
+              }
+          }
+      } catch (err) {
+          console.error("Error fetching job details", err);
+      } finally {
+          setIsFetchingJob(false);
+      }
+  };
+
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -640,6 +685,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                             job={job} 
                             onStatusChange={handleJobStatusChange}
                             isUpdating={updatingJobId === job.id}
+                            onClick={(j) => onJobSelect(j)}
                         />
                     ))}
                     </div>
@@ -659,6 +705,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                             job={job} 
                             onStatusChange={handleJobStatusChange}
                             isUpdating={updatingJobId === job.id}
+                            onClick={(j) => onJobSelect(j)}
                         />
                     ))}
                     </div>
@@ -697,7 +744,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                 {myAppsLoading ? <Spinner /> : pendingApplications.length > 0 ? (
                     <div className="space-y-3">
                     {pendingApplications.map(app => (
-                        <WorkerApplicationCard key={`${app.jobId}-${app.id}`} application={app} />
+                        <WorkerApplicationCard 
+                            key={`${app.jobId}-${app.id}`} 
+                            application={app} 
+                            onClick={handleViewJobDetail}
+                        />
                     ))}
                     </div>
                 ) : (
@@ -709,7 +760,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                  {myAppsLoading ? <Spinner /> : acceptedApplications.length > 0 ? (
                     <div className="space-y-3">
                     {acceptedApplications.map(app => (
-                       <WorkerApplicationCard key={`${app.jobId}-${app.id}`} application={app} />
+                       <WorkerApplicationCard 
+                            key={`${app.jobId}-${app.id}`} 
+                            application={app} 
+                            onClick={handleViewJobDetail}
+                        />
                     ))}
                     </div>
                 ) : (
@@ -721,7 +776,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                  {myAppsLoading ? <Spinner /> : rejectedApplications.length > 0 ? (
                     <div className="space-y-3">
                     {rejectedApplications.map(app => (
-                        <WorkerApplicationCard key={`${app.jobId}-${app.id}`} application={app} />
+                        <WorkerApplicationCard 
+                            key={`${app.jobId}-${app.id}`} 
+                            application={app} 
+                            onClick={handleViewJobDetail}
+                        />
                     ))}
                     </div>
                 ) : (
@@ -731,6 +790,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
         </div>
       )}
 
+      {/* Job Detail Modal Integration */}
+      {isFetchingJob && <Spinner fullScreen message="Đang tải chi tiết công việc..."/>}
     </div>
   );
 };

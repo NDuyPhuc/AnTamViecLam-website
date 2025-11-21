@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -315,7 +313,10 @@ const App: React.FC = () => {
                             </div>
                         );
                     case View.Profile:
-                        return <ProfilePage onViewProfile={(userId, application) => setViewingProfile({userId, applicationContext: application})} />;
+                        return <ProfilePage 
+                            onViewProfile={(userId, application) => setViewingProfile({userId, applicationContext: application})} 
+                            onJobSelect={handleSelectJobForDetail}
+                        />;
                     default:
                         return null;
                 }

@@ -1,5 +1,4 @@
 
-
 import React, { useEffect, useState } from 'react';
 import type { Job } from '../types';
 import { formatPay } from '../utils/formatters';
@@ -7,6 +6,9 @@ import BriefcaseIcon from './icons/BriefcaseIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { applyForJob, checkIfApplied } from '../services/applicationService';
 import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
+import MapPinIcon from './icons/MapPinIcon';
+import XIcon from './icons/XIcon';
+import ClockIcon from './icons/ClockIcon';
 
 interface JobDetailModalProps {
   job: Job;
@@ -38,6 +40,9 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
       }
     };
 
+    // Prevent body scroll when modal is open
+    document.body.style.overflow = 'hidden';
+
     window.addEventListener('keydown', handleKeyDown);
 
     // Check application status when modal opens
@@ -51,6 +56,8 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      // Restore body scroll
+      document.body.style.overflow = 'unset';
     };
   }, [onClose, job.id, currentUser, currentUserData]);
 
@@ -89,127 +96,182 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
   return (
     <div 
-        className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4"
-        onClick={onClose}
-        aria-modal="true"
+        className="fixed inset-0 z-[100] flex items-end md:items-center justify-center"
         role="dialog"
+        aria-modal="true"
     >
+      {/* Backdrop */}
       <div 
-        className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden relative animate-fade-in-up max-h-[90vh] flex flex-col"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+        onClick={onClose}
+      ></div>
+
+      {/* Modal Container */}
+      <div 
+        className="bg-white w-full md:w-[90%] md:max-w-3xl h-[90vh] md:h-auto md:max-h-[85vh] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col relative z-10 animate-slide-up md:animate-fade-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-         <div className="p-6 overflow-y-auto flex-grow">
-            <div className="flex items-start justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800">{job.title}</h2>
-                    <p className="text-md text-gray-600 mt-1">{job.employerName}</p>
-                </div>
-                 {job.employerProfileUrl ? (
-                    <img src={job.employerProfileUrl} alt={`${job.employerName} logo`} className="w-16 h-16 rounded-lg object-cover flex-shrink-0 ml-4 border" />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 ml-4 border">
-                      <BriefcaseIcon className="w-8 h-8 text-gray-400" />
+         {/* Mobile Drag Handle Visual */}
+         <div className="md:hidden w-full flex justify-center pt-3 pb-1 bg-white cursor-pointer" onClick={onClose}>
+             <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+         </div>
+
+         {/* Header - Sticky */}
+         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start bg-white flex-shrink-0">
+            <div className="flex gap-4 overflow-hidden">
+                {job.employerProfileUrl ? (
+                    <img src={job.employerProfileUrl} alt="logo" className="w-14 h-14 rounded-lg object-cover border border-gray-100 flex-shrink-0" />
+                ) : (
+                    <div className="w-14 h-14 rounded-lg bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                         <BriefcaseIcon className="w-8 h-8 text-indigo-500" />
                     </div>
-                  )}
+                )}
+                <div className="min-w-0">
+                    <h2 className="text-xl font-bold text-gray-900 truncate leading-tight">{job.title}</h2>
+                    <p className="text-gray-500 text-sm truncate mt-1">{job.employerName}</p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                        <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-md">
+                            {formatPay(job.payRate, job.payType)}
+                        </span>
+                        <span className="text-gray-400 text-xs flex items-center">
+                            <ClockIcon className="w-3 h-3 mr-1"/>
+                            {new Date(job.createdAt).toLocaleDateString('vi-VN')}
+                        </span>
+                    </div>
+                </div>
             </div>
+            <button 
+                onClick={onClose}
+                className="p-2 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-500 transition-colors flex-shrink-0 ml-2"
+            >
+                <XIcon className="w-5 h-5" />
+            </button>
+         </div>
+
+         {/* Scrollable Content */}
+         <div className="flex-grow overflow-y-auto p-6 bg-white">
             
-            <div className="mt-6 border-t pt-4 space-y-4 text-sm">
+            {/* Address */}
+            <div className="flex items-start gap-3 mb-6 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <MapPinIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                    <h4 className="font-semibold text-gray-700">Địa điểm</h4>
-                    <p className="text-gray-600">{job.addressString}</p>
-                </div>
-                 <div>
-                    <h4 className="font-semibold text-gray-700">Mức lương</h4>
-                    <p className="text-lg font-bold text-green-600">{formatPay(job.payRate, job.payType)}</p>
-                </div>
-                 <div>
-                    <h4 className="font-semibold text-gray-700">Loại hình công việc</h4>
-                    <span className="text-indigo-600 font-medium bg-indigo-100 px-3 py-1 rounded-full">{job.jobType}</span>
-                </div>
-                <div>
-                    <h4 className="font-semibold text-gray-700">Mô tả công việc</h4>
-                    <p className="text-gray-600 leading-relaxed whitespace-pre-wrap">
-                       {job.description}
-                    </p>
+                    <p className="text-sm font-semibold text-gray-800">Địa điểm làm việc</p>
+                    <p className="text-sm text-gray-600">{job.addressString}</p>
+                    <button 
+                        onClick={onViewOnMap} 
+                        className="text-xs text-indigo-600 font-semibold hover:underline mt-1"
+                    >
+                        Xem trên bản đồ
+                    </button>
                 </div>
             </div>
 
-            {/* Application Form Section */}
+            {/* Description */}
+            <div className="mb-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-3">Mô tả công việc</h3>
+                <div className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
+                    {job.description}
+                </div>
+            </div>
+
+            {/* Tags */}
+            <div className="flex flex-wrap gap-2 mb-8">
+                 <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-medium border border-indigo-100">
+                    {job.jobType}
+                 </span>
+                 {job.payType && (
+                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium border border-gray-200">
+                        Trả lương {job.payType.toLowerCase()}
+                    </span>
+                 )}
+            </div>
+
+            {/* Application Form Section (Inline) */}
             {showApplyForm && !hasApplied && (
-                <div className="mt-6 bg-indigo-50 p-4 rounded-lg border border-indigo-100 animate-fade-in">
-                    <h3 className="font-bold text-indigo-800 mb-3 flex items-center">
+                <div className="mb-6 bg-indigo-50 p-5 rounded-xl border border-indigo-100 animate-fade-in">
+                    <h3 className="font-bold text-indigo-800 mb-4 flex items-center text-lg">
                         <PaperAirplaneIcon className="w-5 h-5 mr-2" />
-                        Đơn Ứng Tuyển
+                        Thông tin ứng tuyển
                     </h3>
-                    <form onSubmit={handleConfirmApply} className="space-y-3">
+                    <form onSubmit={handleConfirmApply} className="space-y-4">
                         <div>
-                            <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ</label>
+                            <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ <span className="text-red-500">*</span></label>
                             <input 
                                 type="tel" 
                                 id="contactPhone"
                                 value={contactPhone}
                                 onChange={(e) => setContactPhone(e.target.value)}
-                                className="w-full p-2 border border-indigo-200 rounded-md focus:ring-2 focus:ring-indigo-500"
+                                className="w-full p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                                 placeholder="Nhập số điện thoại..."
                                 required
                             />
                         </div>
                         <div>
-                            <label htmlFor="introduction" className="block text-sm font-medium text-gray-700 mb-1">Lời nhắn / Giới thiệu ngắn (Tùy chọn)</label>
+                            <label htmlFor="introduction" className="block text-sm font-medium text-gray-700 mb-1">Lời nhắn (Tùy chọn)</label>
                             <textarea 
                                 id="introduction"
                                 value={introduction}
                                 onChange={(e) => setIntroduction(e.target.value)}
                                 rows={3}
-                                className="w-full p-2 border border-indigo-200 rounded-md focus:ring-2 focus:ring-indigo-500"
-                                placeholder="VD: Tôi có kinh nghiệm làm việc này 2 năm, tôi có xe máy riêng..."
+                                className="w-full p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                placeholder="Giới thiệu ngắn gọn về kinh nghiệm của bạn..."
                             ></textarea>
                         </div>
-                        {applyError && <p className="text-red-500 text-sm">{applyError}</p>}
+                        {applyError && <p className="text-red-500 text-sm bg-red-50 p-2 rounded border border-red-100">{applyError}</p>}
+                        
                         <div className="flex gap-3 pt-2">
-                             <button 
-                                type="submit"
-                                disabled={isApplying}
-                                className="flex-1 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-400 flex items-center justify-center"
-                            >
-                                {isApplying ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> : null}
-                                Gửi hồ sơ
-                            </button>
                              <button 
                                 type="button"
                                 onClick={() => setShowApplyForm(false)}
-                                className="px-4 py-2 bg-white text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium"
+                                className="px-4 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold flex-1"
                             >
                                 Hủy
+                            </button>
+                             <button 
+                                type="submit"
+                                disabled={isApplying}
+                                className="flex-[2] bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-400 flex items-center justify-center shadow-md"
+                            >
+                                {isApplying ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Gửi hồ sơ'}
                             </button>
                         </div>
                     </form>
                 </div>
             )}
-
          </div>
 
+         {/* Footer Buttons - Sticky Bottom */}
          {!showApplyForm && (
-             <div className="px-6 py-4 bg-gray-50 border-t flex flex-col sm:flex-row gap-3 mt-auto">
+             <div className="p-4 bg-white border-t border-gray-100 flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex-shrink-0">
                  {currentUserData?.userType === 'WORKER' && !isEmployerViewingOwnJob && (
                     <button 
                         onClick={handleStartApply}
                         disabled={isApplying || hasApplied}
-                        className="w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 disabled:bg-indigo-400 disabled:cursor-not-allowed flex items-center justify-center"
+                        className={`flex-1 font-bold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center shadow-md active:scale-95 ${
+                            hasApplied 
+                            ? 'bg-green-100 text-green-700 cursor-default' 
+                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        }`}
                     >
-                        {hasApplied ? 'Đã ứng tuyển' : 'Ứng tuyển ngay'}
+                        {hasApplied ? (
+                            <>
+                                <span className="mr-2">✓</span> Đã ứng tuyển
+                            </>
+                        ) : (
+                            'Ứng tuyển ngay'
+                        )}
                     </button>
                  )}
-                 <button
-                    onClick={onViewOnMap}
-                    className="w-full bg-white text-indigo-600 font-bold py-2 px-4 rounded-lg hover:bg-indigo-50 border border-indigo-500 transition-colors duration-300"
-                  >
-                    Xem vị trí trên bản đồ
-                  </button>
+                 
+                 {isEmployerViewingOwnJob && (
+                     <div className="flex-1 bg-gray-100 text-gray-500 font-medium py-3 px-4 rounded-xl text-center text-sm flex items-center justify-center">
+                         Đây là bài đăng của bạn
+                     </div>
+                 )}
+
                  <button 
                     onClick={onClose}
-                    className="w-full bg-white text-gray-700 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 border border-gray-300 transition-colors duration-300"
-                    aria-label="Đóng"
+                    className="px-5 bg-white text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 border border-gray-200 transition-colors active:scale-95"
                  >
                     Đóng
                 </button>
@@ -217,18 +279,18 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
          )}
       </div>
        <style>{`
-        @keyframes fade-in-up {
-            0% {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        @keyframes slide-up {
+            0% { transform: translateY(100%); }
+            100% { transform: translateY(0); }
         }
-        .animate-fade-in-up {
-            animation: fade-in-up 0.3s ease-out forwards;
+        .animate-slide-up {
+            animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        /* Override fade-in for desktop to be simpler */
+        @media (min-width: 768px) {
+            .animate-slide-up {
+                animation: fade-in 0.2s ease-out forwards;
+            }
         }
     `}</style>
     </div>
