@@ -1,4 +1,5 @@
-import { rtdb, serverTimestamp } from './firebase';
+import firebase from 'firebase/compat/app';
+import { rtdb } from './firebase';
 
 /**
  * Sets up the Realtime Database listeners to manage a user's online/offline presence.
@@ -9,13 +10,16 @@ import { rtdb, serverTimestamp } from './firebase';
  */
 export const updateUserPresence = (uid: string): (() => void) => {
   const userStatusDatabaseRef = rtdb.ref(`/status/${uid}`);
+
+  // Use firebase.database.ServerValue.TIMESTAMP for Realtime Database
   const isOnlineForDatabase = {
     isOnline: true,
-    lastSeen: serverTimestamp(),
+    lastSeen: firebase.database.ServerValue.TIMESTAMP,
   };
+
   const isOfflineForDatabase = {
     isOnline: false,
-    lastSeen: serverTimestamp(),
+    lastSeen: firebase.database.ServerValue.TIMESTAMP,
   };
 
   // Special reference to '.info/connected' which is a boolean provided by Firebase

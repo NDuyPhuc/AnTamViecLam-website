@@ -21,10 +21,16 @@ export const usePresence = (userId: string | null): PresenceStatus => {
       const data = snapshot.val();
       if (data?.isOnline) {
         setPresence({ isOnline: true, statusText: 'Đang hoạt động' });
-      } else if (data?.lastSeen) {
-        const lastSeenDate = new Date(data.lastSeen).toISOString();
-        // Use the 'presence' context for more appropriate formatting
-        setPresence({ isOnline: false, statusText: `Hoạt động ${formatTimeAgo(lastSeenDate, 'presence')}` });
+      } else if (data?.lastSeen && typeof data.lastSeen === 'number') {
+        // Validate that lastSeen is a number before creating Date to prevent "RangeError: Invalid time value"
+        try {
+            const lastSeenDate = new Date(data.lastSeen).toISOString();
+            // Use the 'presence' context for more appropriate formatting
+            setPresence({ isOnline: false, statusText: `Hoạt động ${formatTimeAgo(lastSeenDate, 'presence')}` });
+        } catch (e) {
+            console.warn("Invalid lastSeen date for user:", userId, data.lastSeen);
+            setPresence({ isOnline: false, statusText: 'Không hoạt động' });
+        }
       } else {
         setPresence({ isOnline: false, statusText: 'Không hoạt động' });
       }
