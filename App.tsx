@@ -68,8 +68,6 @@ const App: React.FC = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-
-  // State for filters
   const [locationFilter, setLocationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   
@@ -77,18 +75,17 @@ const App: React.FC = () => {
     // Robust Service Worker registration
     if ('serviceWorker' in navigator) {
       const registerServiceWorker = () => {
-        const swUrl = `${window.location.origin}/sw.js`;
+        // Explicitly using sw.js to match the file we have
+        const swUrl = `/sw.js`; 
         navigator.serviceWorker.register(swUrl)
           .then((registration) => {
-            console.log('Service Worker registered with scope:', registration.scope);
+            console.log('Service Worker registered successfully with scope:', registration.scope);
           })
           .catch((error) => {
             console.error('Service Worker registration failed:', error);
           });
       };
 
-      // Fix: "The document is in an invalid state" can happen if we register too early.
-      // Check if the window load event has already fired.
       if (document.readyState === 'complete') {
         registerServiceWorker();
       } else {
@@ -99,7 +96,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Get user's location
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -111,7 +107,11 @@ const App: React.FC = () => {
         },
         (error) => {
             console.error("Geolocation error:", error);
-            setLocationError("Không thể lấy vị trí của bạn. Hãy thử cho phép truy cập vị trí trong trình duyệt để xem các công việc gần bạn.");
+            if (error.code === 1) {
+                setLocationError("Bạn đã từ chối quyền truy cập vị trí. Hãy bật lại trong cài đặt trình duyệt để tìm việc gần bạn.");
+            } else {
+                setLocationError("Không thể lấy vị trí hiện tại.");
+            }
         }
         );
     }
@@ -124,12 +124,11 @@ const App: React.FC = () => {
     
     const unsubscribeCounts = subscribeToAllApplicationCounts(setApplicationCounts);
 
-    // Cleanup subscription on unmount
     return () => {
         unsubscribeJobs();
         unsubscribeCounts();
     };
-  }, []); // Run only once when the component mounts.
+  }, []);
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -137,10 +136,10 @@ const App: React.FC = () => {
 
   const handleViewJobOnMap = (jobToView: Job) => {
     if (!jobToView) return;
-    setSelectedJob(null); // Close modal if open
-    setActiveView(View.Jobs); // Switch to Jobs View
-    setJobViewMode('map'); // Switch to Map Mode
-    setFocusedJobId(jobToView.id); // Focus on the job
+    setSelectedJob(null);
+    setActiveView(View.Jobs);
+    setJobViewMode('map');
+    setFocusedJobId(jobToView.id);
   };
 
   const handleNavigateToConversation = (conversationId: string) => {
@@ -152,7 +151,7 @@ const App: React.FC = () => {
       if (!application) return;
       try {
         const conversationId = await getOrCreateConversation(application);
-        if (viewingProfile) setViewingProfile(null); // Close profile modal
+        if (viewingProfile) setViewingProfile(null);
         handleNavigateToConversation(conversationId);
       } catch (error) {
           console.error("Failed to start conversation:", error);
@@ -217,7 +216,6 @@ const App: React.FC = () => {
       jobs = jobs.filter(job => job.jobType === typeFilter);
     }
 
-    // Sort by distance if location is available
     if (userLocation) {
         jobs.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     }
@@ -237,7 +235,6 @@ const App: React.FC = () => {
     return <UnauthenticatedApp />;
   }
 
-  // If user is logged in but has no profile data (or empty fullName), show completion page
   if (currentUser && currentUserData && !currentUserData.fullName) {
       return <CompleteProfilePage />;
   }
