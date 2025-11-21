@@ -18,14 +18,19 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
   // Ref to keep track of the DOM element we create for the AI library
   const aiContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Cleanup function to remove the AI container
+  // Cleanup function to remove the AI container safely
   const cleanupAI = () => {
     if (aiContainerRef.current && document.body.contains(aiContainerRef.current)) {
-        document.body.removeChild(aiContainerRef.current);
+        try {
+            document.body.removeChild(aiContainerRef.current);
+        } catch (e) {
+            console.warn("Failed to remove AI container:", e);
+        }
         aiContainerRef.current = null;
     }
   };
 
+  // Ensure cleanup happens on unmount
   useEffect(() => {
     return () => {
         cleanupAI();
@@ -36,40 +41,47 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     setError('');
     setStatus('loading');
 
-    // Short delay to allow React state update to reflect (spinner etc)
+    // Allow UI to update before heavy lifting
     await new Promise(resolve => setTimeout(resolve, 100));
 
+    // Check if the library is loaded
     const aie_aic = (window as any).aie_aic;
     if (typeof aie_aic !== 'function') {
-        setError('Hệ thống eKYC chưa sẵn sàng. Vui lòng thử lại sau.');
+        setError('Thư viện eKYC chưa tải xong. Vui lòng đợi vài giây và thử lại, hoặc tải lại trang.');
         setStatus('idle');
         return;
     }
 
     try {
-        // 1. Create a clean, isolated container at the body level
-        // This avoids conflicts with React modal styles (transforms, z-index, etc.)
+        // 1. Create a clean, isolated container directly on document.body
+        // Using a unique ID prevents conflicts with previous instances
         const containerId = `aic-portal-${Date.now()}`;
         const div = document.createElement('div');
         div.id = containerId;
-        div.style.position = 'fixed';
-        div.style.top = '0';
-        div.style.left = '0';
-        div.style.width = '100vw';
-        div.style.height = '100vh';
-        div.style.zIndex = '9999'; // Ensure it's on top of everything
-        div.style.backgroundColor = '#000';
-        document.body.appendChild(div);
         
+        // Force styles to ensure visibility and overlay correctly
+        Object.assign(div.style, {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100vw',
+            height: '100vh',
+            zIndex: '99999', // Highest priority
+            backgroundColor: '#000',
+            display: 'block'
+        });
+        
+        document.body.appendChild(div);
         aiContainerRef.current = div;
 
-        // 2. Configure 1AIE
+        // 2. Minimal Configuration for Stability
         const config = {
             type: "kyc", 
             kyc: {
                 collect: "manual", 
                 type: "image", 
-                video: { frame_rate: 30, duration: 60, file_name: "aic_kyc_video" },
+                // Simplified video config
+                video: { frame_rate: 30, duration: 30, file_name: "aic_kyc_video" },
                 get: ["faceStraight", "faceRight", "faceLeft"], 
                 width: "100%", 
                 position: "top", 
@@ -82,30 +94,34 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             },
             brand: "An Tâm Việc Làm", 
             width: "100%",
-            // Removed 'video: "all"' to prevent potential config conflicts
             
+            // Callback function
             function: async function(res: any, location: any) {
-                console.log("Kết quả KYC:", res);
-                if (res && (Object.keys(res).length > 0)) {
-                     // Hide the AI container immediately so users see the "Processing" UI
-                     if (div) div.style.display = 'none';
-                     
+                console.log("eKYC Result:", res);
+                
+                // Hide container immediately to show processing UI
+                if (div) div.style.display = 'none';
+                
+                if (res && Object.keys(res).length > 0) {
                      setStatus('processing');
                      try {
                          if (currentUser) {
                              await verifyUser(currentUser.uid, res);
                              setStatus('success');
-                             cleanupAI(); // Remove container from DOM
+                             cleanupAI(); 
                              setTimeout(() => { onSuccess(); }, 2000);
+                         } else {
+                             throw new Error("User session invalid");
                          }
                      } catch (err) {
-                         console.error(err);
-                         setError('Lỗi khi lưu dữ liệu xác minh.');
+                         console.error("Verification save failed:", err);
+                         setError('Lỗi khi lưu kết quả xác minh. Vui lòng thử lại.');
                          setStatus('idle');
                          cleanupAI();
                      }
                 } else {
-                    // User cancelled or empty result
+                    // User closed or cancelled
+                    console.log("eKYC cancelled or empty result");
                     cleanupAI();
                     setStatus('idle');
                 }
@@ -113,18 +129,19 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
         };
 
         // 3. Initialize Library
-        // We pass the ID string *without* the hash '#' because the library adds it internally.
+        console.log("Initializing 1AIE on container:", containerId);
         aie_aic(containerId, config);
 
     } catch (e: any) {
-        console.error("eKYC Init Error:", e);
-        setError(`Không thể khởi động camera: ${e.message}`);
+        console.error("eKYC Start Error:", e);
+        setError(`Không thể khởi động camera: ${e.message || 'Lỗi không xác định'}`);
         setStatus('idle');
         cleanupAI();
     }
   };
 
   const handleClose = () => {
+      if (status === 'processing') return; // Prevent closing while saving
       cleanupAI();
       onClose();
   };
@@ -151,7 +168,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
         <div className="p-6 overflow-y-auto flex-grow flex flex-col items-center justify-center min-h-[400px] relative bg-gray-50">
             
             {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-4 w-full text-center border border-red-100">
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg text-sm mb-4 w-full text-center border border-red-100 animate-fade-in">
                     {error}
                 </div>
             )}
@@ -161,9 +178,9 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                     <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
                         <ShieldCheckIcon className="w-10 h-10 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">Xác thực khuôn mặt</h3>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Xác thực khuôn mặt AI</h3>
                     <p className="text-gray-600 mb-8 text-base">
-                        Hệ thống sẽ yêu cầu quyền truy cập camera để xác minh danh tính của bạn. Vui lòng làm theo hướng dẫn trên màn hình.
+                        Hệ thống sẽ sử dụng camera để xác minh danh tính của bạn. Quá trình này diễn ra nhanh chóng và bảo mật.
                     </p>
                     <button
                         onClick={startKYC}
@@ -173,41 +190,41 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        Bắt đầu Camera
+                        Bắt đầu Xác minh
                     </button>
                 </div>
             )}
 
             {status === 'loading' && (
-                <div className="absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center">
-                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-indigo-600 font-semibold text-lg">Đang khởi động máy ảnh...</p>
-                    <p className="text-gray-500 text-sm mt-2">Vui lòng chọn "Cho phép" nếu trình duyệt yêu cầu.</p>
+                <div className="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center text-center p-4">
+                    <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+                    <h4 className="text-xl font-bold text-indigo-600">Đang khởi động máy ảnh...</h4>
+                    <p className="text-gray-500 mt-2 max-w-xs">Vui lòng chọn <strong>"Cho phép" (Allow)</strong> nếu trình duyệt yêu cầu quyền truy cập camera.</p>
                 </div>
             )}
 
             {status === 'processing' && (
-                 <div className="absolute inset-0 bg-white/90 z-20 flex flex-col items-center justify-center">
-                    <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-green-600 font-bold text-lg">Đang xử lý dữ liệu...</p>
-                    <p className="text-gray-500 text-sm mt-2">Vui lòng không tắt trình duyệt.</p>
+                 <div className="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center text-center p-4">
+                    <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                    <h4 className="text-xl font-bold text-green-600">Đang xử lý dữ liệu...</h4>
+                    <p className="text-gray-500 mt-2">Hệ thống đang phân tích hình ảnh. Vui lòng không tắt trình duyệt.</p>
                 </div>
             )}
 
             {status === 'success' && (
                 <div className="absolute inset-0 bg-white z-30 flex flex-col items-center justify-center animate-fade-in-up">
-                    <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
                     <h3 className="text-2xl font-bold text-green-600 mb-2">Xác minh thành công!</h3>
-                    <p className="text-gray-500">Hồ sơ của bạn đã được cập nhật.</p>
+                    <p className="text-gray-500">Hồ sơ của bạn đã được chứng thực.</p>
                 </div>
             )}
         </div>
         <div className="p-3 border-t bg-gray-50 text-center text-xs text-gray-400">
-             Công nghệ nhận diện khuôn mặt bởi 1AIE Smart AI
+             Powered by 1AIE Smart AI Technology
         </div>
       </div>
     </div>

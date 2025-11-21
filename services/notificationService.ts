@@ -31,9 +31,10 @@ export const requestNotificationPermission = async (userId: string) => {
 const saveMessagingDeviceToken = async (userId: string) => {
     try {
         // Wait for the service worker registered in App.tsx to be ready
+        // This assumes sw.js is correctly served from the root (now in public/sw.js)
         const registration = await navigator.serviceWorker.ready;
         
-        // Pass the registration to getToken so it uses 'sw.js' instead of looking for 'firebase-messaging-sw.js'
+        // Pass the registration to getToken so it uses our existing 'sw.js'
         const fcmToken = await messaging.getToken({ 
             vapidKey: VAPID_KEY,
             serviceWorkerRegistration: registration 
@@ -49,13 +50,15 @@ const saveMessagingDeviceToken = async (userId: string) => {
 
             messaging.onMessage((payload) => {
                 console.log('Foreground message received. ', payload);
-                // Optional: Show toast or custom UI
+                // Optional: Show toast or custom UI here
             });
         } else {
             console.log('No registration token available.');
         }
     } catch (error) {
         console.error('An error occurred while retrieving token:', error);
+        // Silently fail if token retrieval fails (e.g. brave browser, or network blocking)
+        // to not disrupt the main user flow.
     }
 };
 
