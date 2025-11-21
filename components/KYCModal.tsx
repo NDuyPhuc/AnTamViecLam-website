@@ -19,7 +19,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     setError('');
     setStatus('loading');
 
-    // Check if library is available using type assertion
+    // Check if library is available using type assertion to avoid TS errors
     const aie_aic = (window as any).aie_aic;
 
     if (typeof aie_aic !== 'function') {
@@ -29,102 +29,70 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     }
 
     try {
-        // Configuration provided by user
+        // Configuration provided by user documentation
         const config = {
             type: "kyc", 
-            option: {
-                kyc: {
-                    collect: "manual", 
-                    type: "image", 
-                    video: { 
-                        frame_rate: 30, 
-                        duration: 60, 
-                        file_name: "aie_kyc_video" 
-                    },
-                    multi_face: false, 
-                    data: {
-                        face: 4, 
-                        irisL: false, 
-                        irisR: false 
-                    },
-                    get: ["faceStraight", "faceRight", "faceLeft"], 
-                    width: "80%", 
-                    position: "top", 
-                    position_button: true, 
-                    blur: 0, 
-                    send_button: true, 
-                    switch_button: true 
+            kyc: {
+                collect: "manual", 
+                type: "image", 
+                video: { 
+                    frame_rate: 30, 
+                    duration: 60, 
+                    file_name: "aic_kyc_video" 
                 },
-                gender: false, 
-                brightness: false, 
-                liveness: true, 
-                liveness_action: "random(2)", 
-                liveness_timeout: 9, 
-                deep_scan: false, 
-                deep_scan_button: true, 
-                look_left: 20, 
-                look_right: 20, 
-                face_down: 20, 
-                face_up: 20, 
-                face_left: 20, 
-                face_right: 20, 
-                lips_open: 1, 
-                board_info: "frame" 
-            }, 
-            brand: "default", 
+                // Angles to capture
+                get: ["faceStraight", "faceRight", "faceLeft"], 
+                
+                width: "80%", 
+                position: "top", 
+                send_button: true, 
+                switch_button: true,
+                
+                // UI/UX Configuration
+                kyc_data: {
+                    face: 4, 
+                    gender: false, 
+                    liveness: true, // Check for real person
+                    look_left: 20, 
+                    look_right: 20, 
+                    board_info: "frame" 
+                }
+            },
+            brand: "An Tâm Việc Làm KYC", 
             width: "100%", 
             video: "all", 
-            mirror: false, 
-            resolution: "qhd", 
-            mode: true, 
-            border: false, 
-            control: true, 
-            torch: true, 
-            zoom: {
-                start: 1, 
-                step: 0.5 
-            }, 
-            // Handle exit explicitly to close modal in React
-            exit: function() {
-                setStatus('idle');
-                onClose();
-            }, 
-            location: true, 
-            align: "top", 
-            opacity: 1, 
-            opacity_bg: "#222", 
-            zindex: 1999999999, // High z-index to stay on top
-            lang: {
-                show: true, 
-                set: "en" 
-            } 
+            
+            // Result Callback
+            function: async function(res: any, location: any) {
+                console.log("Kết quả KYC:", res);
+                
+                // res contains Base64 data: res.faceStraight, res.faceLeft, res.faceRight
+                if (res && (Object.keys(res).length > 0)) {
+                     setStatus('processing');
+                     
+                     try {
+                         if (currentUser) {
+                             // Save verified data to Firebase as requested
+                             await verifyUser(currentUser.uid, res);
+                             setStatus('success');
+                             setTimeout(() => {
+                                 onSuccess();
+                             }, 1500);
+                         }
+                     } catch (err) {
+                         console.error(err);
+                         setError('Lỗi khi lưu dữ liệu xác minh vào hệ thống.');
+                         setStatus('idle');
+                     }
+                } else {
+                    setError('Không nhận được dữ liệu xác minh. Vui lòng thử lại.');
+                    setStatus('idle');
+                }
+            }
         };
 
-        // Use "body" as target element
-        aie_aic("body", config, async function(res: any, location: any) {
-            console.log("eKYC Result:", res);
-            
-            // If we get a valid response array/object with face data
-            if (res && (Array.isArray(res) ? res.length > 0 : Object.keys(res).length > 0)) {
-                 setStatus('processing');
-                 
-                 // Save the KYC data (images, metrics) to Firebase
-                 try {
-                     if (currentUser) {
-                         // Pass the 'res' object to verifyUser to save it in Firestore
-                         await verifyUser(currentUser.uid, res);
-                         setStatus('success');
-                         setTimeout(() => {
-                             onSuccess();
-                         }, 1500);
-                     }
-                 } catch (err) {
-                     console.error(err);
-                     setError('Lỗi khi lưu dữ liệu xác minh.');
-                     setStatus('idle');
-                 }
-            }
-        });
+        // Init 1AIE Camera on "body"
+        aie_aic("body", config);
 
     } catch (e: any) {
         console.error("eKYC Init Error:", e);
@@ -156,7 +124,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Xác minh danh tính</h2>
             <p className="text-gray-600 mb-8">
-                Chúng tôi sử dụng công nghệ AI eKYC để xác thực khuôn mặt của bạn. Dữ liệu xác thực sẽ được lưu trữ an toàn để đảm bảo tin cậy.
+                Sử dụng công nghệ AI Camera để xác thực khuôn mặt (Thẳng, Trái, Phải). Dữ liệu sẽ được lưu an toàn trên hệ thống.
             </p>
 
             {error && (
@@ -170,7 +138,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                     onClick={startKYC}
                     className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 transition-all transform hover:scale-[1.02] shadow-md"
                 >
-                    Bắt đầu xác minh
+                    Bắt đầu Camera
                 </button>
             )}
 
@@ -184,7 +152,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             {status === 'processing' && (
                  <div className="flex flex-col items-center justify-center py-2">
                     <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p className="text-sm text-green-600 font-medium">Đang xử lý và lưu dữ liệu...</p>
+                    <p className="text-sm text-green-600 font-medium">Đang lưu dữ liệu xác thực...</p>
                 </div>
             )}
 
@@ -195,12 +163,12 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                    <p className="text-lg font-bold text-green-600">Thành công!</p>
+                    <p className="text-lg font-bold text-green-600">Xác minh thành công!</p>
                 </div>
             )}
             
             <div className="mt-6 text-xs text-gray-400">
-                Được cung cấp bởi 1AIE Smart AI
+                Powered by 1AIE Smart AI
             </div>
         </div>
       </div>

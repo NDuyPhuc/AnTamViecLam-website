@@ -76,8 +76,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // Robust Service Worker registration
     if ('serviceWorker' in navigator) {
-      // Use the load event to ensure the page is fully loaded
-      window.addEventListener('load', () => {
+      const registerServiceWorker = () => {
         const swUrl = `${window.location.origin}/sw.js`;
         navigator.serviceWorker.register(swUrl)
           .then((registration) => {
@@ -86,23 +85,37 @@ const App: React.FC = () => {
           .catch((error) => {
             console.error('Service Worker registration failed:', error);
           });
-      });
-    }
+      };
 
-    // Get user's location
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setLocationError(null);
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        setLocationError("Không thể lấy vị trí của bạn. Hãy thử cho phép truy cập vị trí trong trình duyệt để xem các công việc gần bạn.");
+      if (document.readyState === 'complete') {
+        registerServiceWorker();
+      } else {
+        window.addEventListener('load', registerServiceWorker);
       }
-    );
+
+      return () => {
+        window.removeEventListener('load', registerServiceWorker);
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    // Get user's location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+        (position) => {
+            setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            });
+            setLocationError(null);
+        },
+        (error) => {
+            console.error("Geolocation error:", error);
+            setLocationError("Không thể lấy vị trí của bạn. Hãy thử cho phép truy cập vị trí trong trình duyệt để xem các công việc gần bạn.");
+        }
+        );
+    }
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
@@ -292,70 +305,3 @@ const App: React.FC = () => {
                                 allJobs={allJobs}
                                 currentUserData={currentUserData!}
                                 onViewOnMap={handleViewJobOnMap}
-                                onJobSelect={handleSelectJobForDetail}
-                            />
-                        );
-                    case View.Insurance:
-                        return <InsuranceDashboard />;
-                    case View.Messaging:
-                        return (
-                            <div className="h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)]">
-                                <Messaging
-                                    initialSelectedConversationId={selectedConversationId}
-                                    clearInitialSelection={() => setSelectedConversationId(null)}
-                                />
-                            </div>
-                        );
-                    case View.Chatbot:
-                        return (
-                            <div className="h-[calc(100vh-12rem)] md:h-[calc(100vh-10rem)]">
-                                <Chatbot allJobs={filteredJobs} />
-                            </div>
-                        );
-                    case View.Profile:
-                        return <ProfilePage onViewProfile={(userId, application) => setViewingProfile({userId, applicationContext: application})} />;
-                    default:
-                        return null;
-                }
-            })()}
-       </div>
-    );
-  };
-  
-  if (loading) {
-    return <Spinner fullScreen message="Đang tải ứng dụng..." />;
-  }
-  
-  if (!currentUser) {
-    return <UnauthenticatedApp />;
-  }
-
-  if (!currentUserData || !currentUserData.fullName) {
-    return <CompleteProfilePage />;
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header 
-        activeView={activeView} 
-        setActiveView={setActiveView} 
-        onPostJobClick={() => setIsPostJobModalOpen(true)}
-        onNotificationNavigate={handleNotificationNavigate} 
-      />
-      <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 md:py-10 pb-28 md:pb-10">
-        {renderContent()}
-      </main>
-      {selectedJob && <JobDetailModal job={selectedJob} onClose={handleCloseModal} onViewOnMap={() => handleViewJobOnMap(selectedJob)} />}
-      {isPostJobModalOpen && <PostJobModal onClose={() => setIsPostJobModalOpen(false)} />}
-      {viewingProfile && (
-        <PublicProfileModal 
-            userId={viewingProfile.userId} 
-            onClose={() => setViewingProfile(null)}
-            onStartChat={viewingProfile.applicationContext ? () => handleStartConversationWithUser(viewingProfile.applicationContext!) : undefined}
-        />
-      )}
-    </div>
-  );
-};
-
-export default App;
