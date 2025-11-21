@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import XIcon from './icons/XIcon';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import { verifyUser } from '../services/userService';
@@ -7,12 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 interface KYCModalProps {
   onClose: () => void;
   onSuccess: () => void;
-}
-
-declare global {
-    interface Window {
-        aie_aic: any;
-    }
 }
 
 const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
@@ -24,9 +19,11 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     setError('');
     setStatus('loading');
 
-    // Check if library is available
-    if (typeof window.aie_aic !== 'function') {
-       setError('Hệ thống eKYC chưa sẵn sàng (thư viện chưa tải xong). Vui lòng thử lại sau vài giây.');
+    // Check if library is available using type assertion
+    const aie_aic = (window as any).aie_aic;
+
+    if (typeof aie_aic !== 'function') {
+       setError('Hệ thống eKYC chưa sẵn sàng (thư viện chưa tải xong). Vui lòng kiểm tra kết nối mạng hoặc thử lại sau vài giây.');
        setStatus('idle');
        return;
     }
@@ -74,7 +71,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                 lips_open: 1, 
                 board_info: "frame" 
             }, 
-            brand: "An Tâm Việc Làm", 
+            brand: "default", 
             width: "100%", 
             video: "all", 
             mirror: false, 
@@ -90,33 +87,32 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             // Handle exit explicitly to close modal in React
             exit: function() {
                 setStatus('idle');
-                // onClose(); // Optional: uncomment if you want to close modal on exit
+                onClose();
             }, 
             location: true, 
             align: "top", 
             opacity: 1, 
             opacity_bg: "#222", 
-            zindex: 2147483647, // High z-index to stay on top
+            zindex: 1999999999, // High z-index to stay on top
             lang: {
                 show: true, 
-                set: "vi" 
+                set: "en" 
             } 
         };
 
-        // Use "body" as target element as per prompt instructions
-        window.aie_aic("body", config, async function(res: any, location: any) {
+        // Use "body" as target element
+        aie_aic("body", config, async function(res: any, location: any) {
             console.log("eKYC Result:", res);
-            // console.log("Location:", location);
             
             // If we get a valid response array/object with face data
             if (res && (Array.isArray(res) ? res.length > 0 : Object.keys(res).length > 0)) {
                  setStatus('processing');
                  
-                 // In a real scenario, you would upload 'res' images to your server for verification.
-                 // Here we simulate a successful verification process on the client side.
+                 // Save the KYC data (images, metrics) to Firebase
                  try {
                      if (currentUser) {
-                         await verifyUser(currentUser.uid);
+                         // Pass the 'res' object to verifyUser to save it in Firestore
+                         await verifyUser(currentUser.uid, res);
                          setStatus('success');
                          setTimeout(() => {
                              onSuccess();
@@ -124,7 +120,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
                      }
                  } catch (err) {
                      console.error(err);
-                     setError('Lỗi khi cập nhật trạng thái xác minh.');
+                     setError('Lỗi khi lưu dữ liệu xác minh.');
                      setStatus('idle');
                  }
             }
@@ -160,7 +156,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Xác minh danh tính</h2>
             <p className="text-gray-600 mb-8">
-                Chúng tôi sử dụng công nghệ AI eKYC để xác thực khuôn mặt của bạn. Quá trình này giúp đảm bảo an toàn cho cộng đồng.
+                Chúng tôi sử dụng công nghệ AI eKYC để xác thực khuôn mặt của bạn. Dữ liệu xác thực sẽ được lưu trữ an toàn để đảm bảo tin cậy.
             </p>
 
             {error && (
@@ -188,7 +184,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             {status === 'processing' && (
                  <div className="flex flex-col items-center justify-center py-2">
                     <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                    <p className="text-sm text-green-600 font-medium">Đang xử lý dữ liệu...</p>
+                    <p className="text-sm text-green-600 font-medium">Đang xử lý và lưu dữ liệu...</p>
                 </div>
             )}
 
