@@ -10,6 +10,7 @@ import XIcon from './icons/XIcon';
 import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
 import IdentificationIcon from './icons/IdentificationIcon';
 import LightBulbIcon from './icons/LightBulbIcon';
+import DocumentTextIcon from './icons/DocumentTextIcon'; // Import DocumentTextIcon
 
 interface PublicProfileModalProps {
   userId: string;
@@ -78,7 +79,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center space-x-4">
                                     {profile.profileImageUrl ? (
-                                        <img src={profile.profileImageUrl} alt={profile.fullName} className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md"/>
+                                        <img src={profile.profileImageUrl} alt={profile.fullName || "User"} className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md"/>
                                     ) : (
                                         <UserIcon className="w-20 h-20"/>
                                     )}
@@ -89,6 +90,17 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
                                                 <MapPinIcon className="w-4 h-4 mr-1.5"/>
                                                 <p>{profile.address}</p>
                                             </div>
+                                        )}
+                                        {/* Display Phone Number if available (Visible to employer/authorized viewer) */}
+                                        {profile.phoneNumber && (
+                                            <p className="text-sm text-gray-600 mt-1">
+                                                SĐT: <span className="font-medium">{profile.phoneNumber}</span>
+                                            </p>
+                                        )}
+                                         {profile.email && (
+                                            <p className="text-sm text-gray-600">
+                                                Email: {profile.email}
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -115,6 +127,21 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, onClose
 
                         {/* Body */}
                         <div className="flex-grow p-6 sm:p-8 overflow-y-auto space-y-8">
+                             {/* CV Download Section */}
+                             {profile.cvUrl && (
+                                <Section icon={<DocumentTextIcon className="w-6 h-6"/>} title="Hồ sơ đính kèm">
+                                    <a 
+                                        href={profile.cvUrl} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                                    >
+                                        <DocumentTextIcon className="w-5 h-5 mr-2" />
+                                        <span className="font-medium">{profile.cvName || 'Tải xuống CV / Hồ sơ năng lực'}</span>
+                                    </a>
+                                </Section>
+                            )}
+
                             {profile.bio && (
                                 <Section icon={<IdentificationIcon className="w-6 h-6"/>} title="Giới thiệu">
                                     <p className="text-gray-600 whitespace-pre-wrap">{profile.bio}</p>

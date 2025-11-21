@@ -68,6 +68,8 @@ export interface UserData {
   bio?: string;
   skills?: string[];
   workHistory?: WorkExperience[];
+  cvUrl?: string | null; // URL to the uploaded CV (PDF/Doc)
+  cvName?: string | null; // Original file name of the CV
 }
 
 export interface Application {

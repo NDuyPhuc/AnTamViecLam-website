@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
-import { uploadImage } from '../services/cloudinaryService';
+import { uploadFile } from '../services/cloudinaryService'; // This now handles generic files
 import UserIcon from './icons/UserIcon';
 import Spinner from './Spinner';
 import { UserRole, Job, Application, WorkExperience } from '../types';
@@ -9,8 +10,9 @@ import { subscribeToJobsByEmployer, updateJobStatus } from '../services/jobServi
 import { subscribeToApplicationsForEmployer, updateApplicationStatus, subscribeToApplicationsForWorker } from '../services/applicationService';
 import XCircleIcon from './icons/XCircleIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
-// Fix: Import TrashIcon component.
 import TrashIcon from './icons/TrashIcon';
+import DocumentTextIcon from './icons/DocumentTextIcon';
+import CheckCircleIcon from './icons/CheckCircleIcon';
 
 interface ProfilePageProps {
     onViewProfile: (userId: string, application: Application) => void;
@@ -137,6 +139,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
   const [workHistory, setWorkHistory] = useState<WorkExperience[]>([]);
   const [showWorkForm, setShowWorkForm] = useState(false);
   const [newWork, setNewWork] = useState({ title: '', company: '', duration: '' });
+  
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [existingCvUrl, setExistingCvUrl] = useState<string | null>(null);
+  const [existingCvName, setExistingCvName] = useState<string | null>(null);
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -157,6 +163,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cvInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (currentUserData) {
@@ -170,6 +177,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
       setBio(currentUserData.bio || '');
       setSkills(currentUserData.skills || []);
       setWorkHistory(currentUserData.workHistory || []);
+      setExistingCvUrl(currentUserData.cvUrl || null);
+      setExistingCvName(currentUserData.cvName || null);
 
 
       if (currentUserData.userType === UserRole.Employer) {
@@ -257,6 +266,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
     }
   };
 
+  const handleCvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          // Basic validation for PDF/Doc
+          const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+          if (!validTypes.includes(file.type)) {
+              setError("Vui lòng chỉ tải lên file PDF hoặc Word.");
+              return;
+          }
+          if (file.size > 5 * 1024 * 1024) { // 5MB limit
+              setError("File quá lớn. Vui lòng chọn file nhỏ hơn 5MB.");
+              return;
+          }
+          setCvFile(file);
+          setError('');
+      }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName) {
@@ -275,7 +302,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
     try {
         let imageUrl = currentUserData?.profileImageUrl || null;
         if (avatarFile) {
-            imageUrl = await uploadImage(avatarFile);
+            imageUrl = await uploadFile(avatarFile);
+        }
+        
+        let newCvUrl = existingCvUrl;
+        let newCvName = existingCvName;
+        
+        if (cvFile) {
+            newCvUrl = await uploadFile(cvFile); 
+            newCvName = cvFile.name;
         }
 
         const userDocRef = db.collection('users').doc(currentUser.uid);
@@ -290,13 +325,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
             dataToUpdate.bio = bio;
             dataToUpdate.skills = skills;
             dataToUpdate.workHistory = workHistory;
+            dataToUpdate.cvUrl = newCvUrl;
+            dataToUpdate.cvName = newCvName;
         }
 
         await userDocRef.update(dataToUpdate);
         
+        // Update local state immediately to show feedback
+        setExistingCvUrl(newCvUrl);
+        setExistingCvName(newCvName);
+        setAvatarPreview(imageUrl);
+        
         await refetchUserData();
         setSuccess('Cập nhật hồ sơ thành công!');
         setAvatarFile(null); 
+        setCvFile(null);
 
     } catch (err) {
         console.error(err);
@@ -440,6 +483,37 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
                             <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">Giới thiệu bản thân</label>
                             <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} rows={3} placeholder="Viết một vài dòng về bản thân và kinh nghiệm của bạn..." className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"></textarea>
                         </div>
+                        
+                        {/* CV Upload */}
+                        <div>
+                             <label className="block text-sm font-medium text-gray-700 mb-1">Hồ sơ năng lực (CV)</label>
+                             <input
+                                type="file"
+                                ref={cvInputRef}
+                                onChange={handleCvFileChange}
+                                className="hidden"
+                                accept=".pdf,.doc,.docx"
+                            />
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => cvInputRef.current?.click()}
+                                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-200 flex items-center"
+                                >
+                                    <DocumentTextIcon className="w-5 h-5 mr-2"/>
+                                    {cvFile ? 'Đổi file' : 'Tải lên CV'}
+                                </button>
+                                {cvFile && <span className="text-sm text-green-600">{cvFile.name}</span>}
+                                {existingCvUrl && !cvFile && (
+                                    <a href={existingCvUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-600 hover:underline flex items-center">
+                                        <CheckCircleIcon className="w-4 h-4 mr-1" />
+                                        {existingCvName || 'Xem CV hiện tại'}
+                                    </a>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Hỗ trợ định dạng PDF, Word. Tối đa 5MB.</p>
+                        </div>
+
                         {/* Skills */}
                         <div>
                             <label htmlFor="skills" className="block text-sm font-medium text-gray-700 mb-1">Kỹ năng</label>

@@ -1,7 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../services/firebase';
-import { uploadImage } from '../../services/cloudinaryService';
+import { uploadFile } from '../../services/cloudinaryService';
 import UserIcon from '../icons/UserIcon';
 
 const CompleteProfilePage: React.FC = () => {
@@ -48,7 +49,7 @@ const CompleteProfilePage: React.FC = () => {
     try {
         let imageUrl = currentUserData?.profileImageUrl || null;
         if (avatarFile) {
-            imageUrl = await uploadImage(avatarFile);
+            imageUrl = await uploadFile(avatarFile);
         }
 
         const userDocRef = db.collection('users').doc(currentUser.uid);
