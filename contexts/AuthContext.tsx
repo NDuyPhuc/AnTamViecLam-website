@@ -43,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = docSnap.data();
       // Convert timestamp to ISO string to prevent serialization issues
       const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      
       const userData: UserData = {
           uid: data.uid,
           email: data.email,
@@ -52,7 +53,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           phoneNumber: data.phoneNumber,
           address: data.address,
           profileImageUrl: data.profileImageUrl,
-          fcmTokens: data.fcmTokens || [], // Ensure fcmTokens is an array
+          fcmTokens: data.fcmTokens || [],
+          // Map worker-specific fields
+          bio: data.bio || '',
+          skills: data.skills || [],
+          workHistory: data.workHistory || [],
+          cvUrl: data.cvUrl || null,
+          cvName: data.cvName || null,
       };
       setCurrentUserData(userData as UserData);
     } else {
@@ -84,6 +91,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       address: null,
       profileImageUrl: null,
       fcmTokens: [],
+      bio: '',
+      skills: [],
+      workHistory: [],
+      cvUrl: null,
+      cvName: null,
     });
     return userCredential;
   };
@@ -117,6 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     address: null,
                     profileImageUrl: user.photoURL || null, // Pre-fill avatar if available
                     fcmTokens: [],
+                    bio: '',
+                    skills: [],
+                    workHistory: [],
+                    cvUrl: null,
+                    cvName: null,
                 });
             }
         }
