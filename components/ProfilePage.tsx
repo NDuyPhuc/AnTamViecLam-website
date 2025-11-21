@@ -269,12 +269,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
   const handleCvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          // Basic validation for PDF/Doc
+          const filename = file.name.toLowerCase();
+          const fileType = file.type || '';
+          
           const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-          if (!validTypes.includes(file.type)) {
+          const validExtensions = ['.pdf', '.doc', '.docx'];
+
+          // Robust validation: Check MIME type OR extension
+          // This ensures valid files aren't blocked even if the browser reports an empty or weird MIME type
+          const isValid = validTypes.some(t => fileType.includes(t)) || 
+                          validExtensions.some(ext => filename.endsWith(ext));
+
+          if (!isValid) {
               setError("Vui lòng chỉ tải lên file PDF hoặc Word.");
               return;
           }
+          
           if (file.size > 5 * 1024 * 1024) { // 5MB limit
               setError("File quá lớn. Vui lòng chọn file nhỏ hơn 5MB.");
               return;
@@ -302,14 +312,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile }) => {
     try {
         let imageUrl = currentUserData?.profileImageUrl || null;
         if (avatarFile) {
-            imageUrl = await uploadFile(avatarFile);
+            const rawUrl = await uploadFile(avatarFile);
+            imageUrl = rawUrl.trim();
         }
         
         let newCvUrl = existingCvUrl;
         let newCvName = existingCvName;
         
         if (cvFile) {
-            newCvUrl = await uploadFile(cvFile); 
+            const rawUrl = await uploadFile(cvFile); 
+            // Important: Trim whitespace here as well
+            newCvUrl = rawUrl.trim();
             newCvName = cvFile.name;
         }
 

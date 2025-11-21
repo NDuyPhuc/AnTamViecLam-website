@@ -1,9 +1,11 @@
+
 // Fix: Use compat imports for Firebase v9+ to resolve module issues.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/database';
 import 'firebase/compat/firestore';
 import 'firebase/compat/messaging';
+// Storage import removed
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -24,6 +26,7 @@ export const auth = firebase.auth();
 export const db = firebase.firestore();
 export const messaging = firebase.messaging();
 export const rtdb = firebase.database();
+// Storage export removed
 
 // Export compat firestore helpers
 export const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
