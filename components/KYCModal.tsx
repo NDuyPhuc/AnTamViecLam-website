@@ -37,6 +37,21 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     };
   }, []);
 
+  const loadJQuery = (): Promise<void> => {
+      return new Promise((resolve, reject) => {
+          if ((window as any).jQuery || (window as any).$) {
+              resolve();
+              return;
+          }
+          const script = document.createElement('script');
+          script.src = "https://code.jquery.com/jquery-3.6.0.min.js";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Không thể tải jQuery."));
+          document.body.appendChild(script);
+      });
+  };
+
   const loadScript = (): Promise<void> => {
       return new Promise((resolve, reject) => {
           if ((window as any).aie_aic) {
@@ -47,8 +62,6 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
           // Kiểm tra xem script đã tồn tại trong DOM chưa
           const existingScript = document.querySelector('script[src*="api.1aie.com"]');
           if (existingScript) {
-              // Nếu đang tải thì đợi, nếu xong rồi thì resolve
-              // Đơn giản hóa: giả sử nó sẽ load xong
               resolve(); 
               return;
           }
@@ -68,11 +81,14 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
     setStatus('loading');
 
     try {
-        // 1. Tải thư viện động (Dynamic Import)
+        // 1. Tải jQuery trước (Bắt buộc cho 1AIE)
+        await loadJQuery();
+
+        // 2. Tải thư viện 1AIE
         await loadScript();
 
         // Allow UI to update and library to parse
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Check if the library is loaded
         const aie_aic = (window as any).aie_aic;
@@ -80,7 +96,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             throw new Error('Thư viện eKYC chưa sẵn sàng. Vui lòng thử lại.');
         }
 
-        // 2. Create a clean, isolated container directly on document.body
+        // 3. Create a clean, isolated container directly on document.body
         // Using a unique ID prevents conflicts with previous instances
         const containerId = `aic-portal-${Date.now()}`;
         const div = document.createElement('div');
@@ -101,7 +117,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
         document.body.appendChild(div);
         aiContainerRef.current = div;
 
-        // 3. Minimal Configuration for Stability
+        // 4. Minimal Configuration for Stability
         const config = {
             type: "kyc", 
             kyc: {
@@ -155,7 +171,7 @@ const KYCModal: React.FC<KYCModalProps> = ({ onClose, onSuccess }) => {
             }
         };
 
-        // 4. Initialize Library
+        // 5. Initialize Library
         console.log("Initializing 1AIE on container:", containerId);
         aie_aic(containerId, config);
 

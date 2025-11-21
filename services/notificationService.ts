@@ -30,35 +30,48 @@ export const requestNotificationPermission = async (userId: string) => {
  */
 const saveMessagingDeviceToken = async (userId: string) => {
     try {
+        // Check if serviceWorker is supported
+        if (!('serviceWorker' in navigator)) {
+            console.log('Service Worker not supported in this browser.');
+            return;
+        }
+
         // Wait for the service worker registered in App.tsx to be ready
         // This assumes sw.js is correctly served from the root (now in public/sw.js)
         const registration = await navigator.serviceWorker.ready;
         
-        // Pass the registration to getToken so it uses our existing 'sw.js'
-        const fcmToken = await messaging.getToken({ 
-            vapidKey: VAPID_KEY,
-            serviceWorkerRegistration: registration 
-        });
-
-        if (fcmToken) {
-            console.log('FCM Token:', fcmToken);
-            const userDocRef = db.collection('users').doc(userId);
-            await userDocRef.update({
-                fcmTokens: arrayUnion(fcmToken),
+        try {
+            // Pass the registration to getToken so it uses our existing 'sw.js'
+            const fcmToken = await messaging.getToken({ 
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: registration 
             });
-            console.log('FCM token saved for user:', userId);
 
-            messaging.onMessage((payload) => {
-                console.log('Foreground message received. ', payload);
-                // Optional: Show toast or custom UI here
-            });
-        } else {
-            console.log('No registration token available.');
+            if (fcmToken) {
+                console.log('FCM Token retrieved successfully.');
+                const userDocRef = db.collection('users').doc(userId);
+                await userDocRef.update({
+                    fcmTokens: arrayUnion(fcmToken),
+                });
+
+                messaging.onMessage((payload) => {
+                    console.log('Foreground message received. ', payload);
+                    // Optional: Show toast or custom UI here
+                });
+            } else {
+                console.log('No registration token available.');
+            }
+        } catch (tokenError: any) {
+            // Specific handling for invalid VAPID key or push service errors
+            if (tokenError.name === 'InvalidAccessError' || tokenError.message?.includes('applicationServerKey')) {
+                 console.warn("FCM Token Warning: The VAPID Key appears to be invalid or misconfigured. Notifications will be disabled, but the app will continue to function.");
+            } else {
+                 console.error("Error retrieving FCM token:", tokenError);
+            }
         }
+
     } catch (error) {
-        console.error('An error occurred while retrieving token:', error);
-        // Silently fail if token retrieval fails (e.g. brave browser, or network blocking)
-        // to not disrupt the main user flow.
+        console.error('An unexpected error occurred in saveMessagingDeviceToken:', error);
     }
 };
 
