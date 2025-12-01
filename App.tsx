@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -74,9 +73,13 @@ const App: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState('');
   
   useEffect(() => {
+    // Check if running in Capacitor Native environment
+    const isNative = (window as any).Capacitor?.isNativePlatform();
+
     // Robust Service Worker registration
-    if ('serviceWorker' in navigator) {
-      // Use the load event to ensure the page is fully loaded
+    // ONLY register Service Worker if we are NOT in a native environment (Web only)
+    // Service Workers in Capacitor can cause issues with file:// protocol and updates.
+    if ('serviceWorker' in navigator && !isNative) {
       window.addEventListener('load', () => {
         const swUrl = `${window.location.origin}/sw.js`;
         navigator.serviceWorker.register(swUrl)
@@ -338,7 +341,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-safe">
       <Header 
         activeView={activeView} 
         setActiveView={setActiveView} 
