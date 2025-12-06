@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
 import InsuranceDashboard from './components/InsuranceDashboard';
@@ -23,6 +23,7 @@ import { getOrCreateConversation } from './services/messagingService';
 import AdvancedJobRecommendations from './components/AdvancedJobRecommendations';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 type JobViewMode = 'list' | 'map';
 
@@ -66,19 +67,76 @@ const App: React.FC = () => {
   
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
 
   // State for filters
   const [locationFilter, setLocationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   
+  // --- HYBRID LOCATION LOGIC (Reusable) ---
+  const getUserLocation = useCallback(async () => {
+    setIsLocating(true);
+    setLocationError(null); // Reset lỗi cũ
+    
+    try {
+        console.log('Starting location check via Capacitor Plugin...');
+        
+        // 1. Kiểm tra và Yêu cầu quyền (Plugin xử lý cả Web & Native)
+        try {
+            const permissions = await Geolocation.checkPermissions();
+            console.log('Current permissions:', permissions);
+            
+            if (permissions.location !== 'granted') {
+                console.log('Requesting permissions...');
+                const requestResult = await Geolocation.requestPermissions();
+                if (requestResult.location !== 'granted') {
+                    throw new Error('Quyền truy cập vị trí bị từ chối.');
+                }
+            }
+        } catch (permError) {
+            console.warn("Permission check skipped or failed (safe to ignore on some browsers):", permError);
+        }
+
+        // 2. Lấy vị trí (Timeout 10s)
+        const position = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0 // Bắt buộc lấy vị trí mới nhất
+        });
+        
+        console.log('Location found:', position.coords);
+        setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+        });
+        setLocationError(null);
+
+    } catch (e: any) {
+        console.error("Location Error:", e);
+        
+        let msg = "Không thể lấy vị trí. Vui lòng kiểm tra GPS và thử lại.";
+        
+        // Xử lý mã lỗi chuẩn
+        if (e.code === 1) msg = "Quyền truy cập vị trí bị từ chối."; // PERMISSION_DENIED
+        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Vui lòng bật vị trí."; // POSITION_UNAVAILABLE
+        else if (e.code === 3) msg = "Quá thời gian lấy vị trí. Vui lòng thử lại."; // TIMEOUT
+        else if (e.message) msg = e.message;
+
+        // Chỉ hiển thị lỗi nếu chưa có vị trí nào
+        setUserLocation(prev => {
+            if (!prev) setLocationError(msg);
+            return prev;
+        });
+    } finally {
+        setIsLocating(false);
+    }
+  }, []); // FIX: Empty dependency array to prevent infinite loop
+
   useEffect(() => {
-    // Check if running in Capacitor Native environment
     const isNative = Capacitor.isNativePlatform();
 
-    // Robust Service Worker registration
-    // ONLY register Service Worker if we are NOT in a native environment (Web only)
-    // Service Workers in Capacitor can cause issues with file:// protocol and updates.
+    // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
       window.addEventListener('load', () => {
         const swUrl = `${window.location.origin}/sw.js`;
@@ -92,68 +150,27 @@ const App: React.FC = () => {
       });
     }
 
-    // --- HYBRID LOCATION LOGIC ---
-    const getUserLocation = async () => {
+    // Initial Location Fetch
+    getUserLocation();
+
+    // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
+    // Tự động lấy lại vị trí khi người dùng quay lại App (ví dụ: sau khi bật GPS từ cài đặt)
+    let appListener: any;
+    const setupAppListener = async () => {
         try {
-            if (isNative) {
-                // Native App Flow: Use Capacitor Geolocation
-                console.log('Requesting native permissions...');
-                
-                // 1. Check current permissions
-                const permissions = await Geolocation.checkPermissions();
-                
-                // 2. Request if not granted
-                if (permissions.location !== 'granted') {
-                    const requestResult = await Geolocation.requestPermissions();
-                    if (requestResult.location !== 'granted') {
-                        throw new Error('Quyền truy cập vị trí bị từ chối trên thiết bị.');
-                    }
+            appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+                if (isActive) {
+                    console.log('App resumed (isActive: true), re-checking location...');
+                    // Gọi lại hàm lấy vị trí
+                    getUserLocation();
                 }
-
-                // 3. Get Position
-                const position = await Geolocation.getCurrentPosition({
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                });
-                
-                setUserLocation({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                });
-                setLocationError(null);
-
-            } else {
-                // Web Flow: Use Browser API
-                if (!navigator.geolocation) {
-                    throw new Error('Trình duyệt không hỗ trợ định vị.');
-                }
-                
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        setUserLocation({
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        });
-                        setLocationError(null);
-                    },
-                    (error) => {
-                        console.error("Web Geolocation error:", error);
-                        // Standardize Web error messages
-                        let msg = "Không thể lấy vị trí của bạn.";
-                        if (error.code === error.PERMISSION_DENIED) msg = "Bạn đã từ chối quyền truy cập vị trí.";
-                        else if (error.code === error.TIMEOUT) msg = "Quá thời gian chờ lấy vị trí.";
-                        setLocationError(msg);
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            }
-        } catch (e: any) {
-            console.error("Location Error:", e);
-            setLocationError(e.message || "Không thể lấy vị trí. Vui lòng kiểm tra GPS.");
+            });
+            console.log('App State Listener registered.');
+        } catch (err) {
+            console.warn('App State Listener failed to register:', err);
         }
     };
-
-    getUserLocation();
+    setupAppListener();
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
@@ -161,11 +178,14 @@ const App: React.FC = () => {
       setJobsLoading(false);
     });
     
-    // Cleanup subscription on unmount
+    // Cleanup
     return () => {
         unsubscribeJobs();
+        if (appListener) {
+            appListener.remove();
+        }
     };
-  }, []); // Run only once when the component mounts.
+  }, [getUserLocation]); 
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -289,10 +309,30 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
+                            {/* LOCATION ERROR ALERT WITH RETRY BUTTON */}
                             {locationError && (
-                                <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4 rounded-r-lg" role="alert">
-                                    <p className="font-bold">Thông báo</p>
-                                    <p>{locationError}</p>
+                                <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+                                    <div>
+                                        <p className="font-bold">Thông báo</p>
+                                        <p>{locationError}</p>
+                                    </div>
+                                    <button 
+                                        onClick={getUserLocation}
+                                        disabled={isLocating}
+                                        className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50"
+                                    >
+                                        {isLocating ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                Đang tải...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <MapIcon className="w-4 h-4 mr-2" />
+                                                Thử lại
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
                             )}
 
