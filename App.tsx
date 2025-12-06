@@ -21,6 +21,8 @@ import { calculateDistance, parseLocationString } from './utils/formatters';
 import PublicProfileModal from './components/PublicProfileModal';
 import { getOrCreateConversation } from './services/messagingService';
 import AdvancedJobRecommendations from './components/AdvancedJobRecommendations';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 
 type JobViewMode = 'list' | 'map';
 
@@ -72,7 +74,7 @@ const App: React.FC = () => {
   
   useEffect(() => {
     // Check if running in Capacitor Native environment
-    const isNative = (window as any).Capacitor?.isNativePlatform();
+    const isNative = Capacitor.isNativePlatform();
 
     // Robust Service Worker registration
     // ONLY register Service Worker if we are NOT in a native environment (Web only)
@@ -90,20 +92,68 @@ const App: React.FC = () => {
       });
     }
 
-    // Get user's location
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        });
-        setLocationError(null);
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        setLocationError("Không thể lấy vị trí của bạn. Hãy thử cho phép truy cập vị trí trong trình duyệt để xem các công việc gần bạn.");
-      }
-    );
+    // --- HYBRID LOCATION LOGIC ---
+    const getUserLocation = async () => {
+        try {
+            if (isNative) {
+                // Native App Flow: Use Capacitor Geolocation
+                console.log('Requesting native permissions...');
+                
+                // 1. Check current permissions
+                const permissions = await Geolocation.checkPermissions();
+                
+                // 2. Request if not granted
+                if (permissions.location !== 'granted') {
+                    const requestResult = await Geolocation.requestPermissions();
+                    if (requestResult.location !== 'granted') {
+                        throw new Error('Quyền truy cập vị trí bị từ chối trên thiết bị.');
+                    }
+                }
+
+                // 3. Get Position
+                const position = await Geolocation.getCurrentPosition({
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                });
+                
+                setUserLocation({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                });
+                setLocationError(null);
+
+            } else {
+                // Web Flow: Use Browser API
+                if (!navigator.geolocation) {
+                    throw new Error('Trình duyệt không hỗ trợ định vị.');
+                }
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        setUserLocation({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        });
+                        setLocationError(null);
+                    },
+                    (error) => {
+                        console.error("Web Geolocation error:", error);
+                        // Standardize Web error messages
+                        let msg = "Không thể lấy vị trí của bạn.";
+                        if (error.code === error.PERMISSION_DENIED) msg = "Bạn đã từ chối quyền truy cập vị trí.";
+                        else if (error.code === error.TIMEOUT) msg = "Quá thời gian chờ lấy vị trí.";
+                        setLocationError(msg);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            }
+        } catch (e: any) {
+            console.error("Location Error:", e);
+            setLocationError(e.message || "Không thể lấy vị trí. Vui lòng kiểm tra GPS.");
+        }
+    };
+
+    getUserLocation();
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
