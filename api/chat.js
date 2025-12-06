@@ -1,8 +1,12 @@
 
 export default async function handler(req, res) {
   // --- CẤU HÌNH SERVER SIDE (VERCEL) ---
-  // Lấy Key từ biến môi trường trên Vercel
-  const SERVER_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  // Thử tất cả các tên biến môi trường có thể có để đảm bảo tìm thấy Key
+  const SERVER_API_KEY = 
+    process.env.VITE_GEMINI_API_KEY || 
+    process.env.GEMINI_API_KEY || 
+    process.env.VITE_API_KEY || 
+    process.env.VITE_GOOGLE_API_KEY;
   // -------------------------------------
 
   // CORS Setup
@@ -40,11 +44,18 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { message, history, systemInstruction } = body;
 
-    // Kiểm tra Key trên Server
+    // Kiểm tra Key trên Server và log debug (chỉ hiện 4 ký tự cuối để bảo mật)
+    const keyStatus = SERVER_API_KEY 
+        ? `Found (ends with ...${SERVER_API_KEY.slice(-4)})` 
+        : "MISSING";
+    
+    console.log(`[API/Chat] API Key Status: ${keyStatus}`);
+
     if (!SERVER_API_KEY) {
-      console.error("[API/Chat] ERROR: Missing GEMINI_API_KEY in Vercel Environment Variables.");
+      console.error("[API/Chat] ERROR: Không tìm thấy API Key trong Environment Variables.");
+      console.error("Checked: VITE_GEMINI_API_KEY, GEMINI_API_KEY, VITE_API_KEY, VITE_GOOGLE_API_KEY");
       return res.status(500).json({ 
-        error: "Server configuration error. API Key is missing." 
+        error: "Server configuration error. API Key is missing. Please check Vercel Environment Variables and Redeploy." 
       });
     }
 
@@ -75,7 +86,7 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error("[API/Chat] Google API Error:", JSON.stringify(data));
-      // Nếu key bị lỗi, trả về lỗi rõ ràng
+      // Nếu key bị lỗi 403, có thể do key bị chặn IP hoặc chưa enable API
       return res.status(response.status).json({
         error: data.error?.message || "Google API Error"
       });

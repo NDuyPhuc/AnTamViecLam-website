@@ -1,4 +1,3 @@
-
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 
@@ -7,8 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 const API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
 
 // --- CẤU HÌNH CLIENT SIDE (FALLBACK) ---
-// Key này lấy từ biến môi trường. KHÔNG ĐƯỢC hardcode key trực tiếp vào đây.
-// API Key must be obtained exclusively from process.env.API_KEY
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
 const CLIENT_SIDE_API_KEY = process.env.API_KEY || ""; 
 // ----------------------------------------------
 
@@ -94,7 +92,7 @@ export const sendMessageToBot = async (
         console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
 
         if (!CLIENT_SIDE_API_KEY) {
-            console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường.");
+            console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường (process.env.API_KEY).");
             console.groupEnd();
             return "🤖 Hệ thống đang bảo trì kết nối (Missing Configuration). Vui lòng thử lại sau.";
         }
@@ -122,7 +120,7 @@ export const sendMessageToBot = async (
             console.groupEnd();
             
             if (clientError.message?.includes("403") || clientError.toString().includes("PERMISSION_DENIED")) {
-                 return "🤖 Lỗi quyền truy cập API Key. Vui lòng kiểm tra cấu hình trên Vercel (Environment Variables) và Google Cloud Console.";
+                 return "🤖 Lỗi quyền truy cập API Key. Vui lòng kiểm tra cấu hình Key trên Google Cloud Console (bỏ giới hạn Android App nếu đang chạy Web/Vercel).";
             }
             return "🤖 Tôi đang gặp chút khó khăn khi kết nối. Vui lòng thử lại sau ít phút.";
         }
