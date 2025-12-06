@@ -3,21 +3,20 @@ import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 
 // --- CẤU HÌNH API URL ---
-// QUAN TRỌNG: Phải dùng đường dẫn tuyệt đối (https://...) để Mobile App (Capacitor)
-// có thể gọi được Server Vercel thay vì gọi vào localhost của điện thoại.
+// Sử dụng đường dẫn tuyệt đối để Mobile App gọi được Server Vercel
 const API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
 
 // --- CẤU HÌNH CLIENT SIDE (FALLBACK) ---
-// Key này chỉ dùng khi Server Vercel bị lỗi hoặc quá tải.
-// Nên thay bằng import.meta.env.VITE_GEMINI_API_KEY nếu có thể.
-const CLIENT_SIDE_API_KEY = "AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c"; 
+// Key này lấy từ biến môi trường. KHÔNG ĐƯỢC hardcode key trực tiếp vào đây.
+// API Key must be obtained exclusively from process.env.API_KEY
+const CLIENT_SIDE_API_KEY = process.env.API_KEY || ""; 
 // ----------------------------------------------
 
 /**
  * Gửi tin nhắn đến chatbot.
  * Chiến thuật "Hybrid":
  * 1. Thử gọi Backend Vercel (API_URL) với Key Server (An toàn, mạnh mẽ).
- * 2. Nếu thất bại -> Fallback sang Client SDK (Dùng key client, tiện lợi nhưng lộ key).
+ * 2. Nếu thất bại -> Fallback sang Client SDK (Dùng key client).
  */
 export const sendMessageToBot = async (
     message: string, 
@@ -68,7 +67,7 @@ export const sendMessageToBot = async (
                 history: formattedHistory,
                 systemInstruction: systemInstruction
             })
-        }, 8000); // Tăng timeout lên 8s cho mạng di động
+        }, 15000); // Tăng timeout lên 15s để xử lý cold start của serverless
         
         // Kiểm tra response JSON
         const contentType = response.headers.get("content-type");
@@ -81,12 +80,24 @@ export const sendMessageToBot = async (
             }
         }
         
-        throw new Error(`Backend Error: ${response.status} ${response.statusText}`);
+        // Nếu server trả về lỗi, ném lỗi để xuống catch
+        let errorMsg = `Backend Status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            if(errorData.error) errorMsg += ` - ${errorData.error}`;
+        } catch(e) {}
+        throw new Error(errorMsg);
 
     } catch (backendError) {
         // --- CHIẾN THUẬT 2: Fallback Client SDK ---
         console.warn(`⚠️ [Backend Failed] ${backendError instanceof Error ? backendError.message : "Unknown error"}. Chuyển sang Client SDK.`);
         console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
+
+        if (!CLIENT_SIDE_API_KEY) {
+            console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường.");
+            console.groupEnd();
+            return "🤖 Hệ thống đang bảo trì kết nối (Missing Configuration). Vui lòng thử lại sau.";
+        }
 
         try {
             const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
@@ -111,9 +122,9 @@ export const sendMessageToBot = async (
             console.groupEnd();
             
             if (clientError.message?.includes("403") || clientError.toString().includes("PERMISSION_DENIED")) {
-                 return "🤖 Lỗi quyền truy cập (API Key bị chặn). Vui lòng kiểm tra cấu hình Key.";
+                 return "🤖 Lỗi quyền truy cập API Key. Vui lòng kiểm tra cấu hình trên Vercel (Environment Variables) và Google Cloud Console.";
             }
-            return "🤖 Hệ thống đang bảo trì hoặc mất kết nối mạng. Vui lòng thử lại sau ít phút.";
+            return "🤖 Tôi đang gặp chút khó khăn khi kết nối. Vui lòng thử lại sau ít phút.";
         }
     }
 };
@@ -134,6 +145,12 @@ export const analyzeJobMatches = async (
     nearbyJobs: Job[]
 ): Promise<JobRecommendation[]> => {
     if (!nearbyJobs.length) return [];
+    
+    // Nếu không có client key thì không chạy được tính năng này ở client side
+    if (!CLIENT_SIDE_API_KEY) {
+        console.warn("Missing API_KEY for analysis");
+        return [];
+    }
 
     const simplifiedJobs = nearbyJobs.map(j => ({
         id: j.id,
