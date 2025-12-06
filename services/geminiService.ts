@@ -1,27 +1,35 @@
+
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 
 // --- CẤU HÌNH API URL ---
 // Sử dụng đường dẫn tuyệt đối để Mobile App gọi được Server Vercel
-const API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
+const CHAT_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
+const ANALYZE_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/analyze";
 
 // --- CẤU HÌNH CLIENT SIDE (FALLBACK) ---
 // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-const CLIENT_SIDE_API_KEY = process.env.API_KEY || ""; 
+// Note: In Vite, process.env.API_KEY might be empty. We check import.meta.env for fallback.
+const CLIENT_SIDE_API_KEY = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || ""; 
 // ----------------------------------------------
 
 /**
+ * Hàm helper để làm sạch chuỗi JSON từ AI (xóa markdown ```json nếu có)
+ */
+const cleanJsonString = (jsonStr: string): string => {
+    if (!jsonStr) return "";
+    return jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+};
+
+/**
  * Gửi tin nhắn đến chatbot.
- * Chiến thuật "Hybrid":
- * 1. Thử gọi Backend Vercel (API_URL) với Key Server (An toàn, mạnh mẽ).
- * 2. Nếu thất bại -> Fallback sang Client SDK (Dùng key client).
  */
 export const sendMessageToBot = async (
     message: string, 
     history: ChatMessage[], 
     context: any
 ): Promise<string> => {
-    console.group("🤖 [GeminiService] Start");
+    console.group("🤖 [GeminiService] Start Chat");
 
     const systemInstruction = `
         ${context.projectContext}
@@ -55,9 +63,9 @@ export const sendMessageToBot = async (
 
     try {
         // --- CHIẾN THUẬT 1: Gọi Backend Vercel ---
-        console.log(`👉 [Step 1] Thử gọi Server: ${API_URL}`);
+        console.log(`👉 [Step 1] Thử gọi Server Chat: ${CHAT_API_URL}`);
         
-        const response = await fetchWithTimeout(API_URL, {
+        const response = await fetchWithTimeout(CHAT_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -65,9 +73,8 @@ export const sendMessageToBot = async (
                 history: formattedHistory,
                 systemInstruction: systemInstruction
             })
-        }, 15000); // Tăng timeout lên 15s để xử lý cold start của serverless
+        }, 15000); 
         
-        // Kiểm tra response JSON
         const contentType = response.headers.get("content-type");
         if (response.ok && contentType && contentType.includes("application/json")) {
             const data = await response.json();
@@ -78,7 +85,6 @@ export const sendMessageToBot = async (
             }
         }
         
-        // Nếu server trả về lỗi, ném lỗi để xuống catch
         let errorMsg = `Backend Status: ${response.status}`;
         try {
             const errorData = await response.json();
@@ -92,7 +98,7 @@ export const sendMessageToBot = async (
         console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
 
         if (!CLIENT_SIDE_API_KEY) {
-            console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường (process.env.API_KEY).");
+            console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường.");
             console.groupEnd();
             return "🤖 Hệ thống đang bảo trì kết nối (Missing Configuration). Vui lòng thử lại sau.";
         }
@@ -144,11 +150,7 @@ export const analyzeJobMatches = async (
 ): Promise<JobRecommendation[]> => {
     if (!nearbyJobs.length) return [];
     
-    // Nếu không có client key thì không chạy được tính năng này ở client side
-    if (!CLIENT_SIDE_API_KEY) {
-        console.warn("Missing API_KEY for analysis");
-        return [];
-    }
+    console.group("🔮 [GeminiService] Start Analyze Jobs");
 
     const simplifiedJobs = nearbyJobs.map(j => ({
         id: j.id,
@@ -177,7 +179,7 @@ export const analyzeJobMatches = async (
         YÊU CẦU PHÂN TÍCH:
         Đánh giá từng công việc dựa trên khoảng cách, kỹ năng, mức lương và rủi ro.
 
-        OUTPUT JSON FORMAT (BẮT BUỘC):
+        OUTPUT JSON FORMAT (BẮT BUỘC, KHÔNG MARKDOWN):
         [
             {
                 "jobId": "id_của_job",
@@ -190,25 +192,65 @@ export const analyzeJobMatches = async (
         ]
     `;
 
+    // --- CHIẾN THUẬT HYBRID CHO ANALYZE ---
     try {
-        const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [{ role: 'user', parts: [{ text: prompt }] }],
-            config: {
-                responseMimeType: "application/json", 
-                temperature: 0.3,
+         // --- CÁCH 1: Gọi Server API (Ưu tiên) ---
+         console.log(`👉 [Step 1] Thử gọi Server Analyze: ${ANALYZE_API_URL}`);
+         
+         const response = await fetch(ANALYZE_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: prompt })
+         });
+
+         const contentType = response.headers.get("content-type");
+         if (response.ok && contentType && contentType.includes("application/json")) {
+             const data = await response.json();
+             console.log("✅ [Backend Analyze] Thành công!", data.length, "items");
+             console.groupEnd();
+             // Server đã trả về JSON object, không cần parse lại
+             return (data as JobRecommendation[]).sort((a, b) => b.matchScore - a.matchScore);
+         }
+         
+         throw new Error(`Analyze Server Failed: ${response.status}`);
+
+    } catch (serverError) {
+        // --- CÁCH 2: Fallback Client SDK ---
+        console.warn(`⚠️ [Backend Analyze Failed] ${serverError instanceof Error ? serverError.message : "Unknown error"}. Chuyển sang Client SDK.`);
+        
+        if (!CLIENT_SIDE_API_KEY) {
+            console.error("❌ [Client SDK] Thiếu API_KEY. Không thể phân tích.");
+            console.groupEnd();
+            return [];
+        }
+
+        try {
+            console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
+            const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    responseMimeType: "application/json", 
+                    temperature: 0.3,
+                }
+            });
+
+            const jsonText = cleanJsonString(response.text || "");
+            if (!jsonText) {
+                console.warn("⚠️ Client SDK trả về text rỗng");
+                return [];
             }
-        });
 
-        const jsonText = response.text;
-        if (!jsonText) return [];
+            const recommendations = JSON.parse(jsonText) as JobRecommendation[];
+            console.log("✅ [Client SDK] Thành công!", recommendations.length, "items");
+            console.groupEnd();
+            return recommendations.sort((a, b) => b.matchScore - a.matchScore);
 
-        const recommendations = JSON.parse(jsonText) as JobRecommendation[];
-        return recommendations.sort((a, b) => b.matchScore - a.matchScore);
-
-    } catch (error) {
-        console.error("Error analyzing jobs:", error);
-        return [];
+        } catch (clientError) {
+            console.error("❌ Error analyzing jobs (Client SDK):", clientError);
+            console.groupEnd();
+            return [];
+        }
     }
 };
