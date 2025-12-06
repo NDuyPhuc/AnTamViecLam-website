@@ -1,7 +1,4 @@
-
-
-
-import { db, serverTimestamp } from './firebase';
+import { db, serverTimestamp, increment } from './firebase';
 import type { Job, UserData, Application } from '../types';
 import { createNotification } from './notificationService';
 import { NotificationType } from '../types';
@@ -51,7 +48,17 @@ export const applyForJob = async (
     contactPhoneNumber: contactPhoneNumber || worker.phoneNumber || '',
   };
 
-  await applicationRef.set(applicationData);
+  // Use a batch to ensure both the application is created AND the job count is incremented
+  const batch = db.batch();
+  
+  batch.set(applicationRef, applicationData);
+  
+  const jobRef = db.collection('jobs').doc(job.id);
+  batch.update(jobRef, {
+      applicantCount: increment(1)
+  });
+
+  await batch.commit();
 
   // Send notification to employer
   await createNotification(
@@ -72,31 +79,6 @@ export const checkIfApplied = async (jobId: string, workerId: string): Promise<b
   const docSnap = await applicationRef.get();
   return docSnap.exists;
 };
-
-/**
- * Subscribes to application counts for all jobs.
- * This is more efficient than fetching counts per job.
- */
-export const subscribeToAllApplicationCounts = (callback: (counts: { [jobId: string]: number }) => void) => {
-    const applicationsCollection = db.collection('applications');
-    const unsubscribe = applicationsCollection.onSnapshot((querySnapshot) => {
-        const counts: { [jobId: string]: number } = {};
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            const jobId = data.jobId;
-            if (jobId) {
-                counts[jobId] = (counts[jobId] || 0) + 1;
-            }
-        });
-        callback(counts);
-    }, (error) => {
-        console.error("Error fetching application counts: ", error);
-        callback({});
-    });
-
-    return unsubscribe;
-};
-
 
 /**
  * Subscribes to all applications for jobs posted by a specific employer.

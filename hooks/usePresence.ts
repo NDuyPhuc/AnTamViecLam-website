@@ -16,7 +16,7 @@ export const usePresence = (userId: string | null): PresenceStatus => {
       return;
     }
 
-    const userStatusRef = rtdb.ref(`/status/${userId}`);
+    const userStatusRef = rtdb.ref(`/users/${userId}/status`);
     const listener = userStatusRef.on('value', (snapshot) => {
       const data = snapshot.val();
       if (data?.isOnline) {
@@ -34,6 +34,10 @@ export const usePresence = (userId: string | null): PresenceStatus => {
       } else {
         setPresence({ isOnline: false, statusText: 'Không hoạt động' });
       }
+    }, (error) => {
+        // Silently handle permission errors (users might not be able to read others' status based on rules)
+        console.warn("Error reading presence:", error);
+        setPresence({ isOnline: false, statusText: null });
     });
 
     return () => userStatusRef.off('value', listener);

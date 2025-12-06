@@ -1,6 +1,3 @@
-
-
-
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
@@ -31,6 +28,7 @@ export interface Job {
   hiredWorkerId: string | null;
 
   distance?: number; // Distance in km from the user
+  applicantCount?: number;
 }
 
 

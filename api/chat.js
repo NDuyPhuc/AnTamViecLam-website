@@ -1,16 +1,32 @@
 
 export default async function handler(req, res) {
   // --- CẤU HÌNH SERVER SIDE (VERCEL) ---
-  // Đây là Key MỚI (Dùng cho môi trường Production/Vercel)
-  const SERVER_API_KEY = "AIzaSyBxIX5Od28Go9qkG6SdLrZhcLPpLe3bR0E"; 
+  // Lấy Key từ biến môi trường trên Vercel
+  // Ưu tiên VITE_GEMINI_API_KEY nếu người dùng đặt theo thói quen Frontend, hoặc GEMINI_API_KEY chuẩn
+  const SERVER_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   // -------------------------------------
 
-  // Log request để debug trên Vercel Logs
+  // Log request để debug
   console.log("[API/Chat] Received request method:", req.method);
 
-  // CORS Setup - Quan trọng cho Vercel
+  // CORS Setup - Cấu hình linh hoạt để chạy được cả trên Web và Mobile App (Capacitor)
+  const allowedOrigins = [
+    'https://an-tam-viec-lam-website.vercel.app', // Domain chính
+    'http://localhost:3000', // Local dev
+    'http://localhost', // Capacitor Android
+    'capacitor://localhost' // Capacitor iOS/Android
+  ];
+  
+  const origin = req.headers.origin;
+  
+  // Nếu origin nằm trong whitelist hoặc không có origin (server-to-server/mobile), cho phép
+  if (allowedOrigins.includes(origin) || !origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Fallback cho tiện
+  }
+
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
   res.setHeader(
     "Access-Control-Allow-Headers",
@@ -32,8 +48,10 @@ export default async function handler(req, res) {
     const { message, history, systemInstruction } = body;
 
     if (!SERVER_API_KEY) {
-      console.error("[API/Chat] Missing API Key");
-      return res.status(500).json({ error: "Server API Key not configured" });
+      console.error("[API/Chat] Missing API Key in Environment Variables");
+      return res.status(500).json({ 
+        error: "Server API Key not configured. Please set GEMINI_API_KEY in Vercel Settings." 
+      });
     }
 
     const MODEL_NAME = "gemini-2.5-flash";

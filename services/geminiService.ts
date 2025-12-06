@@ -2,16 +2,22 @@
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import { GoogleGenAI } from "@google/genai";
 
-// --- CẤU HÌNH CLIENT SIDE (PREVIEW / LOCAL) ---
-// Sử dụng Key do người dùng cung cấp (Key cũ, hy vọng hỗ trợ Web)
+// --- CẤU HÌNH API URL ---
+// QUAN TRỌNG: Phải dùng đường dẫn tuyệt đối (https://...) để Mobile App (Capacitor)
+// có thể gọi được Server Vercel thay vì gọi vào localhost của điện thoại.
+const API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
+
+// --- CẤU HÌNH CLIENT SIDE (FALLBACK) ---
+// Key này chỉ dùng khi Server Vercel bị lỗi hoặc quá tải.
+// Nên thay bằng import.meta.env.VITE_GEMINI_API_KEY nếu có thể.
 const CLIENT_SIDE_API_KEY = "AIzaSyDFTZ0D_EOchhykhh9QqBxSyy2wO1tpn-c"; 
 // ----------------------------------------------
 
 /**
  * Gửi tin nhắn đến chatbot.
  * Chiến thuật "Hybrid":
- * 1. Thử gọi Backend (/api/chat) với Key Server.
- * 2. Nếu thất bại hoặc timeout (do đang ở Preview) -> Fallback sang Client SDK.
+ * 1. Thử gọi Backend Vercel (API_URL) với Key Server (An toàn, mạnh mẽ).
+ * 2. Nếu thất bại -> Fallback sang Client SDK (Dùng key client, tiện lợi nhưng lộ key).
  */
 export const sendMessageToBot = async (
     message: string, 
@@ -30,11 +36,8 @@ export const sendMessageToBot = async (
         HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN.
     `;
 
-    // Lọc bỏ tin nhắn chào hỏi ban đầu của Bot nếu nó là tin nhắn đầu tiên
-    // để đảm bảo history gửi đi bắt đầu bằng User (nếu có thể) hoặc tuân thủ flow hội thoại
+    // Lọc bỏ tin nhắn chào hỏi ban đầu của Bot
     const historyToSend = history.filter((msg, index) => {
-        // Giữ lại tất cả, trừ khi là tin nhắn đầu tiên VÀ là của Bot (lời chào mặc định)
-        // Tuy nhiên, Gemini khá linh hoạt, nên ta cứ gửi format chuẩn.
         return true; 
     });
 
@@ -43,7 +46,7 @@ export const sendMessageToBot = async (
         parts: [{ text: msg.text }]
     }));
 
-    // Hàm helper: Chạy fetch nhưng sẽ throw lỗi nếu quá thời gian timeout
+    // Hàm helper: Timeout request
     const fetchWithTimeout = (url: string, options: any, duration: number) => {
         return Promise.race([
             fetch(url, options),
@@ -54,11 +57,10 @@ export const sendMessageToBot = async (
     };
 
     try {
-        // --- CHIẾN THUẬT 1: Gọi Backend Vercel (Ưu tiên) ---
-        console.log("👉 [Step 1] Thử gọi Backend (/api/chat)...");
+        // --- CHIẾN THUẬT 1: Gọi Backend Vercel ---
+        console.log(`👉 [Step 1] Thử gọi Server: ${API_URL}`);
         
-        // Timeout 5s: Thời gian chờ tối đa theo yêu cầu
-        const response = await fetchWithTimeout('/api/chat', {
+        const response = await fetchWithTimeout(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -66,9 +68,9 @@ export const sendMessageToBot = async (
                 history: formattedHistory,
                 systemInstruction: systemInstruction
             })
-        }, 5000);
+        }, 8000); // Tăng timeout lên 8s cho mạng di động
         
-        // Kiểm tra nếu response trả về JSON hợp lệ
+        // Kiểm tra response JSON
         const contentType = response.headers.get("content-type");
         if (response.ok && contentType && contentType.includes("application/json")) {
             const data = await response.json();
@@ -79,12 +81,12 @@ export const sendMessageToBot = async (
             }
         }
         
-        throw new Error("Backend response invalid or 404");
+        throw new Error(`Backend Error: ${response.status} ${response.statusText}`);
 
     } catch (backendError) {
-        // --- CHIẾN THUẬT 2: Gọi Client SDK (Fallback cho Preview hoặc khi Server lỗi) ---
-        console.warn(`⚠️ [Backend Error] ${backendError instanceof Error ? backendError.message : "Failed"}. Chuyển sang phương án dự phòng.`);
-        console.log("👉 [Step 2] Gọi trực tiếp (Client SDK)...");
+        // --- CHIẾN THUẬT 2: Fallback Client SDK ---
+        console.warn(`⚠️ [Backend Failed] ${backendError instanceof Error ? backendError.message : "Unknown error"}. Chuyển sang Client SDK.`);
+        console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
 
         try {
             const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
@@ -108,9 +110,8 @@ export const sendMessageToBot = async (
             console.error("❌ [Critical] Cả 2 cách đều thất bại:", clientError);
             console.groupEnd();
             
-            // Check lỗi quota hoặc permission
             if (clientError.message?.includes("403") || clientError.toString().includes("PERMISSION_DENIED")) {
-                 return "🤖 Lỗi quyền truy cập (API Key bị chặn). Vui lòng kiểm tra cấu hình Key trên Google Cloud Console (bỏ giới hạn Android App nếu đang chạy Web).";
+                 return "🤖 Lỗi quyền truy cập (API Key bị chặn). Vui lòng kiểm tra cấu hình Key.";
             }
             return "🤖 Hệ thống đang bảo trì hoặc mất kết nối mạng. Vui lòng thử lại sau ít phút.";
         }
@@ -121,7 +122,7 @@ export const sendMessageToBot = async (
 
 export interface JobRecommendation {
     jobId: string;
-    matchScore: number; // 0-100
+    matchScore: number; 
     reason: string;
     pros: string[];
     cons: string[];
@@ -134,11 +135,10 @@ export const analyzeJobMatches = async (
 ): Promise<JobRecommendation[]> => {
     if (!nearbyJobs.length) return [];
 
-    // Chuẩn bị dữ liệu tinh gọn để gửi AI (tiết kiệm token & tăng tốc độ)
     const simplifiedJobs = nearbyJobs.map(j => ({
         id: j.id,
         title: j.title,
-        description: j.description.substring(0, 500), // Giới hạn độ dài để xử lý nhanh hơn
+        description: j.description.substring(0, 500), 
         pay: `${j.payRate} ${j.payType}`,
         distance: `${j.distance?.toFixed(1)} km`,
         type: j.jobType,
@@ -157,26 +157,20 @@ export const analyzeJobMatches = async (
         
         NGƯỜI DÙNG: ${JSON.stringify(userSummary)}
         
-        DANH SÁCH CÔNG VIỆC (Đã lọc theo bán kính): ${JSON.stringify(simplifiedJobs)}
+        DANH SÁCH CÔNG VIỆC: ${JSON.stringify(simplifiedJobs)}
 
         YÊU CẦU PHÂN TÍCH:
-        Đánh giá từng công việc dựa trên:
-        1. Khoảng cách (càng gần càng tốt).
-        2. Kỹ năng & Kinh nghiệm phù hợp.
-        3. Mức lương & Loại hình (Thời vụ/Bán thời gian...).
-        4. Phân tích Rủi ro & Môi trường (dựa trên mô tả và tên công việc).
-        5. Độ tuổi/Giới tính (suy luận logic từ mô tả nếu có yêu cầu ngầm, ví dụ bốc vác nặng cần sức khỏe tốt).
+        Đánh giá từng công việc dựa trên khoảng cách, kỹ năng, mức lương và rủi ro.
 
         OUTPUT JSON FORMAT (BẮT BUỘC):
-        Trả về mảng JSON thuần túy, không markdown:
         [
             {
                 "jobId": "id_của_job",
-                "matchScore": 85, // Số nguyên 0-100
-                "reason": "Lý do chính tại sao phù hợp (ngắn gọn)",
-                "pros": ["Điểm mạnh 1", "Điểm mạnh 2"],
-                "cons": ["Rủi ro hoặc điểm yếu"],
-                "environmentAnalysis": "Nhận xét về môi trường/tính chất (vd: Ngoài trời, ồn ào, văn phòng...)"
+                "matchScore": 85, 
+                "reason": "Lý do phù hợp",
+                "pros": ["Điểm mạnh 1"],
+                "cons": ["Rủi ro"],
+                "environmentAnalysis": "Môi trường"
             }
         ]
     `;
@@ -187,8 +181,8 @@ export const analyzeJobMatches = async (
             model: 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
-                responseMimeType: "application/json", // Ép kiểu JSON để xử lý siêu nhanh
-                temperature: 0.3, // Giảm sáng tạo để tăng độ chính xác phân tích
+                responseMimeType: "application/json", 
+                temperature: 0.3,
             }
         });
 
@@ -196,8 +190,6 @@ export const analyzeJobMatches = async (
         if (!jsonText) return [];
 
         const recommendations = JSON.parse(jsonText) as JobRecommendation[];
-        
-        // Sắp xếp theo điểm số cao nhất
         return recommendations.sort((a, b) => b.matchScore - a.matchScore);
 
     } catch (error) {

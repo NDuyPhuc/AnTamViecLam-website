@@ -10,17 +10,30 @@ const VAPID_KEY = 'BC0S6kKANv-QpY1c-5rXw1Xg_WfH3Z7T6t_g8C6Z4-F8r4w8S9tQ8n7w6X3Z7
  * Yêu cầu quyền hiển thị thông báo và lưu token nếu được cấp phép.
  */
 export const requestNotificationPermission = async (userId: string) => {
-    console.log('Requesting notification permission...');
-    try {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            console.log('Notification permission granted.');
-            await saveMessagingDeviceToken(userId);
-        } else {
-            console.log('Unable to get permission to notify.');
+    // Check if the browser supports notifications
+    if (!('Notification' in window)) {
+        console.log("This browser does not support desktop notification");
+        return;
+    }
+
+    if (Notification.permission === 'granted') {
+        await saveMessagingDeviceToken(userId);
+    } else if (Notification.permission !== 'denied') {
+        // Only request if not already denied
+        console.log('Requesting notification permission...');
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                console.log('Notification permission granted.');
+                await saveMessagingDeviceToken(userId);
+            } else {
+                console.log('Notification permission denied.');
+            }
+        } catch (error) {
+            console.error('An error occurred while requesting permission:', error);
         }
-    } catch (error) {
-        console.error('An error occurred while requesting permission:', error);
+    } else {
+        console.log('Notification permission previously denied.');
     }
 };
 
@@ -31,20 +44,20 @@ const saveMessagingDeviceToken = async (userId: string) => {
     try {
         const fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY });
         if (fcmToken) {
-            console.log('FCM Token:', fcmToken);
+            // console.log('FCM Token:', fcmToken); // Uncomment for debugging
             const userDocRef = db.collection('users').doc(userId);
             // Sử dụng arrayUnion để thêm token mà không tạo bản sao.
             await userDocRef.update({
                 fcmTokens: arrayUnion(fcmToken),
             });
-            console.log('FCM token saved for user:', userId);
+            console.log('FCM token saved for user.');
 
             // Lắng nghe các tin nhắn khi ứng dụng đang mở (foreground)
             messaging.onMessage((payload) => {
                 console.log('Foreground message received. ', payload);
                 // Trong ứng dụng thực tế, bạn nên hiển thị một thông báo tùy chỉnh trong ứng dụng (ví dụ: toast)
                 // thay vì một alert mặc định.
-                alert(`Tin nhắn mới từ ${payload.notification?.title}:\n${payload.notification?.body}`);
+                // alert(`Tin nhắn mới từ ${payload.notification?.title}:\n${payload.notification?.body}`);
             });
         } else {
             console.log('No registration token available. Request permission to generate one.');

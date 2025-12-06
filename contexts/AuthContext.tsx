@@ -4,7 +4,7 @@ import firebase from 'firebase/compat/app';
 import { auth, db, serverTimestamp } from '../services/firebase';
 import { UserRole, UserData } from '../types';
 import { requestNotificationPermission } from '../services/notificationService';
-import { updateUserPresence } from '../services/presenceService';
+import { updateUserPresence, setUserOffline } from '../services/presenceService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -104,8 +104,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return auth.signInWithEmailAndPassword(email, password);
   };
 
-  const logout = () => {
-    // updateUserPresence handles setting the status to offline via onDisconnect
+  const logout = async () => {
+    // Fix: Gọi setOffline TRƯỚC khi signOut.
+    // Nếu gọi sau khi signOut, request sẽ bị từ chối do rules yêu cầu auth != null.
+    if (currentUser) {
+        await setUserOffline(currentUser.uid);
+    }
     return auth.signOut();
   };
   

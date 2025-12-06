@@ -5,7 +5,11 @@ import { createNotification } from './notificationService';
 
 export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
   const jobsCollection = db.collection('jobs');
-  const q = jobsCollection.orderBy('createdAt', 'desc');
+  
+  // FIX: Filter by status 'OPEN' to satisfy Firestore Security Rules (often allow list if status == 'OPEN')
+  // We also remove .orderBy('createdAt', 'desc') from the query to avoid "Composite Index" errors.
+  // We will sort the results on the client side instead.
+  const q = jobsCollection.where('status', '==', 'OPEN');
 
   const unsubscribe = q.onSnapshot((querySnapshot) => {
     const jobs: Job[] = [];
@@ -31,14 +35,20 @@ export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
           status: data.status,
           createdAt: createdAt, // Use the serializable ISO string
           hiredWorkerId: data.hiredWorkerId,
+          applicantCount: data.applicantCount || 0,
         };
         jobs.push(job);
       }
     });
+    
+    // Sort client-side by createdAt descending (newest first)
+    jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
     callback(jobs);
   }, (error) => {
     console.error("Error fetching jobs: ", error);
-    callback([]); // Return empty array on error
+    // Return empty array on error to prevent app crash
+    callback([]); 
   });
 
   return unsubscribe;
@@ -46,7 +56,9 @@ export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
 
 export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: Job[]) => void) => {
   const jobsCollection = db.collection('jobs');
-  const q = jobsCollection.where('employerId', '==', employerId).orderBy('createdAt', 'desc');
+  // Filter by employerId is standard and usually allowed by rules for the owner
+  // Removed orderBy to avoid index requirement
+  const q = jobsCollection.where('employerId', '==', employerId);
 
   const unsubscribe = q.onSnapshot((querySnapshot) => {
     const jobs: Job[] = [];
@@ -54,7 +66,6 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
       const data = doc.data();
       const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
       
-      // Explicitly construct the Job object to avoid circular references from ...data
       const job: Job = {
         id: doc.id,
         title: data.title,
@@ -70,9 +81,14 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
         status: data.status,
         createdAt: createdAt,
         hiredWorkerId: data.hiredWorkerId,
+        applicantCount: data.applicantCount || 0,
       };
       jobs.push(job);
     });
+    
+    // Sort client-side by createdAt descending
+    jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     callback(jobs);
   }, (error) => {
     console.error("Error fetching employer jobs: ", error);
@@ -106,6 +122,7 @@ export const getJobById = async (jobId: string): Promise<Job | null> => {
                 status: data?.status,
                 createdAt: createdAt,
                 hiredWorkerId: data?.hiredWorkerId,
+                applicantCount: data?.applicantCount || 0,
             } as Job;
         }
         return null;
@@ -122,7 +139,7 @@ export const updateJobStatus = async (jobId: string, status: 'OPEN' | 'CLOSED') 
 
 
 // Update NewJobData to accept coordinates, which we'll convert to a location string
-type NewJobData = Omit<Job, 'id' | 'createdAt' | 'employerId' | 'employerName' | 'employerProfileUrl' | 'status' | 'hiredWorkerId' | 'location'> & {
+type NewJobData = Omit<Job, 'id' | 'createdAt' | 'employerId' | 'employerName' | 'employerProfileUrl' | 'status' | 'hiredWorkerId' | 'location' | 'applicantCount'> & {
     coordinates: { lat: number; lng: number };
 };
 
@@ -174,6 +191,7 @@ export const addJob = async (jobData: NewJobData, employer: UserData) => {
     hiredWorkerId: null,
     createdAt: serverTimestamp(),
     location: locationString,
+    applicantCount: 0,
   }
 
   await newDocRef.set(newJob);

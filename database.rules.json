@@ -1,0 +1,14 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        "status": {
+          // Bất kỳ ai đã đăng nhập đều có thể xem trạng thái online của người khác
+          ".read": "auth != null",
+          // Chỉ chính chủ mới được sửa trạng thái của mình
+          ".write": "$uid === auth.uid"
+        }
+      }
+    }
+  }
+}

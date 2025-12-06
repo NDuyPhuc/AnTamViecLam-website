@@ -17,7 +17,6 @@ import UnauthenticatedApp from './components/UnauthenticatedApp';
 import CompleteProfilePage from './components/auth/CompleteProfilePage';
 import Spinner from './components/Spinner';
 import { subscribeToJobs } from './services/jobService';
-import { subscribeToAllApplicationCounts } from './services/applicationService';
 import { calculateDistance, parseLocationString } from './utils/formatters';
 import PublicProfileModal from './components/PublicProfileModal';
 import { getOrCreateConversation } from './services/messagingService';
@@ -62,7 +61,6 @@ const App: React.FC = () => {
   
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [jobsLoading, setJobsLoading] = useState(true);
-  const [applicationCounts, setApplicationCounts] = useState<{ [jobId: string]: number }>({});
   
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -113,12 +111,9 @@ const App: React.FC = () => {
       setJobsLoading(false);
     });
     
-    const unsubscribeCounts = subscribeToAllApplicationCounts(setApplicationCounts);
-
     // Cleanup subscription on unmount
     return () => {
         unsubscribeJobs();
-        unsubscribeCounts();
     };
   }, []); // Run only once when the component mounts.
 
@@ -260,7 +255,7 @@ const App: React.FC = () => {
                                         key={job.id} 
                                         job={job} 
                                         onClick={() => handleSelectJobForDetail(job)} 
-                                        applicantCount={applicationCounts[job.id] || 0}
+                                        applicantCount={job.applicantCount || 0}
                                     />
                                     ))
                                 ) : (
