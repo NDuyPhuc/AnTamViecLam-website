@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -437,7 +438,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
       {selectedJob && <JobDetailModal job={selectedJob} onClose={handleCloseModal} onViewOnMap={() => handleViewJobOnMap(selectedJob)} />}
-      {isPostJobModalOpen && <PostJobModal onClose={() => setIsPostJobModalOpen(false)} />}
+      {isPostJobModalOpen && <PostJobModal onClose={() => setIsPostJobModalOpen(false)} userLocation={userLocation} />}
       {viewingProfile && (
         <PublicProfileModal 
             userId={viewingProfile.userId} 

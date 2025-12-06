@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Job } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,9 +8,10 @@ import { Province, District, Ward } from '../data/vietnam-locations';
 
 interface PostJobModalProps {
   onClose: () => void;
+  userLocation: { lat: number; lng: number } | null;
 }
 
-const PostJobModal: React.FC<PostJobModalProps> = ({ onClose }) => {
+const PostJobModal: React.FC<PostJobModalProps> = ({ onClose, userLocation }) => {
   const { currentUserData } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -254,8 +256,8 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ onClose }) => {
                       <p className="text-xs text-gray-500 mb-2">Kéo bản đồ để ghim ở vị trí chính xác nhất của công việc.</p>
                        <LocationPickerMap 
                           onLocationChange={setCoordinates}
-                          initialCenter={{ lat: 16.0544, lng: 108.2022 }}
-                          initialZoom={6}
+                          initialCenter={userLocation || { lat: 16.0544, lng: 108.2022 }}
+                          initialZoom={userLocation ? 15 : 6}
                        />
                        {coordinates && (
                          <p className="text-xs text-gray-600 mt-1">Tọa độ đã chọn: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}</p>

@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import MapPinIcon from './icons/MapPinIcon';
 
@@ -48,16 +49,7 @@ const LocationPickerMap: React.FC<LocationPickerMapProps> = ({ initialCenter, in
       onLocationChange({ lat: newCenter.lat, lng: newCenter.lng });
     });
 
-    // Asynchronously attempt to center on the user's location.
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], 15); // Zoom in closer for picker
-        }
-        // No failure callback needed, it will just use the default view.
-      );
-    }
+    // REMOVED: Internal navigator.geolocation call. We rely on initialCenter prop now.
 
     return () => {
       if (mapRef.current) {
@@ -65,9 +57,17 @@ const LocationPickerMap: React.FC<LocationPickerMapProps> = ({ initialCenter, in
         mapRef.current = null;
       }
     };
-  // This effect should run only once.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
+
+  // Watch for changes in initialCenter (e.g., when parent component loads user location)
+  useEffect(() => {
+      if (mapRef.current && initialCenter) {
+          mapRef.current.setView([initialCenter.lat, initialCenter.lng], initialZoom || 15);
+          // Also update the reported location
+          onLocationChange(initialCenter);
+      }
+  }, [initialCenter, initialZoom, onLocationChange]);
 
   return (
     <div className="relative w-full h-80 rounded-lg shadow-md z-0 border overflow-hidden">
