@@ -173,7 +173,7 @@ const App: React.FC = () => {
              if (Capacitor.isNativePlatform()) {
                  msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
              } else {
-                 msg = "Quyền vị trí đang bị chặn (Block). Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ và chọn 'Đặt lại quyền' (Reset permission) hoặc 'Cho phép' (Allow).";
+                 msg = "Quyền vị trí đang bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ, chọn 'Đặt lại quyền' (Reset permission) hoặc 'Cho phép' (Allow), sau đó thử lại.";
              }
         }
         else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; 
@@ -190,30 +190,60 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- NEW: Web Permission API Listener ---
-  // Tự động phát hiện khi người dùng đổi quyền từ Block -> Allow mà không cần reload
+  // --- NEW: Improved Web Permission API Listener ---
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() && navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: 'geolocation' as PermissionName })
-            .then((permissionStatus) => {
-                console.log("Initial permission status:", permissionStatus.state);
+    // Skip on Native platforms as they handle permissions differently
+    if (Capacitor.isNativePlatform()) return;
+
+    // Check for browser support
+    if (!navigator.permissions || !navigator.permissions.query) return;
+
+    let mounted = true;
+
+    const setupPermissionListener = async () => {
+        try {
+            const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+            
+            if (!mounted) return;
+
+            console.log("Initial permission status:", status.state);
+            
+            const handlePermissionChange = () => {
+                if (!mounted) return;
+                console.log("Permission changed to:", status.state);
                 
-                permissionStatus.onchange = () => {
-                    console.log("Permission changed to:", permissionStatus.state);
-                    if (permissionStatus.state === 'granted') {
-                        // Nếu người dùng vừa cấp quyền, tự động lấy vị trí ngay
-                        setLocationError(null);
-                        getUserLocation();
-                    } else if (permissionStatus.state === 'prompt') {
-                        // Nếu reset về prompt, xóa lỗi để UI sạch sẽ
-                        setLocationError(null);
-                    }
-                };
-            })
-            .catch(err => {
-                console.debug("Permissions API check failed (non-critical):", err);
-            });
-    }
+                if (status.state === 'granted') {
+                    // Auto-recover: Clear error and fetch location immediately
+                    setLocationError(null);
+                    getUserLocation();
+                } else if (status.state === 'prompt') {
+                    // Reset: Clear error so UI is clean, user can click "Retry" or "My Location" button
+                    setLocationError(null);
+                } else if (status.state === 'denied') {
+                    // Blocked: Show error immediately
+                    setLocationError("Quyền vị trí đã bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 và chọn 'Đặt lại quyền' (Reset).");
+                }
+            };
+
+            // Listen for changes
+            status.addEventListener('change', handlePermissionChange);
+            
+            // Return cleanup function for the listener
+            return () => {
+                status.removeEventListener('change', handlePermissionChange);
+            };
+        } catch (err) {
+            console.debug("Permissions API check failed:", err);
+        }
+    };
+
+    // Initialize
+    const cleanupPromise = setupPermissionListener();
+
+    return () => {
+        mounted = false;
+        cleanupPromise.then(cleanup => cleanup && cleanup());
+    };
   }, [getUserLocation]);
 
   useEffect(() => {
@@ -393,26 +423,25 @@ const App: React.FC = () => {
 
                             {/* LOCATION ERROR ALERT WITH SMART ACTIONS */}
                             {locationError && (
-                                <div className="bg-orange-50 border-l-4 border-orange-400 text-orange-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
+                                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
-                                            <MapIcon className="w-5 h-5" />
+                                            <MapIcon className="w-5 h-5 text-red-600" />
                                             <p className="font-bold">Cần quyền truy cập vị trí</p>
                                         </div>
                                         <p className="text-sm opacity-90">{locationError}</p>
                                     </div>
                                     <button 
                                         onClick={() => {
-                                            // Nếu lỗi ám chỉ Blocked, thử getUserLocation sẽ trigger lại prompt nếu browser cho phép,
-                                            // hoặc đơn giản là re-run logic.
+                                            // Trigger retry
                                             getUserLocation();
                                         }}
                                         disabled={isLocating}
-                                        className="bg-white border border-orange-200 hover:bg-orange-100 text-orange-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm"
+                                        className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm"
                                     >
                                         {isLocating ? (
                                             <>
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-orange-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                                 Đang thử lại...
                                             </>
                                         ) : (
