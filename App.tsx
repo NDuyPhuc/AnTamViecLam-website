@@ -81,16 +81,15 @@ const App: React.FC = () => {
     setLocationError(null); 
     
     try {
-        console.log('Starting location check via Capacitor Plugin...');
+        console.log('Starting location check...');
         
-        // --- LOGIC KHÁC BIỆT CHO MOBILE VÀ WEB ---
+        // --- LOGIC CHO MOBILE (NATIVE) ---
         if (Capacitor.isNativePlatform()) {
             // Mobile (Android/iOS): BẮT BUỘC phải xin quyền thủ công trước
             // Vì trên Native, getCurrentPosition sẽ fail ngay nếu chưa có quyền
             try {
                 const permissions = await Geolocation.checkPermissions();
-                console.log('Native permissions:', permissions);
-
+                
                 if (permissions.location !== 'granted') {
                     console.log('Requesting native permissions...');
                     const requestResult = await Geolocation.requestPermissions();
@@ -100,25 +99,62 @@ const App: React.FC = () => {
                 }
             } catch (permError) {
                 console.warn("Native permission check failed:", permError);
-                // Có thể throw lỗi hoặc thử tiếp tục (đôi khi check fail nhưng request lại được)
             }
-        } 
-        // Web: KHÔNG gọi checkPermissions hay requestPermissions. 
-        // Lý do: Browser API sẽ tự động hiện popup xin quyền khi gọi getCurrentPosition.
-        // Việc gọi requestPermissions thừa thãi trên web thường trả về 'prompt' hoặc lỗi, gây logic sai.
 
-        // 2. Lấy vị trí
-        const position = await Geolocation.getCurrentPosition({
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        });
-        
-        console.log('Location found:', position.coords);
-        setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-        });
+            const position = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+            
+            console.log('Native Location found:', position.coords);
+            setUserLocation({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+            });
+        } 
+        // --- LOGIC CHO WEB (BROWSER) ---
+        else {
+            if (!('geolocation' in navigator)) {
+                throw new Error("Trình duyệt không hỗ trợ định vị.");
+            }
+
+            // Sử dụng Promise để bọc navigator.geolocation và hỗ trợ Fallback
+            const getWebPosition = (): Promise<GeolocationPosition> => {
+                return new Promise((resolve, reject) => {
+                    // Thử lần 1: Độ chính xác cao (Timeout nhanh 3s để không đợi lâu)
+                    navigator.geolocation.getCurrentPosition(
+                        resolve,
+                        (errHigh) => {
+                            console.warn("High accuracy failed/timed out, trying low accuracy...", errHigh);
+                            // Thử lần 2: Độ chính xác thấp (dùng Wifi/Cell, nhanh hơn)
+                            navigator.geolocation.getCurrentPosition(
+                                resolve,
+                                reject,
+                                { 
+                                    enableHighAccuracy: false, 
+                                    timeout: 10000, 
+                                    maximumAge: 0 
+                                }
+                            );
+                        },
+                        { 
+                            enableHighAccuracy: true, 
+                            timeout: 3000, // Timeout 3s cho GPS
+                            maximumAge: 0 
+                        }
+                    );
+                });
+            };
+
+            const position = await getWebPosition();
+            console.log('Web Location found:', position.coords);
+            setUserLocation({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+            });
+        }
+
         setLocationError(null);
 
     } catch (e: any) {
@@ -126,16 +162,17 @@ const App: React.FC = () => {
         
         let msg = "Không thể lấy vị trí. Vui lòng thử lại.";
         
-        if (e.code === 1) { // PERMISSION_DENIED
+        // Xử lý lỗi code từ Geolocation API (1: Denied, 2: Unavailable, 3: Timeout)
+        if (e.code === 1) { 
              // Thông báo cụ thể cho Web để người dùng biết cách mở lại
              if (Capacitor.isNativePlatform()) {
                  msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
              } else {
-                 msg = "Trình duyệt đã chặn vị trí. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ để bật lại.";
+                 msg = "Quyền vị trí bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ, bật vị trí và TẢI LẠI TRANG.";
              }
         }
-        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; // POSITION_UNAVAILABLE
-        else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; // TIMEOUT
+        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; 
+        else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; 
         else if (e.message) msg = e.message;
 
         setUserLocation(prev => {
@@ -331,7 +368,14 @@ const App: React.FC = () => {
                                         <p className="text-sm">{locationError}</p>
                                     </div>
                                     <button 
-                                        onClick={getUserLocation}
+                                        onClick={() => {
+                                            // Nếu lỗi là do chặn quyền trên Web, gợi ý reload
+                                            if (locationError.includes('TẢI LẠI TRANG')) {
+                                                window.location.reload();
+                                            } else {
+                                                getUserLocation();
+                                            }
+                                        }}
                                         disabled={isLocating}
                                         className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50"
                                     >
@@ -343,7 +387,7 @@ const App: React.FC = () => {
                                         ) : (
                                             <>
                                                 <MapIcon className="w-4 h-4 mr-2" />
-                                                Thử lại
+                                                {locationError.includes('TẢI LẠI') ? 'Tải lại trang' : 'Thử lại'}
                                             </>
                                         )}
                                     </button>
