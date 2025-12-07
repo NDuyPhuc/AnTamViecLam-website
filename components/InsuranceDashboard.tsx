@@ -561,7 +561,7 @@ const InsuranceDashboard: React.FC = () => {
                                 : 'Chưa có lịch sử nhân viên nghỉ việc.'}
                         </p>
                         {employeeViewMode === 'active' && (
-                            <p className="text-sm mt-1 text-gray-400">Hãy xác nhận tuyển dụng trong phần Hồ Sơ -> Ứng viên.</p>
+                            <p className="text-sm mt-1 text-gray-400">Hãy xác nhận tuyển dụng trong phần Hồ Sơ &rarr; Ứng viên.</p>
                         )}
                     </div>
                 )}
