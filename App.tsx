@@ -86,7 +86,6 @@ const App: React.FC = () => {
         // --- LOGIC CHO MOBILE (NATIVE) ---
         if (Capacitor.isNativePlatform()) {
             // Mobile (Android/iOS): BẮT BUỘC phải xin quyền thủ công trước
-            // Vì trên Native, getCurrentPosition sẽ fail ngay nếu chưa có quyền
             try {
                 const permissions = await Geolocation.checkPermissions();
                 
@@ -122,12 +121,11 @@ const App: React.FC = () => {
             // Sử dụng Promise để bọc navigator.geolocation và hỗ trợ Fallback
             const getWebPosition = (): Promise<GeolocationPosition> => {
                 return new Promise((resolve, reject) => {
-                    // Thử lần 1: Độ chính xác cao (Timeout nhanh 3s để không đợi lâu)
+                    // Thử lần 1: Độ chính xác cao
                     navigator.geolocation.getCurrentPosition(
                         resolve,
                         (errHigh) => {
-                            // QUAN TRỌNG: Nếu lỗi là do người dùng TỪ CHỐI (Code 1), 
-                            // thì KHÔNG thử lại nữa (vì thử lại cũng sẽ bị từ chối).
+                            // QUAN TRỌNG: Nếu lỗi là do người dùng TỪ CHỐI (Code 1), reject ngay.
                             if (errHigh.code === 1) {
                                 console.error("Geolocation permission explicitly denied by user.");
                                 reject(errHigh); 
@@ -135,7 +133,7 @@ const App: React.FC = () => {
                             }
 
                             console.warn("High accuracy failed/timed out, trying low accuracy...", errHigh);
-                            // Chỉ thử lại chế độ thấp nếu lỗi là Timeout (3) hoặc Unavailable (2)
+                            // Fallback chế độ thấp
                             navigator.geolocation.getCurrentPosition(
                                 resolve,
                                 reject,
@@ -148,7 +146,7 @@ const App: React.FC = () => {
                         },
                         { 
                             enableHighAccuracy: true, 
-                            timeout: 3000, // Timeout 3s cho GPS
+                            timeout: 5000, 
                             maximumAge: 0 
                         }
                     );
@@ -172,11 +170,10 @@ const App: React.FC = () => {
         
         // Xử lý lỗi code từ Geolocation API (1: Denied, 2: Unavailable, 3: Timeout)
         if (e.code === 1) { 
-             // Thông báo cụ thể cho Web để người dùng biết cách mở lại
              if (Capacitor.isNativePlatform()) {
                  msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
              } else {
-                 msg = "Quyền vị trí bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Đặt lại quyền' (Reset permission) -> Rồi TẢI LẠI TRANG.";
+                 msg = "Quyền vị trí đang bị chặn (Block). Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ và chọn 'Đặt lại quyền' (Reset permission) hoặc 'Cho phép' (Allow).";
              }
         }
         else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; 
@@ -184,6 +181,7 @@ const App: React.FC = () => {
         else if (e.message) msg = e.message;
 
         setUserLocation(prev => {
+            // Chỉ set lỗi nếu chưa có vị trí (tránh ghi đè nếu đã có)
             if (!prev) setLocationError(msg);
             return prev;
         });
@@ -191,6 +189,32 @@ const App: React.FC = () => {
         setIsLocating(false);
     }
   }, []);
+
+  // --- NEW: Web Permission API Listener ---
+  // Tự động phát hiện khi người dùng đổi quyền từ Block -> Allow mà không cần reload
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() && navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' as PermissionName })
+            .then((permissionStatus) => {
+                console.log("Initial permission status:", permissionStatus.state);
+                
+                permissionStatus.onchange = () => {
+                    console.log("Permission changed to:", permissionStatus.state);
+                    if (permissionStatus.state === 'granted') {
+                        // Nếu người dùng vừa cấp quyền, tự động lấy vị trí ngay
+                        setLocationError(null);
+                        getUserLocation();
+                    } else if (permissionStatus.state === 'prompt') {
+                        // Nếu reset về prompt, xóa lỗi để UI sạch sẽ
+                        setLocationError(null);
+                    }
+                };
+            })
+            .catch(err => {
+                console.debug("Permissions API check failed (non-critical):", err);
+            });
+    }
+  }, [getUserLocation]);
 
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
@@ -213,14 +237,13 @@ const App: React.FC = () => {
     getUserLocation();
 
     // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
-    // Tự động lấy lại vị trí khi người dùng quay lại App (ví dụ: sau khi bật GPS từ cài đặt)
+    // Tự động lấy lại vị trí khi người dùng quay lại App
     let appListener: any;
     const setupAppListener = async () => {
         try {
             appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
                 if (isActive) {
                     console.log('App resumed (isActive: true), re-checking location...');
-                    // Gọi lại hàm lấy vị trí
                     getUserLocation();
                 }
             });
@@ -368,35 +391,32 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
-                            {/* LOCATION ERROR ALERT WITH RETRY BUTTON */}
+                            {/* LOCATION ERROR ALERT WITH SMART ACTIONS */}
                             {locationError && (
-                                <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+                                <div className="bg-orange-50 border-l-4 border-orange-400 text-orange-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
                                     <div className="flex-1">
-                                        <p className="font-bold">Thông báo định vị</p>
-                                        <p className="text-sm">{locationError}</p>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <MapIcon className="w-5 h-5" />
+                                            <p className="font-bold">Cần quyền truy cập vị trí</p>
+                                        </div>
+                                        <p className="text-sm opacity-90">{locationError}</p>
                                     </div>
                                     <button 
                                         onClick={() => {
-                                            // Nếu lỗi là do chặn quyền trên Web, gợi ý reload
-                                            if (locationError.includes('TẢI LẠI TRANG')) {
-                                                window.location.reload();
-                                            } else {
-                                                getUserLocation();
-                                            }
+                                            // Nếu lỗi ám chỉ Blocked, thử getUserLocation sẽ trigger lại prompt nếu browser cho phép,
+                                            // hoặc đơn giản là re-run logic.
+                                            getUserLocation();
                                         }}
                                         disabled={isLocating}
-                                        className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50"
+                                        className="bg-white border border-orange-200 hover:bg-orange-100 text-orange-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm"
                                     >
                                         {isLocating ? (
                                             <>
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                Đang lấy...
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-orange-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                Đang thử lại...
                                             </>
                                         ) : (
-                                            <>
-                                                <MapIcon className="w-4 h-4 mr-2" />
-                                                {locationError.includes('TẢI LẠI') ? 'Tải lại trang' : 'Thử lại'}
-                                            </>
+                                            'Thử lại ngay'
                                         )}
                                     </button>
                                 </div>
