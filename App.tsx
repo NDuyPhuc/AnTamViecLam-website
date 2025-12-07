@@ -75,31 +75,33 @@ const App: React.FC = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   
-  // --- HYBRID LOCATION LOGIC (Reusable) ---
+  // --- HYBRID LOCATION LOGIC (Strict Separation) ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
     setLocationError(null); 
     
+    // Explicitly determine platform at runtime
+    const isNative = Capacitor.isNativePlatform();
+
     try {
-        console.log('Starting location check...');
+        console.log(`Starting location check... (Platform: ${isNative ? 'Native' : 'Web'})`);
         
-        // --- LOGIC CHO MOBILE (NATIVE) ---
-        if (Capacitor.isNativePlatform()) {
-            // Mobile (Android/iOS): BẮT BUỘC phải xin quyền thủ công trước
-            try {
-                const permissions = await Geolocation.checkPermissions();
-                
-                if (permissions.location !== 'granted') {
-                    console.log('Requesting native permissions...');
-                    const requestResult = await Geolocation.requestPermissions();
-                    if (requestResult.location !== 'granted') {
-                        throw new Error('Quyền truy cập vị trí bị từ chối trên thiết bị.');
-                    }
+        if (isNative) {
+            // ============================================
+            // LOGIC CHO MOBILE APP (NATIVE ANDROID/IOS)
+            // ============================================
+            
+            // 1. Kiểm tra quyền
+            const permissions = await Geolocation.checkPermissions();
+            if (permissions.location !== 'granted') {
+                console.log("Requesting Native Permissions...");
+                const request = await Geolocation.requestPermissions();
+                if (request.location !== 'granted') {
+                    throw { code: 1, message: "Quyền vị trí bị từ chối trên ứng dụng." };
                 }
-            } catch (permError) {
-                console.warn("Native permission check failed:", permError);
             }
 
+            // 2. Lấy vị trí
             const position = await Geolocation.getCurrentPosition({
                 enableHighAccuracy: true,
                 timeout: 10000,
@@ -111,61 +113,43 @@ const App: React.FC = () => {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
             });
-        } 
-        // --- LOGIC CHO WEB (BROWSER) ---
-        else {
-            if (!('geolocation' in navigator)) {
+
+        } else {
+            // ============================================
+            // LOGIC CHO WEB BROWSER (DIRECT NAVIGATOR)
+            // ============================================
+            
+            if (!navigator.geolocation) {
                 throw new Error("Trình duyệt không hỗ trợ định vị.");
             }
 
-            // [FIX] Check Permission API first to avoid console error spam and give faster feedback
-            if (navigator.permissions && navigator.permissions.query) {
-                try {
-                    const perm = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-                    if (perm.state === 'denied') {
-                         throw { code: 1, message: "User denied Geolocation (Permissions API)" };
-                    }
-                } catch(e) {
-                    console.warn("Permission query failed, falling back to direct request", e);
-                }
-            }
+            // Wrap getCurrentPosition in a Promise for clean async/await usage
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                const optionsHighAcc = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
+                const optionsLowAcc = { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 };
 
-            // Sử dụng Promise để bọc navigator.geolocation và hỗ trợ Fallback
-            const getWebPosition = (): Promise<GeolocationPosition> => {
-                return new Promise((resolve, reject) => {
-                    // Thử lần 1: Độ chính xác cao
-                    navigator.geolocation.getCurrentPosition(
-                        resolve,
-                        (errHigh) => {
-                            // QUAN TRỌNG: Nếu lỗi là do người dùng TỪ CHỐI (Code 1), reject ngay.
-                            if (errHigh.code === 1) {
-                                console.error("Geolocation permission explicitly denied by user.");
-                                reject(errHigh); 
-                                return;
-                            }
-
-                            console.warn("High accuracy failed/timed out, trying low accuracy...", errHigh);
-                            // Fallback chế độ thấp
-                            navigator.geolocation.getCurrentPosition(
-                                resolve,
-                                reject,
-                                { 
-                                    enableHighAccuracy: false, 
-                                    timeout: 10000, 
-                                    maximumAge: 30000 // [FIX] Cho phép lấy cache cũ tối đa 30s nếu phần cứng đang bận
-                                }
-                            );
-                        },
-                        { 
-                            enableHighAccuracy: true, 
-                            timeout: 5000, 
-                            maximumAge: 0 
+                // Try High Accuracy First
+                navigator.geolocation.getCurrentPosition(
+                    resolve,
+                    (errorHigh) => {
+                        // CRITICAL: If Permission Denied (Code 1), fail immediately.
+                        if (errorHigh.code === 1) {
+                            return reject(errorHigh);
                         }
-                    );
-                });
-            };
 
-            const position = await getWebPosition();
+                        // If Timeout or Unavailable, fallback to Low Accuracy
+                        console.warn("High accuracy GPS failed, trying low accuracy...", errorHigh.message);
+                        
+                        navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject, // If this fails too, reject the promise
+                            optionsLowAcc
+                        );
+                    },
+                    optionsHighAcc
+                );
+            });
+
             console.log('Web Location found:', position.coords);
             setUserLocation({
                 lat: position.coords.latitude,
@@ -173,20 +157,17 @@ const App: React.FC = () => {
             });
         }
 
-        setLocationError(null);
-
     } catch (e: any) {
         console.error("Location Error:", e);
         
         let msg = "Không thể lấy vị trí. Vui lòng thử lại.";
         
-        // Xử lý lỗi code từ Geolocation API (1: Denied, 2: Unavailable, 3: Timeout)
+        // Handle standard Geolocation error codes
         if (e.code === 1) { 
-             if (Capacitor.isNativePlatform()) {
+             if (isNative) {
                  msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
              } else {
-                 // [FIX] Cập nhật thông báo chi tiết hơn cho người dùng Web
-                 msg = "Quyền vị trí chưa được cấp. Vui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép'.\n2. Cài đặt Vị trí (Location Services) của máy tính/điện thoại.";
+                 msg = "Quyền vị trí chưa được cấp. Vui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép' (Reset Permission).\n2. Cài đặt Vị trí của trình duyệt.";
              }
         }
         else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng."; 
@@ -194,7 +175,6 @@ const App: React.FC = () => {
         else if (e.message) msg = e.message;
 
         setUserLocation(prev => {
-            // Chỉ set lỗi nếu chưa có vị trí (tránh ghi đè nếu đã có)
             if (!prev) setLocationError(msg);
             return prev;
         });
@@ -203,60 +183,32 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- NEW: Improved Web Permission API Listener ---
+  // --- Web Permission Listener (Auto-Recovery) ---
   useEffect(() => {
-    // Skip on Native platforms as they handle permissions differently
+    // Only run on Web
     if (Capacitor.isNativePlatform()) return;
 
-    // Check for browser support
-    if (!navigator.permissions || !navigator.permissions.query) return;
-
-    let mounted = true;
-
-    const setupPermissionListener = async () => {
-        try {
-            const status = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-            
-            if (!mounted) return;
-
-            console.log("Initial permission status:", status.state);
-            
-            const handlePermissionChange = () => {
-                if (!mounted) return;
-                console.log("Permission changed to:", status.state);
+    // Permissions API is not supported in all browsers (e.g. Firefox basic), so check existence
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' as PermissionName })
+            .then((permissionStatus) => {
                 
-                if (status.state === 'granted') {
-                    // Auto-recover: Clear error and fetch location immediately
-                    setLocationError(null);
-                    getUserLocation();
-                } else if (status.state === 'prompt') {
-                    // Reset: Clear error so UI is clean, user can click "Retry" or "My Location" button
-                    setLocationError(null);
-                } else if (status.state === 'denied') {
-                    // Blocked: Show error immediately
-                    setLocationError("Quyền vị trí đã bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 và chọn 'Đặt lại quyền' (Reset).");
-                }
-            };
+                const handlePermissionChange = () => {
+                    console.log("Permission state changed to:", permissionStatus.state);
+                    if (permissionStatus.state === 'granted') {
+                        // Auto-retry fetching location when user clicks "Allow"
+                        setLocationError(null);
+                        getUserLocation();
+                    } else if (permissionStatus.state === 'prompt') {
+                        // Reset error if user reset permissions
+                        setLocationError(null);
+                    }
+                };
 
-            // Listen for changes
-            status.addEventListener('change', handlePermissionChange);
-            
-            // Return cleanup function for the listener
-            return () => {
-                status.removeEventListener('change', handlePermissionChange);
-            };
-        } catch (err) {
-            console.debug("Permissions API check failed:", err);
-        }
-    };
-
-    // Initialize
-    const cleanupPromise = setupPermissionListener();
-
-    return () => {
-        mounted = false;
-        cleanupPromise.then(cleanup => cleanup && cleanup());
-    };
+                permissionStatus.onchange = handlePermissionChange;
+            })
+            .catch(err => console.debug("Permissions API check skipped:", err));
+    }
   }, [getUserLocation]);
 
   useEffect(() => {
@@ -290,7 +242,6 @@ const App: React.FC = () => {
                     getUserLocation();
                 }
             });
-            console.log('App State Listener registered.');
         } catch (err) {
             console.warn('App State Listener failed to register:', err);
         }
