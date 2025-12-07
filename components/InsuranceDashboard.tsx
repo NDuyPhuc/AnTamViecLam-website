@@ -20,7 +20,7 @@ import UserIcon from './icons/UserIcon';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, Application } from '../types';
-import { connectWallet, formatAddress, WalletState } from '../services/blockchainService';
+import { connectWallet, formatAddress, WalletState, getWalletBalance } from '../services/blockchainService';
 import { subscribeToApplicationsForEmployer, subscribeToApplicationsForWorker } from '../services/applicationService';
 import Spinner from './Spinner';
 import EmployeeManagementModal from './EmployeeManagementModal';
@@ -175,10 +175,20 @@ const InsuranceDashboard: React.FC = () => {
       }
   };
 
-  const handleTransactionSuccess = (hash: string) => {
+  const handleTransactionSuccess = async (hash: string) => {
       setLatestHash(hash);
       setIsPaymentModalOpen(false);
       alert(`Giao dịch thành công! Hash: ${hash}`);
+      
+      // Tự động cập nhật số dư mới sau giao dịch
+      if (wallet.address) {
+          try {
+            const newBalance = await getWalletBalance(wallet.address);
+            setWallet(prev => ({ ...prev, balance: newBalance }));
+          } catch (e) {
+              console.error("Failed to update balance");
+          }
+      }
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);

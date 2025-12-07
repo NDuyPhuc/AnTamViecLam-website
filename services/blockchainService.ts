@@ -82,6 +82,18 @@ export const connectWallet = async (): Promise<WalletState> => {
     }
 };
 
+export const getWalletBalance = async (address: string): Promise<string> => {
+    if (!(window as any).ethereum) return "0";
+    try {
+        const provider = new ethers.BrowserProvider((window as any).ethereum);
+        const balanceBigInt = await provider.getBalance(address);
+        return ethers.formatEther(balanceBigInt);
+    } catch (e) {
+        console.error("Error fetching balance:", e);
+        return "0";
+    }
+};
+
 export const sendDonation = async (amountInEther: string): Promise<string> => {
     if (!(window as any).ethereum) throw new Error("No crypto wallet found");
 
@@ -98,8 +110,8 @@ export const sendDonation = async (amountInEther: string): Promise<string> => {
 
     console.log("⏳ [Blockchain] Transaction sent, waiting for confirmation...", tx.hash);
 
-    // Chờ giao dịch được confirm
-    // await tx.wait(); 
+    // Chờ giao dịch được confirm trên Blockchain
+    await tx.wait(); 
 
     console.log("✅ [Blockchain] Transaction confirmed:", tx.hash);
     return tx.hash;
