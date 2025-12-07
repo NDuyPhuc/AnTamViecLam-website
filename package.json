@@ -9,14 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/geolocation": "^7.1.6",
+    "@capacitor/ios": "^7.4.4",
     "@google/genai": "^1.29.0",
     "firebase": "^12.5.0",
     "marked": "12.0.2",
-    "@capacitor/cli": "^7.4.4",
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/geolocation": "^7.0.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
