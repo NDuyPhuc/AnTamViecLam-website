@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -172,6 +173,7 @@ const App: React.FC = () => {
         else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng."; 
         else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; 
         else if (e.message) msg = e.message;
+        else if (typeof e === 'object') msg = `Lỗi vị trí: ${JSON.stringify(e)}`;
 
         setUserLocation(prev => {
             if (!prev) setLocationError(msg);
@@ -187,23 +189,18 @@ const App: React.FC = () => {
     // Only run on Web
     if (Capacitor.isNativePlatform()) return;
 
-    // Permissions API is not supported in all browsers (e.g. Firefox basic), so check existence
     if (navigator.permissions && navigator.permissions.query) {
         navigator.permissions.query({ name: 'geolocation' as PermissionName })
             .then((permissionStatus) => {
-                
                 const handlePermissionChange = () => {
                     console.log("Permission state changed to:", permissionStatus.state);
                     if (permissionStatus.state === 'granted') {
-                        // Auto-retry fetching location when user clicks "Allow"
                         setLocationError(null);
                         getUserLocation();
                     } else if (permissionStatus.state === 'prompt') {
-                        // Reset error if user reset permissions
                         setLocationError(null);
                     }
                 };
-
                 permissionStatus.onchange = handlePermissionChange;
             })
             .catch(err => console.debug("Permissions API check skipped:", err));
@@ -215,31 +212,49 @@ const App: React.FC = () => {
 
     // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
-      window.addEventListener('load', () => {
-        const swUrl = `${window.location.origin}/sw.js`;
-        navigator.serviceWorker.register(swUrl)
-          .then((registration) => {
-            console.log('Service Worker registered with scope:', registration.scope);
-          })
-          .catch((error) => {
-            console.error('Service Worker registration failed:', error);
-          });
-      });
+        const swUrl = `/sw.js`;
+        
+        const registerSW = () => {
+             navigator.serviceWorker.register(swUrl)
+                .then((registration) => console.log('SW registered:', registration.scope))
+                .catch((error) => {
+                    // Fix: Suppress known environment-specific errors (Origin mismatch, Invalid state)
+                    // These often happen in cloud IDEs or preview environments where /sw.js is redirected or unavailable.
+                    const msg = error.message || '';
+                    if (
+                        msg.includes('invalid state') || 
+                        msg.includes('does not match the current origin') ||
+                        msg.includes('The origin of the provided scriptURL')
+                    ) {
+                        console.warn('Service Worker registration skipped (environment limitation):', msg);
+                    } else {
+                        console.error('SW registration failed:', error);
+                    }
+                });
+        };
+
+        // Avoid "document is in an invalid state" by checking visibility and load state
+        if (document.visibilityState !== 'visible' || document.readyState === 'loading') {
+             window.addEventListener('load', registerSW);
+        } else {
+             registerSW();
+        }
     }
 
-    // Initial Location Fetch & Fetch when currentUser changes (User Logs In)
+    // Initial Location Fetch & Fetch when currentUser changes
     if (currentUser) {
+        // Clear previous error to force a fresh attempt UI state
+        setLocationError(null);
         getUserLocation();
     }
 
     // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
-    // Tự động lấy lại vị trí khi người dùng quay lại App
     let appListener: any;
     const setupAppListener = async () => {
         try {
             appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
                 if (isActive) {
-                    console.log('App resumed (isActive: true), re-checking location...');
+                    console.log('App resumed, re-checking location...');
                     getUserLocation();
                 }
             });
@@ -255,14 +270,13 @@ const App: React.FC = () => {
       setJobsLoading(false);
     });
     
-    // Cleanup
     return () => {
         unsubscribeJobs();
         if (appListener) {
             appListener.remove();
         }
     };
-  }, [getUserLocation, currentUser]); // Thêm currentUser vào dependency để re-run khi đăng nhập
+  }, [getUserLocation, currentUser]);
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -270,10 +284,10 @@ const App: React.FC = () => {
 
   const handleViewJobOnMap = (jobToView: Job) => {
     if (!jobToView) return;
-    setSelectedJob(null); // Close modal if open
-    setActiveView(View.Jobs); // Switch to Jobs View
-    setJobViewMode('map'); // Switch to Map Mode
-    setFocusedJobId(jobToView.id); // Focus on the job
+    setSelectedJob(null);
+    setActiveView(View.Jobs);
+    setJobViewMode('map');
+    setFocusedJobId(jobToView.id);
   };
 
   const handleNavigateToConversation = (conversationId: string) => {
@@ -285,7 +299,7 @@ const App: React.FC = () => {
       if (!application) return;
       try {
         const conversationId = await getOrCreateConversation(application);
-        if (viewingProfile) setViewingProfile(null); // Close profile modal
+        if (viewingProfile) setViewingProfile(null);
         handleNavigateToConversation(conversationId);
       } catch (error) {
           console.error("Failed to start conversation:", error);
@@ -350,7 +364,6 @@ const App: React.FC = () => {
       jobs = jobs.filter(job => job.jobType === typeFilter);
     }
 
-    // Sort by distance if location is available
     if (userLocation) {
         jobs.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
     }
@@ -386,7 +399,6 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
-                            {/* LOCATION ERROR ALERT WITH SMART ACTIONS */}
                             {locationError && (
                                 <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
                                     <div className="flex-1">
@@ -398,7 +410,6 @@ const App: React.FC = () => {
                                     </div>
                                     <button 
                                         onClick={() => {
-                                            // Trigger retry
                                             getUserLocation();
                                         }}
                                         disabled={isLocating}

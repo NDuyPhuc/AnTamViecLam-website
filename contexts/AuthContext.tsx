@@ -1,3 +1,4 @@
+
 import React, { useContext, useState, useEffect, createContext, useCallback } from 'react';
 import type { User } from 'firebase/auth';
 import firebase from 'firebase/compat/app';
@@ -60,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           workHistory: data.workHistory || [],
           cvUrl: data.cvUrl || null,
           cvName: data.cvName || null,
+          walletAddress: data.walletAddress || null,
       };
       setCurrentUserData(userData as UserData);
     } else {
@@ -114,17 +116,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 2. Đăng xuất Firebase Auth
         await auth.signOut();
 
-        // 3. Xóa sạch Local Storage & Session Storage để ngăn chặn xung đột dữ liệu cũ
+        // 3. Xóa Service Workers để tránh lỗi Cache/Stale State
+        if ('serviceWorker' in navigator) {
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+            } catch (error) {
+                console.warn("Could not unregister service workers:", error);
+            }
+        }
+
+        // 4. Xóa sạch Local Storage & Session Storage
         localStorage.clear();
         sessionStorage.clear();
 
-        // 4. QUAN TRỌNG: Tải lại trang (Reload) để reset toàn bộ React State (Memory Heap).
-        // Việc này mô phỏng hành động tắt app bật lại hoặc vào tab ẩn danh, 
-        // giúp giải quyết triệt để lỗi "state cũ" khi switch tài khoản liên tục.
+        // 5. QUAN TRỌNG: Tải lại trang (Reload) để reset toàn bộ React State (Memory Heap).
         window.location.reload();
         
     } catch (error) {
         console.error("Logout error:", error);
+        // Fallback reload anyway
+        window.location.reload();
     }
   };
   
