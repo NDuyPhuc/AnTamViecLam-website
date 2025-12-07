@@ -105,12 +105,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    // Fix: Gọi setOffline TRƯỚC khi signOut.
-    // Nếu gọi sau khi signOut, request sẽ bị từ chối do rules yêu cầu auth != null.
-    if (currentUser) {
-        await setUserOffline(currentUser.uid);
+    try {
+        // 1. Set trạng thái Offline trên Realtime Database
+        if (currentUser) {
+            await setUserOffline(currentUser.uid);
+        }
+        
+        // 2. Đăng xuất Firebase Auth
+        await auth.signOut();
+
+        // 3. Xóa sạch Local Storage & Session Storage để ngăn chặn xung đột dữ liệu cũ
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // 4. QUAN TRỌNG: Tải lại trang (Reload) để reset toàn bộ React State (Memory Heap).
+        // Việc này mô phỏng hành động tắt app bật lại hoặc vào tab ẩn danh, 
+        // giúp giải quyết triệt để lỗi "state cũ" khi switch tài khoản liên tục.
+        window.location.reload();
+        
+    } catch (error) {
+        console.error("Logout error:", error);
     }
-    return auth.signOut();
   };
   
   const loginWithGoogle = async () => {

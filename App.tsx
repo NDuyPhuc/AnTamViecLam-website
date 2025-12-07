@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
@@ -228,8 +227,10 @@ const App: React.FC = () => {
       });
     }
 
-    // Initial Location Fetch
-    getUserLocation();
+    // Initial Location Fetch & Fetch when currentUser changes (User Logs In)
+    if (currentUser) {
+        getUserLocation();
+    }
 
     // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
     // Tự động lấy lại vị trí khi người dùng quay lại App
@@ -261,7 +262,7 @@ const App: React.FC = () => {
             appListener.remove();
         }
     };
-  }, [getUserLocation]); 
+  }, [getUserLocation, currentUser]); // Thêm currentUser vào dependency để re-run khi đăng nhập
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
