@@ -78,32 +78,40 @@ const App: React.FC = () => {
   // --- HYBRID LOCATION LOGIC (Reusable) ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
-    setLocationError(null); // Reset lỗi cũ
+    setLocationError(null); 
     
     try {
         console.log('Starting location check via Capacitor Plugin...');
         
-        // 1. Kiểm tra và Yêu cầu quyền (Plugin xử lý cả Web & Native)
-        try {
-            const permissions = await Geolocation.checkPermissions();
-            console.log('Current permissions:', permissions);
-            
-            if (permissions.location !== 'granted') {
-                console.log('Requesting permissions...');
-                const requestResult = await Geolocation.requestPermissions();
-                if (requestResult.location !== 'granted') {
-                    throw new Error('Quyền truy cập vị trí bị từ chối.');
-                }
-            }
-        } catch (permError) {
-            console.warn("Permission check skipped or failed (safe to ignore on some browsers):", permError);
-        }
+        // --- LOGIC KHÁC BIỆT CHO MOBILE VÀ WEB ---
+        if (Capacitor.isNativePlatform()) {
+            // Mobile (Android/iOS): BẮT BUỘC phải xin quyền thủ công trước
+            // Vì trên Native, getCurrentPosition sẽ fail ngay nếu chưa có quyền
+            try {
+                const permissions = await Geolocation.checkPermissions();
+                console.log('Native permissions:', permissions);
 
-        // 2. Lấy vị trí (Timeout 10s)
+                if (permissions.location !== 'granted') {
+                    console.log('Requesting native permissions...');
+                    const requestResult = await Geolocation.requestPermissions();
+                    if (requestResult.location !== 'granted') {
+                        throw new Error('Quyền truy cập vị trí bị từ chối trên thiết bị.');
+                    }
+                }
+            } catch (permError) {
+                console.warn("Native permission check failed:", permError);
+                // Có thể throw lỗi hoặc thử tiếp tục (đôi khi check fail nhưng request lại được)
+            }
+        } 
+        // Web: KHÔNG gọi checkPermissions hay requestPermissions. 
+        // Lý do: Browser API sẽ tự động hiện popup xin quyền khi gọi getCurrentPosition.
+        // Việc gọi requestPermissions thừa thãi trên web thường trả về 'prompt' hoặc lỗi, gây logic sai.
+
+        // 2. Lấy vị trí
         const position = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
             timeout: 10000,
-            maximumAge: 0 // Bắt buộc lấy vị trí mới nhất
+            maximumAge: 0
         });
         
         console.log('Location found:', position.coords);
@@ -116,15 +124,20 @@ const App: React.FC = () => {
     } catch (e: any) {
         console.error("Location Error:", e);
         
-        let msg = "Không thể lấy vị trí. Vui lòng kiểm tra GPS và thử lại.";
+        let msg = "Không thể lấy vị trí. Vui lòng thử lại.";
         
-        // Xử lý mã lỗi chuẩn
-        if (e.code === 1) msg = "Quyền truy cập vị trí bị từ chối."; // PERMISSION_DENIED
-        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Vui lòng bật vị trí."; // POSITION_UNAVAILABLE
-        else if (e.code === 3) msg = "Quá thời gian lấy vị trí. Vui lòng thử lại."; // TIMEOUT
+        if (e.code === 1) { // PERMISSION_DENIED
+             // Thông báo cụ thể cho Web để người dùng biết cách mở lại
+             if (Capacitor.isNativePlatform()) {
+                 msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
+             } else {
+                 msg = "Trình duyệt đã chặn vị trí. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ để bật lại.";
+             }
+        }
+        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; // POSITION_UNAVAILABLE
+        else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; // TIMEOUT
         else if (e.message) msg = e.message;
 
-        // Chỉ hiển thị lỗi nếu chưa có vị trí nào
         setUserLocation(prev => {
             if (!prev) setLocationError(msg);
             return prev;
@@ -132,7 +145,7 @@ const App: React.FC = () => {
     } finally {
         setIsLocating(false);
     }
-  }, []); // FIX: Empty dependency array to prevent infinite loop
+  }, []);
 
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
@@ -313,9 +326,9 @@ const App: React.FC = () => {
                             {/* LOCATION ERROR ALERT WITH RETRY BUTTON */}
                             {locationError && (
                                 <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
-                                    <div>
-                                        <p className="font-bold">Thông báo</p>
-                                        <p>{locationError}</p>
+                                    <div className="flex-1">
+                                        <p className="font-bold">Thông báo định vị</p>
+                                        <p className="text-sm">{locationError}</p>
                                     </div>
                                     <button 
                                         onClick={getUserLocation}
@@ -325,7 +338,7 @@ const App: React.FC = () => {
                                         {isLocating ? (
                                             <>
                                                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                Đang tải...
+                                                Đang lấy...
                                             </>
                                         ) : (
                                             <>
