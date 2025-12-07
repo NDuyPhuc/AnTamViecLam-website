@@ -118,6 +118,18 @@ const App: React.FC = () => {
                 throw new Error("Trình duyệt không hỗ trợ định vị.");
             }
 
+            // [FIX] Check Permission API first to avoid console error spam and give faster feedback
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const perm = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+                    if (perm.state === 'denied') {
+                         throw { code: 1, message: "User denied Geolocation (Permissions API)" };
+                    }
+                } catch(e) {
+                    console.warn("Permission query failed, falling back to direct request", e);
+                }
+            }
+
             // Sử dụng Promise để bọc navigator.geolocation và hỗ trợ Fallback
             const getWebPosition = (): Promise<GeolocationPosition> => {
                 return new Promise((resolve, reject) => {
@@ -140,7 +152,7 @@ const App: React.FC = () => {
                                 { 
                                     enableHighAccuracy: false, 
                                     timeout: 10000, 
-                                    maximumAge: 0 
+                                    maximumAge: 30000 // [FIX] Cho phép lấy cache cũ tối đa 30s nếu phần cứng đang bận
                                 }
                             );
                         },
@@ -173,10 +185,11 @@ const App: React.FC = () => {
              if (Capacitor.isNativePlatform()) {
                  msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
              } else {
-                 msg = "Quyền vị trí đang bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ, chọn 'Đặt lại quyền' (Reset permission) hoặc 'Cho phép' (Allow), sau đó thử lại.";
+                 // [FIX] Cập nhật thông báo chi tiết hơn cho người dùng Web
+                 msg = "Quyền vị trí chưa được cấp. Vui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép'.\n2. Cài đặt Vị trí (Location Services) của máy tính/điện thoại.";
              }
         }
-        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; 
+        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng."; 
         else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; 
         else if (e.message) msg = e.message;
 
@@ -429,7 +442,7 @@ const App: React.FC = () => {
                                             <MapIcon className="w-5 h-5 text-red-600" />
                                             <p className="font-bold">Cần quyền truy cập vị trí</p>
                                         </div>
-                                        <p className="text-sm opacity-90">{locationError}</p>
+                                        <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
                                     </div>
                                     <button 
                                         onClick={() => {
