@@ -25,6 +25,7 @@ import AdvancedJobRecommendations from './components/AdvancedJobRecommendations'
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
+import TrashIcon from './components/icons/TrashIcon';
 
 type JobViewMode = 'list' | 'map';
 
@@ -218,13 +219,13 @@ const App: React.FC = () => {
              navigator.serviceWorker.register(swUrl)
                 .then((registration) => console.log('SW registered:', registration.scope))
                 .catch((error) => {
-                    // Fix: Suppress known environment-specific errors (Origin mismatch, Invalid state)
-                    // These often happen in cloud IDEs or preview environments where /sw.js is redirected or unavailable.
+                    // Fix: Suppress known environment-specific errors (Origin mismatch, Invalid state, 404)
                     const msg = error.message || '';
                     if (
                         msg.includes('invalid state') || 
                         msg.includes('does not match the current origin') ||
-                        msg.includes('The origin of the provided scriptURL')
+                        msg.includes('The origin of the provided scriptURL') ||
+                        msg.includes('404')
                     ) {
                         console.warn('Service Worker registration skipped (environment limitation):', msg);
                     } else {
@@ -277,6 +278,25 @@ const App: React.FC = () => {
         }
     };
   }, [getUserLocation, currentUser]);
+
+  const handleHardReset = async () => {
+    if (window.confirm("Thao tác này sẽ xóa bộ nhớ đệm và tải lại trang để khắc phục lỗi. Bạn có muốn tiếp tục?")) {
+        try {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+            }
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+            window.location.reload();
+        }
+    }
+  };
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -408,22 +428,30 @@ const App: React.FC = () => {
                                         </div>
                                         <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
                                     </div>
-                                    <button 
-                                        onClick={() => {
-                                            getUserLocation();
-                                        }}
-                                        disabled={isLocating}
-                                        className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm"
-                                    >
-                                        {isLocating ? (
-                                            <>
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                Đang thử lại...
-                                            </>
-                                        ) : (
-                                            'Thử lại ngay'
-                                        )}
-                                    </button>
+                                    <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                                        <button
+                                            onClick={handleHardReset}
+                                            className="bg-red-100 hover:bg-red-200 text-red-800 font-semibold py-2 px-3 rounded-lg transition-colors text-sm whitespace-nowrap"
+                                        >
+                                            Sửa lỗi kết nối
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                getUserLocation();
+                                            }}
+                                            disabled={isLocating}
+                                            className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm whitespace-nowrap"
+                                        >
+                                            {isLocating ? (
+                                                <>
+                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                    Đang thử lại...
+                                                </>
+                                            ) : (
+                                                'Thử lại ngay'
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
