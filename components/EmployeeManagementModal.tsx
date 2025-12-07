@@ -101,7 +101,6 @@ const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({ emplo
     };
     
     const handleTerminate = async (e: React.MouseEvent) => {
-        // Ngăn chặn sự kiện lan truyền hoặc hành vi mặc định
         e.preventDefault();
         e.stopPropagation();
 
@@ -109,7 +108,6 @@ const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({ emplo
             return;
         }
 
-        // Bỏ qua window.confirm để thao tác nhanh hơn (UX đã yêu cầu nhập lý do làm chốt chặn rồi)
         setIsSubmitting(true);
         try {
             await terminateEmployee(employee, terminationReason);
@@ -189,7 +187,7 @@ const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({ emplo
                             </div>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+                    <button onClick={onClose} className="text-white/70 hover:text-white transition-colors" type="button">
                         <XIcon className="w-6 h-6" />
                     </button>
                 </div>
@@ -284,7 +282,7 @@ const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({ emplo
                                     <p className="text-xs text-indigo-700">Tự động trích quỹ & ghi log Blockchain</p>
                                 </div>
                                 <button 
-                                    onClick={() => onPay(0)} // Pass 0 to open generic modal, or specific amount
+                                    onClick={() => onPay(0)} 
                                     className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 shadow-md transition-all"
                                 >
                                     Thanh toán ngay
@@ -406,7 +404,7 @@ const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({ emplo
                                             value={terminationReason}
                                             onChange={(e) => setTerminationReason(e.target.value)}
                                             placeholder="Nhập lý do chấm dứt (VD: Hết hạn hợp đồng)..."
-                                            className="w-full p-2 border border-red-300 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 placeholder-gray-400"
+                                            className="w-full p-2 border border-red-300 rounded text-sm focus:ring-2 focus:ring-red-500 outline-none bg-white text-gray-900 placeholder-gray-900"
                                         />
                                         <button 
                                             type="button"

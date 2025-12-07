@@ -18,10 +18,13 @@ import HomeIcon from './icons/HomeIcon';
 import UsersIcon from './icons/UsersIcon';
 import UserIcon from './icons/UserIcon';
 import BriefcaseIcon from './icons/BriefcaseIcon';
+import ClockIcon from './icons/ClockIcon';
+import TrashIcon from './icons/TrashIcon'; // Import TrashIcon
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, Application } from '../types';
-import { connectWallet, formatAddress, WalletState, getWalletBalance } from '../services/blockchainService';
-import { subscribeToApplicationsForEmployer, subscribeToApplicationsForWorker } from '../services/applicationService';
+import { connectWallet, formatAddress, WalletState, getWalletBalance, WELFARE_FUND_ADDRESS } from '../services/blockchainService';
+import { subscribeToApplicationsForEmployer, subscribeToApplicationsForWorker, addEmploymentLog } from '../services/applicationService';
+import { updateUserWallet } from '../services/userService'; // Import updateUserWallet
 import Spinner from './Spinner';
 import EmployeeManagementModal from './EmployeeManagementModal';
 
@@ -31,6 +34,14 @@ const WalletIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" })
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 0 0-2.25-2.25H15a3 3 0 1 1-6 0H5.25A2.25 2.25 0 0 0 3 12m18 0v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 9m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v3" />
     </svg>
 );
+
+interface BlockchainTransaction {
+    hash: string;
+    amount: string;
+    type: 'deposit' | 'salary';
+    date: Date;
+    recipient?: string;
+}
 
 const additionalInsuranceProducts = [
   { 
@@ -115,11 +126,19 @@ const additionalInsuranceProducts = [
 
 
 const InsuranceDashboard: React.FC = () => {
-  const { currentUserData } = useAuth();
+  const { currentUser, currentUserData, refetchUserData } = useAuth();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [wallet, setWallet] = useState<WalletState>({ address: null, balance: null, chainId: null, isConnected: false });
   const [isConnecting, setIsConnecting] = useState(false);
   const [latestHash, setLatestHash] = useState<string | null>(MOCK_INSURANCE_DATA.latestTxHash);
+  
+  // Transaction History State
+  const [transactions, setTransactions] = useState<BlockchainTransaction[]>([]);
+
+  // Payment Flow State
+  const [paymentRecipient, setPaymentRecipient] = useState<string | undefined>(undefined);
+  const [paymentTitle, setPaymentTitle] = useState<string | undefined>(undefined);
+  const [pendingEmployeePayment, setPendingEmployeePayment] = useState<Application | null>(null);
 
   // Employee Management State
   const [applications, setApplications] = useState<Application[]>([]);
@@ -141,6 +160,26 @@ const InsuranceDashboard: React.FC = () => {
       // For workers, show both hired and terminated (as history)
       return applications.filter(app => app.status === 'hired' || app.status === 'terminated');
   }, [applications, currentUserData, employeeViewMode]);
+
+  // Load Saved Wallet & Balance on Mount
+  useEffect(() => {
+      const loadSavedWallet = async () => {
+          if (currentUserData?.walletAddress) {
+              try {
+                  const balance = await getWalletBalance(currentUserData.walletAddress);
+                  setWallet({
+                      address: currentUserData.walletAddress,
+                      balance: balance,
+                      chainId: '80002', // Amoy ID
+                      isConnected: true
+                  });
+              } catch (e) {
+                  console.error("Failed to load wallet balance", e);
+              }
+          }
+      };
+      loadSavedWallet();
+  }, [currentUserData]);
 
   useEffect(() => {
     if (currentUserData) {
@@ -168,6 +207,12 @@ const InsuranceDashboard: React.FC = () => {
       try {
           const walletData = await connectWallet();
           setWallet(walletData);
+          
+          // Save wallet to Firestore if connected successfully
+          if (walletData.address && currentUser) {
+              await updateUserWallet(currentUser.uid, walletData.address);
+              await refetchUserData(); // Refresh context
+          }
       } catch (error: any) {
           alert(error.message || "Lỗi kết nối ví");
       } finally {
@@ -175,12 +220,64 @@ const InsuranceDashboard: React.FC = () => {
       }
   };
 
-  const handleTransactionSuccess = async (hash: string) => {
+  const handleDisconnectWallet = async () => {
+      if (window.confirm("Bạn có chắc chắn muốn hủy liên kết ví này không?")) {
+          if (currentUser) {
+              await updateUserWallet(currentUser.uid, null);
+              await refetchUserData();
+          }
+          setWallet({ address: null, balance: null, chainId: null, isConnected: false });
+      }
+  };
+
+  const handleTransactionSuccess = async (hash: string, amount: string) => {
       setLatestHash(hash);
       setIsPaymentModalOpen(false);
       alert(`Giao dịch thành công! Hash: ${hash}`);
       
-      // Tự động cập nhật số dư mới sau giao dịch
+      // Update local transaction history (Optimistic UI)
+      const newTx: BlockchainTransaction = {
+          hash: hash,
+          amount: amount,
+          type: paymentRecipient ? 'salary' : 'deposit',
+          date: new Date(),
+          recipient: paymentRecipient
+      };
+      setTransactions(prev => [newTx, ...prev]);
+
+      // If this was a salary payment, record it in the employee logs
+      if (pendingEmployeePayment && paymentRecipient) {
+          try {
+              const amountVal = parseFloat(amount);
+              // Log Salary Payment
+              await addEmploymentLog(
+                  pendingEmployeePayment.id, 
+                  'PAYMENT', 
+                  'Thanh toán lương (Blockchain)', 
+                  `Đã chuyển ${amount} POL qua Smart Contract. Hash: ${formatAddress(hash)}`,
+                  amountVal // Note: This stores only the numeric value, unit is implied
+              );
+              
+              // Automatically deduct insurance (10%)
+              const insuranceAmount = amountVal * 0.1;
+              await addEmploymentLog(
+                  pendingEmployeePayment.id,
+                  'PAYMENT',
+                  'Trích đóng BHXH (Tự động)',
+                  `Hệ thống tự động trích 10% (${insuranceAmount.toFixed(4)} POL) vào quỹ an sinh.`,
+                  insuranceAmount
+              );
+
+          } catch (e) {
+              console.error("Failed to log payment:", e);
+          }
+          // Reset pending state
+          setPendingEmployeePayment(null);
+          setPaymentRecipient(undefined);
+          setPaymentTitle(undefined);
+      }
+      
+      // Auto-refresh wallet balance
       if (wallet.address) {
           try {
             const newBalance = await getWalletBalance(wallet.address);
@@ -189,6 +286,24 @@ const InsuranceDashboard: React.FC = () => {
               console.error("Failed to update balance");
           }
       }
+  };
+
+  const initiateSalaryPayment = (employee: Application, amount: number) => {
+      // Logic: Prioritize Worker's linked wallet from Profile (if we had access to it easily),
+      // otherwise fallback to a demo address or ask user to input.
+      // For now, allow manual input in modal, pre-filled if possible.
+      
+      setPaymentRecipient("0x..."); // Allow user to fill/edit in modal
+      setPaymentTitle(`Thanh toán lương cho ${employee.workerName}`);
+      setPendingEmployeePayment(employee);
+      setIsPaymentModalOpen(true);
+  };
+
+  const handleOpenDepositModal = () => {
+      setPaymentRecipient(undefined); // Undefined means deposit to fund
+      setPaymentTitle("Nạp tiền vào quỹ (Blockchain)");
+      setPendingEmployeePayment(null);
+      setIsPaymentModalOpen(true);
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -215,9 +330,18 @@ const InsuranceDashboard: React.FC = () => {
                     {isConnecting ? 'Đang kết nối...' : 'Kết nối Ví'}
                 </button>
             ) : (
-                <div className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl border border-green-200 shadow-sm">
-                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-mono font-bold">{formatAddress(wallet.address!)}</span>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-xl border border-green-200 shadow-sm">
+                        <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-mono font-bold">{formatAddress(wallet.address!)}</span>
+                    </div>
+                    <button 
+                        onClick={handleDisconnectWallet}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Đổi ví / Hủy liên kết"
+                    >
+                        <TrashIcon className="w-5 h-5" />
+                    </button>
                 </div>
             )}
         </div>
@@ -252,7 +376,7 @@ const InsuranceDashboard: React.FC = () => {
                              </span>
                         </div>
                         <button 
-                           onClick={() => setIsPaymentModalOpen(true)}
+                           onClick={handleOpenDepositModal}
                            className="bg-white text-indigo-700 hover:bg-indigo-50 font-bold py-2 px-4 rounded-lg text-xs shadow-md transition-colors"
                         >
                           + Nạp thêm
@@ -391,9 +515,18 @@ const InsuranceDashboard: React.FC = () => {
                     {isConnecting ? 'Đang kết nối...' : 'Kết nối Ví Quỹ'}
                 </button>
             ) : (
-                <div className="flex items-center gap-2 bg-purple-50 text-purple-700 px-4 py-2 rounded-xl border border-purple-200 shadow-sm">
-                    <div className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-mono font-bold">{formatAddress(wallet.address!)}</span>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-purple-50 text-purple-700 px-4 py-2 rounded-xl border border-purple-200 shadow-sm">
+                        <div className="w-2.5 h-2.5 bg-purple-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-mono font-bold">{formatAddress(wallet.address!)}</span>
+                    </div>
+                    <button 
+                        onClick={handleDisconnectWallet}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Đổi ví / Hủy liên kết"
+                    >
+                        <TrashIcon className="w-5 h-5" />
+                    </button>
                 </div>
             )}
         </div>
@@ -453,7 +586,7 @@ const InsuranceDashboard: React.FC = () => {
 
                   <div className="mt-4 pt-4 border-t border-gray-100">
                       <button 
-                         onClick={() => setIsPaymentModalOpen(true)}
+                         onClick={handleOpenDepositModal}
                          className="w-full py-2 bg-indigo-50 text-indigo-700 font-bold rounded-lg hover:bg-indigo-100 transition-colors"
                       >
                           + Nạp tiền vào quỹ (Blockchain)
@@ -461,6 +594,58 @@ const InsuranceDashboard: React.FC = () => {
                   </div>
              </div>
         </div>
+
+        {/* Transaction History Table */}
+        {wallet.isConnected && transactions.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex items-center gap-2">
+                    <ClockIcon className="w-5 h-5 text-gray-500" />
+                    Lịch sử giao dịch Blockchain (Phiên này)
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-100 text-gray-500 uppercase font-bold text-xs">
+                            <tr>
+                                <th className="px-4 py-3">Loại</th>
+                                <th className="px-4 py-3">Số lượng</th>
+                                <th className="px-4 py-3">Hash</th>
+                                <th className="px-4 py-3">Thời gian</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {transactions.map((tx, idx) => (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3">
+                                        {tx.type === 'deposit' ? (
+                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Nạp Quỹ</span>
+                                        ) : (
+                                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-bold">Trả Lương</span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-3 font-mono font-medium text-gray-900">
+                                        -{tx.amount} POL
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <a 
+                                            href={`https://amoy.polygonscan.com/tx/${tx.hash}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-indigo-600 hover:underline flex items-center gap-1 font-mono text-xs"
+                                        >
+                                            {formatAddress(tx.hash)}
+                                            <ArrowTopRightOnSquareIcon className="w-3 h-3" />
+                                        </a>
+                                    </td>
+                                    <td className="px-4 py-3 text-gray-500 text-xs">
+                                        {tx.date.toLocaleTimeString()}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
 
         {/* Benefits Info */}
         <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex gap-4">
@@ -623,6 +808,8 @@ const InsuranceDashboard: React.FC = () => {
             onClose={() => setIsPaymentModalOpen(false)} 
             walletConnected={wallet.isConnected}
             onTransactionSuccess={handleTransactionSuccess}
+            recipientAddress={paymentRecipient}
+            title={paymentTitle}
           />
       )}
       
@@ -630,9 +817,9 @@ const InsuranceDashboard: React.FC = () => {
           <EmployeeManagementModal 
             employee={selectedEmployee}
             onClose={() => setSelectedEmployee(null)}
-            onPay={() => {
+            onPay={(amount) => {
                 setSelectedEmployee(null); // Close management modal
-                setIsPaymentModalOpen(true); // Open payment modal
+                initiateSalaryPayment(selectedEmployee, amount); // Open payment flow
             }}
           />
       )}

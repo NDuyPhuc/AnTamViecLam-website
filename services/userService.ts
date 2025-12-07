@@ -1,3 +1,4 @@
+
 import { db } from './firebase';
 import type { UserData } from '../types';
 
@@ -31,6 +32,7 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
         bio: data.bio || '',
         skills: data.skills || [],
         workHistory: data.workHistory || [],
+        walletAddress: data.walletAddress || null, // Include wallet address
       };
       return userProfile as UserData;
     } else {
@@ -41,4 +43,20 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
     console.error("Error fetching user profile:", error);
     throw error;
   }
+};
+
+/**
+ * Updates the wallet address for a user.
+ * @param userId The UID of the user.
+ * @param walletAddress The wallet address to bind (or null to unbind).
+ */
+export const updateUserWallet = async (userId: string, walletAddress: string | null): Promise<void> => {
+    try {
+        await db.collection('users').doc(userId).update({
+            walletAddress: walletAddress
+        });
+    } catch (error) {
+        console.error("Error updating user wallet:", error);
+        throw error;
+    }
 };

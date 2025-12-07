@@ -1,23 +1,36 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import XIcon from './icons/XIcon';
 import ArrowTopRightOnSquareIcon from './icons/ArrowTopRightOnSquareIcon';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import CubeTransparentIcon from './icons/CubeTransparentIcon';
-import { sendDonation } from '../services/blockchainService';
+import UserIcon from './icons/UserIcon';
+import { sendPayment, formatAddress, WELFARE_FUND_ADDRESS } from '../services/blockchainService';
 
 interface PaymentModalProps {
   onClose: () => void;
   walletConnected?: boolean;
-  onTransactionSuccess?: (hash: string) => void;
+  onTransactionSuccess?: (hash: string, amount: string) => void;
+  recipientAddress?: string; // Optional: If provided, this is a Salary payment
+  title?: string; // Optional: Custom title
 }
 
-const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, walletConnected = false, onTransactionSuccess }) => {
+const PaymentModal: React.FC<PaymentModalProps> = ({ 
+    onClose, 
+    walletConnected = false, 
+    onTransactionSuccess,
+    recipientAddress,
+    title
+}) => {
   const [activeTab, setActiveTab] = useState<'traditional' | 'crypto'>('crypto');
   const [amount, setAmount] = useState('');
+  const [targetAddress, setTargetAddress] = useState(recipientAddress || WELFARE_FUND_ADDRESS);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
 
+  const isSalaryPayment = !!recipientAddress;
+  const displayTitle = title || (isSalaryPayment ? "Thanh toán lương" : "Nạp tiền vào quỹ");
+  
   const officialLink = "https://dichvucong.baohiemxahoi.gov.vn/#/index?login=1&url=%2Fthanh-toan-bhxh-dien-tu%2Fngan-hang-lien-ket&queryUrl=";
 
   const handleCryptoPayment = async () => {
@@ -25,13 +38,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, walletConnected = 
           setError("Vui lòng nhập số lượng hợp lệ.");
           return;
       }
+      if (!targetAddress || targetAddress.length < 40) {
+          setError("Địa chỉ ví nhận không hợp lệ.");
+          return;
+      }
+
       setIsProcessing(true);
       setError('');
       try {
-          // Gọi hàm gửi tiền từ service
-          const txHash = await sendDonation(amount);
+          // Gọi hàm gửi tiền từ service với địa chỉ đích cụ thể từ input
+          const txHash = await sendPayment(amount, targetAddress);
           if (onTransactionSuccess) {
-              onTransactionSuccess(txHash);
+              onTransactionSuccess(txHash, amount);
           }
       } catch (err: any) {
           console.error(err);
@@ -43,7 +61,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, walletConnected = 
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black bg-opacity-60 z-[70] flex justify-center items-center p-4 animate-fade-in"
       style={{ animationDuration: '0.2s' }}
       onClick={onClose}
       aria-modal="true"
@@ -63,28 +81,34 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, walletConnected = 
         </button>
 
         <div className="p-6">
-            <h2 className="text-xl font-bold text-gray-800 text-center mb-6">Chọn phương thức nạp</h2>
+            <h2 className="text-xl font-bold text-gray-800 text-center mb-6">{displayTitle}</h2>
             
-            {/* Tabs */}
-            <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
-                <button 
-                    onClick={() => setActiveTab('crypto')}
-                    className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'crypto' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    Blockchain (Testnet)
-                </button>
-                <button 
-                    onClick={() => setActiveTab('traditional')}
-                    className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'traditional' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                    Cổng Dịch Vụ Công
-                </button>
-            </div>
+            {/* Tabs - Only show if it's NOT a salary payment */}
+            {!isSalaryPayment && (
+                <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
+                    <button 
+                        onClick={() => setActiveTab('crypto')}
+                        className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'crypto' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Blockchain (Testnet)
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('traditional')}
+                        className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'traditional' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        Cổng Dịch Vụ Công
+                    </button>
+                </div>
+            )}
 
-            {activeTab === 'crypto' ? (
+            {(activeTab === 'crypto' || isSalaryPayment) ? (
                 <div className="text-center space-y-4">
-                     <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse">
-                        <CubeTransparentIcon className="w-8 h-8 text-indigo-600" />
+                     <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 animate-pulse ${isSalaryPayment ? 'bg-green-100' : 'bg-indigo-100'}`}>
+                        {isSalaryPayment ? (
+                            <UserIcon className="w-8 h-8 text-green-600" />
+                        ) : (
+                            <CubeTransparentIcon className="w-8 h-8 text-indigo-600" />
+                        )}
                     </div>
                     
                     {!walletConnected ? (
@@ -94,17 +118,37 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, walletConnected = 
                     ) : (
                         <>
                             <p className="text-sm text-gray-600">
-                                Nạp tiền vào Smart Contract trên mạng <strong>Polygon Amoy</strong>.
+                                {isSalaryPayment 
+                                    ? "Chuyển tiền lương trực tiếp qua Smart Contract."
+                                    : "Nạp tiền vào Smart Contract trên mạng Polygon Amoy."
+                                }
                             </p>
-                            <div>
-                                <label className="block text-left text-sm font-medium text-gray-700 mb-1">Số lượng (MATIC/POL)</label>
+                            
+                            <div className="text-left">
+                                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
+                                    {isSalaryPayment ? 'Địa chỉ Ví Nhân Viên (Người nhận)' : 'Địa chỉ Smart Contract (Quỹ)'}
+                                </label>
+                                <input 
+                                    type="text" 
+                                    value={targetAddress}
+                                    onChange={(e) => setTargetAddress(e.target.value)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs font-mono text-gray-600 bg-gray-50 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                    placeholder="0x..."
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1 italic">
+                                    * Mẹo Demo: Bạn có thể thay đổi địa chỉ này thành ví phụ của bạn để kiểm tra tiền về.
+                                </p>
+                            </div>
+
+                            <div className="text-left">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng (MATIC/POL)</label>
                                 <input 
                                     type="number" 
                                     step="0.001"
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
                                     placeholder="0.01"
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-lg font-bold text-indigo-700"
                                 />
                             </div>
                             
@@ -113,13 +157,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ onClose, walletConnected = 
                             <button
                                 onClick={handleCryptoPayment}
                                 disabled={isProcessing}
-                                className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-300 shadow-sm disabled:bg-indigo-400 flex justify-center items-center"
+                                className={`w-full text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 shadow-sm disabled:bg-gray-400 flex justify-center items-center ${isSalaryPayment ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                             >
                                 {isProcessing ? (
                                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                ) : 'Xác nhận nạp'}
+                                ) : 'Xác nhận giao dịch'}
                             </button>
-                            <p className="text-xs text-gray-400 mt-2">Ví nhận quỹ: 0x742d...f44e</p>
                         </>
                     )}
                 </div>

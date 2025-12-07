@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 // Đây là địa chỉ ví đại diện cho "Smart Contract Quỹ An Sinh" hoặc "Ví Hưu Trí".
 // ĐỂ DEMO ẤN TƯỢNG: Hãy thay địa chỉ này bằng một địa chỉ ví phụ (Account 2) của bạn.
 // Khi demo, bạn chuyển tiền từ Account 1, sau đó mở Account 2 cho giám khảo xem tiền đã về.
-const WELFARE_FUND_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"; 
+export const WELFARE_FUND_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"; 
 
 // Cấu hình mạng Polygon Amoy
 const AMOY_CHAIN_ID_HEX = "0x13882"; // 80002 in hex
@@ -94,23 +94,30 @@ export const getWalletBalance = async (address: string): Promise<string> => {
     }
 };
 
-export const sendDonation = async (amountInEther: string): Promise<string> => {
+/**
+ * Gửi tiền (POL/MATIC)
+ * @param amountInEther Số lượng tiền muốn gửi
+ * @param recipientAddress Địa chỉ người nhận. Nếu không có, mặc định gửi vào Quỹ An Sinh.
+ */
+export const sendPayment = async (amountInEther: string, recipientAddress?: string): Promise<string> => {
     if (!(window as any).ethereum) throw new Error("No crypto wallet found");
 
     const provider = new ethers.BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();
+    
+    const targetAddress = recipientAddress || WELFARE_FUND_ADDRESS;
 
-    console.log(`💸 [Blockchain] Initiating transaction: Sending ${amountInEther} POL to ${WELFARE_FUND_ADDRESS}`);
+    console.log(`💸 [Blockchain] Initiating transaction: Sending ${amountInEther} POL to ${targetAddress}`);
 
     // Tạo giao dịch gửi Native Token (MATIC/POL)
     const tx = await signer.sendTransaction({
-        to: WELFARE_FUND_ADDRESS,
+        to: targetAddress,
         value: ethers.parseEther(amountInEther)
     });
 
     console.log("⏳ [Blockchain] Transaction sent, waiting for confirmation...", tx.hash);
 
-    // Chờ giao dịch được confirm trên Blockchain
+    // Chờ giao dịch được confirm trên Blockchain (đào block)
     await tx.wait(); 
 
     console.log("✅ [Blockchain] Transaction confirmed:", tx.hash);
