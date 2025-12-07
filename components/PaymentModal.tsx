@@ -24,17 +24,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'traditional' | 'crypto'>('crypto');
   const [amount, setAmount] = useState('');
+  // Use useEffect to update targetAddress if recipientAddress prop changes (e.g. auto-fill complete)
   const [targetAddress, setTargetAddress] = useState(recipientAddress || WELFARE_FUND_ADDRESS);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
 
-  const isSalaryPayment = !!recipientAddress;
+  useEffect(() => {
+      if (recipientAddress) {
+          setTargetAddress(recipientAddress);
+      }
+  }, [recipientAddress]);
+
+  const isSalaryPayment = recipientAddress !== undefined; // If recipientAddress prop was passed (even empty string), it is a salary flow
   const displayTitle = title || (isSalaryPayment ? "Thanh toán lương" : "Nạp tiền vào quỹ");
   
   const officialLink = "https://dichvucong.baohiemxahoi.gov.vn/#/index?login=1&url=%2Fthanh-toan-bhxh-dien-tu%2Fngan-hang-lien-ket&queryUrl=";
 
   const handleCryptoPayment = async () => {
-      if (!amount || parseFloat(amount) <= 0) {
+      // Sanitize input: Replace comma with dot for international format
+      const sanitizedAmount = amount.replace(',', '.');
+
+      if (!sanitizedAmount || parseFloat(sanitizedAmount) <= 0 || isNaN(parseFloat(sanitizedAmount))) {
           setError("Vui lòng nhập số lượng hợp lệ.");
           return;
       }
@@ -47,9 +57,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       setError('');
       try {
           // Gọi hàm gửi tiền từ service với địa chỉ đích cụ thể từ input
-          const txHash = await sendPayment(amount, targetAddress);
+          const txHash = await sendPayment(sanitizedAmount, targetAddress);
           if (onTransactionSuccess) {
-              onTransactionSuccess(txHash, amount);
+              onTransactionSuccess(txHash, sanitizedAmount);
           }
       } catch (err: any) {
           console.error(err);
@@ -58,6 +68,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           setIsProcessing(false);
       }
   };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      // Allow user to type comma, but we can visually or internally handle it. 
+      // Here we just set state, sanitization happens on submit.
+      setAmount(e.target.value);
+  }
 
   return (
     <div
@@ -133,20 +149,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                                     value={targetAddress}
                                     onChange={(e) => setTargetAddress(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded-lg text-xs font-mono text-gray-600 bg-gray-50 focus:ring-1 focus:ring-indigo-500 outline-none"
-                                    placeholder="0x..."
+                                    placeholder={isSalaryPayment ? "Hệ thống sẽ tự điền nếu NV đã liên kết ví..." : "0x..."}
                                 />
-                                <p className="text-[10px] text-gray-400 mt-1 italic">
-                                    * Mẹo Demo: Bạn có thể thay đổi địa chỉ này thành ví phụ của bạn để kiểm tra tiền về.
-                                </p>
+                                {isSalaryPayment && !targetAddress && (
+                                    <p className="text-[10px] text-orange-500 mt-1 italic font-medium">
+                                        * Nhân viên này chưa liên kết ví. Vui lòng hỏi địa chỉ ví của họ và nhập thủ công.
+                                    </p>
+                                )}
+                                {isSalaryPayment && targetAddress && (
+                                     <p className="text-[10px] text-green-600 mt-1 italic font-medium flex items-center">
+                                        ✓ Đã tự động điền ví của nhân viên
+                                    </p>
+                                )}
                             </div>
 
                             <div className="text-left">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng (MATIC/POL)</label>
                                 <input 
-                                    type="number" 
-                                    step="0.001"
+                                    type="text" 
+                                    inputMode="decimal"
                                     value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
+                                    onChange={handleAmountChange}
                                     placeholder="0.01"
                                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-lg font-bold text-indigo-700"
                                 />

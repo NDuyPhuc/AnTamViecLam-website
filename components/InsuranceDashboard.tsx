@@ -24,7 +24,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { UserRole, Application } from '../types';
 import { connectWallet, formatAddress, WalletState, getWalletBalance, WELFARE_FUND_ADDRESS } from '../services/blockchainService';
 import { subscribeToApplicationsForEmployer, subscribeToApplicationsForWorker, addEmploymentLog } from '../services/applicationService';
-import { updateUserWallet } from '../services/userService'; // Import updateUserWallet
+import { updateUserWallet, getUserProfile } from '../services/userService'; // Import getUserProfile
 import Spinner from './Spinner';
 import EmployeeManagementModal from './EmployeeManagementModal';
 
@@ -288,12 +288,20 @@ const InsuranceDashboard: React.FC = () => {
       }
   };
 
-  const initiateSalaryPayment = (employee: Application, amount: number) => {
-      // Logic: Prioritize Worker's linked wallet from Profile (if we had access to it easily),
-      // otherwise fallback to a demo address or ask user to input.
-      // For now, allow manual input in modal, pre-filled if possible.
-      
-      setPaymentRecipient("0x..."); // Allow user to fill/edit in modal
+  const initiateSalaryPayment = async (employee: Application, amount: number) => {
+      // 1. Fetch worker profile to get wallet
+      let walletAddr = "";
+      try {
+          const workerProfile = await getUserProfile(employee.workerId);
+          if (workerProfile && workerProfile.walletAddress) {
+              walletAddr = workerProfile.walletAddress;
+          }
+      } catch (error) {
+          console.error("Failed to fetch worker profile for wallet", error);
+      }
+
+      // If no wallet is found, walletAddr will be empty string, encouraging user to ask/fill.
+      setPaymentRecipient(walletAddr);
       setPaymentTitle(`Thanh toán lương cho ${employee.workerName}`);
       setPendingEmployeePayment(employee);
       setIsPaymentModalOpen(true);
