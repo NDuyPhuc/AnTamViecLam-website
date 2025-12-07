@@ -1,3 +1,5 @@
+
+
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
@@ -70,6 +72,23 @@ export interface UserData {
   workHistory?: WorkExperience[];
   cvUrl?: string | null; // URL to the uploaded CV (PDF/Doc)
   cvName?: string | null; // Original file name of the CV
+  
+  // Blockchain & CSR fields (New)
+  walletAddress?: string; // Địa chỉ ví Blockchain (giả lập)
+  csrScore?: number; // Điểm trách nhiệm xã hội cho NTD
+  welfareFundBalance?: number; // Số dư quỹ thưởng an sinh của NTD
+  pensionBookBalance?: number; // Số dư sổ hưu trí của NLĐ
+}
+
+export type LogType = 'PAYMENT' | 'BONUS' | 'PENALTY' | 'LEAVE' | 'TERMINATION' | 'HIRED';
+
+export interface EmploymentLog {
+  id: string;
+  type: LogType;
+  title: string;
+  description?: string;
+  amount?: number; // Số tiền (nếu có)
+  date: string; // ISO String
 }
 
 export interface Application {
@@ -83,13 +102,17 @@ export interface Application {
   employerName: string;
   employerProfileImageUrl: string | null;
   applicationDate: string; // ISO string
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'hired' | 'terminated'; // Added 'terminated'
   // New fields for quick CV access
   cvUrl?: string | null;
   cvName?: string | null;
   // New fields for better application context
   introduction?: string;
   contactPhoneNumber?: string;
+  
+  // Employee Management Fields
+  performanceScore?: number; // Điểm đánh giá (0-100)
+  contractUrl?: string | null; // Link tới hợp đồng làm việc (Drive/Cloudinary)
 }
 
 export enum NotificationType {

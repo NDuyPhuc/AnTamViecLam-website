@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
 import InsuranceDashboard from './components/InsuranceDashboard';
@@ -23,6 +23,7 @@ import { getOrCreateConversation } from './services/messagingService';
 import AdvancedJobRecommendations from './components/AdvancedJobRecommendations';
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 type JobViewMode = 'list' | 'map';
 
@@ -66,19 +67,153 @@ const App: React.FC = () => {
   
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
 
   // State for filters
   const [locationFilter, setLocationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   
-  useEffect(() => {
-    // Check if running in Capacitor Native environment
+  // --- HYBRID LOCATION LOGIC (Strict Separation) ---
+  const getUserLocation = useCallback(async () => {
+    setIsLocating(true);
+    setLocationError(null); 
+    
+    // Explicitly determine platform at runtime
     const isNative = Capacitor.isNativePlatform();
 
-    // Robust Service Worker registration
-    // ONLY register Service Worker if we are NOT in a native environment (Web only)
-    // Service Workers in Capacitor can cause issues with file:// protocol and updates.
+    try {
+        console.log(`Starting location check... (Platform: ${isNative ? 'Native' : 'Web'})`);
+        
+        if (isNative) {
+            // ============================================
+            // LOGIC CHO MOBILE APP (NATIVE ANDROID/IOS)
+            // ============================================
+            
+            // 1. Kiểm tra quyền
+            const permissions = await Geolocation.checkPermissions();
+            if (permissions.location !== 'granted') {
+                console.log("Requesting Native Permissions...");
+                const request = await Geolocation.requestPermissions();
+                if (request.location !== 'granted') {
+                    throw { code: 1, message: "Quyền vị trí bị từ chối trên ứng dụng." };
+                }
+            }
+
+            // 2. Lấy vị trí
+            const position = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+            
+            console.log('Native Location found:', position.coords);
+            setUserLocation({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+            });
+
+        } else {
+            // ============================================
+            // LOGIC CHO WEB BROWSER (DIRECT NAVIGATOR)
+            // ============================================
+            
+            if (!navigator.geolocation) {
+                throw new Error("Trình duyệt không hỗ trợ định vị.");
+            }
+
+            // Wrap getCurrentPosition in a Promise for clean async/await usage
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                const optionsHighAcc = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
+                const optionsLowAcc = { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 };
+
+                // Try High Accuracy First
+                navigator.geolocation.getCurrentPosition(
+                    resolve,
+                    (errorHigh) => {
+                        // CRITICAL: If Permission Denied (Code 1), fail immediately.
+                        if (errorHigh.code === 1) {
+                            return reject(errorHigh);
+                        }
+
+                        // If Timeout or Unavailable, fallback to Low Accuracy
+                        console.warn("High accuracy GPS failed, trying low accuracy...", errorHigh.message);
+                        
+                        navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject, // If this fails too, reject the promise
+                            optionsLowAcc
+                        );
+                    },
+                    optionsHighAcc
+                );
+            });
+
+            console.log('Web Location found:', position.coords);
+            setUserLocation({
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+            });
+        }
+
+    } catch (e: any) {
+        console.error("Location Error:", e);
+        
+        let msg = "Không thể lấy vị trí. Vui lòng thử lại.";
+        
+        // Handle standard Geolocation error codes
+        if (e.code === 1) { 
+             if (isNative) {
+                 msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
+             } else {
+                 msg = "Quyền vị trí chưa được cấp. Vui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép' (Reset Permission).\n2. Cài đặt Vị trí của trình duyệt.";
+             }
+        }
+        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng."; 
+        else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; 
+        else if (e.message) msg = e.message;
+
+        setUserLocation(prev => {
+            if (!prev) setLocationError(msg);
+            return prev;
+        });
+    } finally {
+        setIsLocating(false);
+    }
+  }, []);
+
+  // --- Web Permission Listener (Auto-Recovery) ---
+  useEffect(() => {
+    // Only run on Web
+    if (Capacitor.isNativePlatform()) return;
+
+    // Permissions API is not supported in all browsers (e.g. Firefox basic), so check existence
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'geolocation' as PermissionName })
+            .then((permissionStatus) => {
+                
+                const handlePermissionChange = () => {
+                    console.log("Permission state changed to:", permissionStatus.state);
+                    if (permissionStatus.state === 'granted') {
+                        // Auto-retry fetching location when user clicks "Allow"
+                        setLocationError(null);
+                        getUserLocation();
+                    } else if (permissionStatus.state === 'prompt') {
+                        // Reset error if user reset permissions
+                        setLocationError(null);
+                    }
+                };
+
+                permissionStatus.onchange = handlePermissionChange;
+            })
+            .catch(err => console.debug("Permissions API check skipped:", err));
+    }
+  }, [getUserLocation]);
+
+  useEffect(() => {
+    const isNative = Capacitor.isNativePlatform();
+
+    // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
       window.addEventListener('load', () => {
         const swUrl = `${window.location.origin}/sw.js`;
@@ -92,68 +227,27 @@ const App: React.FC = () => {
       });
     }
 
-    // --- HYBRID LOCATION LOGIC ---
-    const getUserLocation = async () => {
+    // Initial Location Fetch & Fetch when currentUser changes (User Logs In)
+    if (currentUser) {
+        getUserLocation();
+    }
+
+    // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
+    // Tự động lấy lại vị trí khi người dùng quay lại App
+    let appListener: any;
+    const setupAppListener = async () => {
         try {
-            if (isNative) {
-                // Native App Flow: Use Capacitor Geolocation
-                console.log('Requesting native permissions...');
-                
-                // 1. Check current permissions
-                const permissions = await Geolocation.checkPermissions();
-                
-                // 2. Request if not granted
-                if (permissions.location !== 'granted') {
-                    const requestResult = await Geolocation.requestPermissions();
-                    if (requestResult.location !== 'granted') {
-                        throw new Error('Quyền truy cập vị trí bị từ chối trên thiết bị.');
-                    }
+            appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+                if (isActive) {
+                    console.log('App resumed (isActive: true), re-checking location...');
+                    getUserLocation();
                 }
-
-                // 3. Get Position
-                const position = await Geolocation.getCurrentPosition({
-                    enableHighAccuracy: true,
-                    timeout: 10000
-                });
-                
-                setUserLocation({
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                });
-                setLocationError(null);
-
-            } else {
-                // Web Flow: Use Browser API
-                if (!navigator.geolocation) {
-                    throw new Error('Trình duyệt không hỗ trợ định vị.');
-                }
-                
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        setUserLocation({
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                        });
-                        setLocationError(null);
-                    },
-                    (error) => {
-                        console.error("Web Geolocation error:", error);
-                        // Standardize Web error messages
-                        let msg = "Không thể lấy vị trí của bạn.";
-                        if (error.code === error.PERMISSION_DENIED) msg = "Bạn đã từ chối quyền truy cập vị trí.";
-                        else if (error.code === error.TIMEOUT) msg = "Quá thời gian chờ lấy vị trí.";
-                        setLocationError(msg);
-                    },
-                    { enableHighAccuracy: true, timeout: 10000 }
-                );
-            }
-        } catch (e: any) {
-            console.error("Location Error:", e);
-            setLocationError(e.message || "Không thể lấy vị trí. Vui lòng kiểm tra GPS.");
+            });
+        } catch (err) {
+            console.warn('App State Listener failed to register:', err);
         }
     };
-
-    getUserLocation();
+    setupAppListener();
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
@@ -161,11 +255,14 @@ const App: React.FC = () => {
       setJobsLoading(false);
     });
     
-    // Cleanup subscription on unmount
+    // Cleanup
     return () => {
         unsubscribeJobs();
+        if (appListener) {
+            appListener.remove();
+        }
     };
-  }, []); // Run only once when the component mounts.
+  }, [getUserLocation, currentUser]); // Thêm currentUser vào dependency để re-run khi đăng nhập
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -289,10 +386,33 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
+                            {/* LOCATION ERROR ALERT WITH SMART ACTIONS */}
                             {locationError && (
-                                <div className="bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700 p-4 rounded-r-lg" role="alert">
-                                    <p className="font-bold">Thông báo</p>
-                                    <p>{locationError}</p>
+                                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <MapIcon className="w-5 h-5 text-red-600" />
+                                            <p className="font-bold">Cần quyền truy cập vị trí</p>
+                                        </div>
+                                        <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            // Trigger retry
+                                            getUserLocation();
+                                        }}
+                                        disabled={isLocating}
+                                        className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm"
+                                    >
+                                        {isLocating ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                Đang thử lại...
+                                            </>
+                                        ) : (
+                                            'Thử lại ngay'
+                                        )}
+                                    </button>
                                 </div>
                             )}
 
@@ -397,7 +517,7 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
       {selectedJob && <JobDetailModal job={selectedJob} onClose={handleCloseModal} onViewOnMap={() => handleViewJobOnMap(selectedJob)} />}
-      {isPostJobModalOpen && <PostJobModal onClose={() => setIsPostJobModalOpen(false)} />}
+      {isPostJobModalOpen && <PostJobModal onClose={() => setIsPostJobModalOpen(false)} userLocation={userLocation} />}
       {viewingProfile && (
         <PublicProfileModal 
             userId={viewingProfile.userId} 

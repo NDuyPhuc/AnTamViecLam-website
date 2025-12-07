@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, memo } from 'react';
 import ReactDOM from 'react-dom/client';
 import type { Job } from '../types';
@@ -58,15 +59,8 @@ const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFo
     // Use the passed-in user location if available for a better default center.
     if (userLocation) {
         map.setView([userLocation.lat, userLocation.lng], 13);
-    } else if (navigator.geolocation) {
-      // Fallback to trying to get it again if not passed initially
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          map.setView([latitude, longitude], 13);
-        }
-      );
-    }
+    } 
+    // REMOVED: Internal navigator.geolocation call to prevent conflict with App.tsx Capacitor Plugin
 
     mapDataRef.current.map = map;
 
@@ -87,7 +81,16 @@ const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFo
         mapDataRef.current.map = null;
       }
     };
-  }, [userLocation]); // Re-run if userLocation is available on initial render.
+  }, []); // Run once on mount
+
+  // Effect to update map view when userLocation changes
+  useEffect(() => {
+      const { map } = mapDataRef.current;
+      if (map && userLocation) {
+          // If we just got the location, fly to it
+          map.flyTo([userLocation.lat, userLocation.lng], 13);
+      }
+  }, [userLocation]);
 
   // Effect for updating markers when jobs list changes
   useEffect(() => {
