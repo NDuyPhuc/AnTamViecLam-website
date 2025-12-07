@@ -126,8 +126,16 @@ const App: React.FC = () => {
                     navigator.geolocation.getCurrentPosition(
                         resolve,
                         (errHigh) => {
+                            // QUAN TRỌNG: Nếu lỗi là do người dùng TỪ CHỐI (Code 1), 
+                            // thì KHÔNG thử lại nữa (vì thử lại cũng sẽ bị từ chối).
+                            if (errHigh.code === 1) {
+                                console.error("Geolocation permission explicitly denied by user.");
+                                reject(errHigh); 
+                                return;
+                            }
+
                             console.warn("High accuracy failed/timed out, trying low accuracy...", errHigh);
-                            // Thử lần 2: Độ chính xác thấp (dùng Wifi/Cell, nhanh hơn)
+                            // Chỉ thử lại chế độ thấp nếu lỗi là Timeout (3) hoặc Unavailable (2)
                             navigator.geolocation.getCurrentPosition(
                                 resolve,
                                 reject,
@@ -168,7 +176,7 @@ const App: React.FC = () => {
              if (Capacitor.isNativePlatform()) {
                  msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
              } else {
-                 msg = "Quyền vị trí bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ, bật vị trí và TẢI LẠI TRANG.";
+                 msg = "Quyền vị trí bị chặn. Vui lòng nhấp vào biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Đặt lại quyền' (Reset permission) -> Rồi TẢI LẠI TRANG.";
              }
         }
         else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS."; 
