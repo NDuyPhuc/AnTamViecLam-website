@@ -1,5 +1,6 @@
+
 import { db, serverTimestamp, increment } from './firebase';
-import type { Job, UserData, Application } from '../types';
+import type { Job, UserData, Application, EmploymentLog, LogType } from '../types';
 import { createNotification } from './notificationService';
 import { NotificationType } from '../types';
 
@@ -46,6 +47,7 @@ export const applyForJob = async (
     // New application context fields
     introduction: introduction,
     contactPhoneNumber: contactPhoneNumber || worker.phoneNumber || '',
+    performanceScore: 50, // Default starting score
   };
 
   // Use a batch to ensure both the application is created AND the job count is incremented
@@ -113,6 +115,8 @@ export const subscribeToApplicationsForEmployer = (employerId: string, callback:
                 cvName: data.cvName || null,
                 introduction: data.introduction || '',
                 contactPhoneNumber: data.contactPhoneNumber || '',
+                performanceScore: data.performanceScore || 50,
+                contractUrl: data.contractUrl || null,
             };
             applications.push(application);
         });
@@ -161,6 +165,8 @@ export const subscribeToApplicationsForWorker = (workerId: string, callback: (ap
                 cvName: data.cvName || null,
                 introduction: data.introduction || '',
                 contactPhoneNumber: data.contactPhoneNumber || '',
+                performanceScore: data.performanceScore || 50,
+                contractUrl: data.contractUrl || null,
             };
             applications.push(application);
         });
@@ -183,17 +189,102 @@ export const subscribeToApplicationsForWorker = (workerId: string, callback: (ap
  */
 export const updateApplicationStatus = async (
   application: Application,
-  status: 'accepted' | 'rejected'
+  status: 'accepted' | 'rejected' | 'hired' | 'terminated'
 ): Promise<void> => {
   // Use the application's ID to find the document in the top-level collection.
   const applicationRef = db.collection('applications').doc(application.id);
   await applicationRef.update({ status });
 
   // Notify the worker about the status change
-  const notificationType = status === 'accepted' ? NotificationType.APPLICATION_ACCEPTED : NotificationType.APPLICATION_REJECTED;
-  const message = status === 'accepted' 
-    ? `Chúc mừng! Đơn ứng tuyển của bạn cho công việc "${application.jobTitle}" đã được chấp nhận.`
-    : `Rất tiếc, đơn ứng tuyển của bạn cho công việc "${application.jobTitle}" đã bị từ chối.`;
+  let notificationType = NotificationType.APPLICATION_ACCEPTED;
+  let message = '';
+  let link = '/profile';
+
+  switch (status) {
+      case 'accepted':
+          message = `Chúc mừng! Hồ sơ của bạn cho công việc "${application.jobTitle}" đã được duyệt sơ bộ. Nhà tuyển dụng sẽ liên hệ sớm.`;
+          break;
+      case 'rejected':
+          notificationType = NotificationType.APPLICATION_REJECTED;
+          message = `Rất tiếc, đơn ứng tuyển của bạn cho công việc "${application.jobTitle}" chưa phù hợp lúc này.`;
+          break;
+      case 'hired':
+          message = `TUYỆT VỜI! Bạn đã được tuyển dụng chính thức cho công việc "${application.jobTitle}". Kiểm tra sổ BHXH ngay!`;
+          link = '/insurance';
+          break;
+      case 'terminated':
+          notificationType = NotificationType.APPLICATION_REJECTED; // Reuse red styling
+          message = `Hợp đồng công việc "${application.jobTitle}" đã kết thúc.`;
+          break;
+  }
   
-  await createNotification(application.workerId, notificationType, message, '/profile');
+  await createNotification(application.workerId, notificationType, message, link);
+
+  // If hired, add an initial log
+  if (status === 'hired') {
+      await addEmploymentLog(application.id, 'HIRED', 'Bắt đầu làm việc', 'Chào mừng nhân viên mới!');
+  }
+};
+
+
+// --- EMPLOYEE MANAGEMENT FUNCTIONS ---
+
+export const addEmploymentLog = async (
+    applicationId: string, 
+    type: LogType, 
+    title: string, 
+    description: string = '', 
+    amount?: number
+): Promise<void> => {
+    const logsRef = db.collection('applications').doc(applicationId).collection('logs');
+    
+    // Construct payload safely to avoid "Unsupported field value: undefined"
+    const payload: any = {
+        type,
+        title,
+        description,
+        date: serverTimestamp()
+    };
+
+    // Only add amount if it's defined (not undefined)
+    if (amount !== undefined && amount !== null) {
+        payload.amount = amount;
+    }
+
+    await logsRef.add(payload);
+};
+
+export const getEmploymentLogs = async (applicationId: string): Promise<EmploymentLog[]> => {
+    const logsRef = db.collection('applications').doc(applicationId).collection('logs').orderBy('date', 'desc');
+    const snapshot = await logsRef.get();
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            type: data.type,
+            title: data.title,
+            description: data.description,
+            amount: data.amount,
+            date: data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString()
+        };
+    });
+};
+
+export const updatePerformanceScore = async (applicationId: string, change: number): Promise<void> => {
+    const appRef = db.collection('applications').doc(applicationId);
+    await appRef.update({
+        performanceScore: increment(change)
+    });
+};
+
+export const updateContractUrl = async (applicationId: string, url: string): Promise<void> => {
+    const appRef = db.collection('applications').doc(applicationId);
+    await appRef.update({
+        contractUrl: url
+    });
+};
+
+export const terminateEmployee = async (application: Application, reason: string = 'Hoàn thành công việc hoặc thôi việc'): Promise<void> => {
+    await updateApplicationStatus(application, 'terminated');
+    await addEmploymentLog(application.id, 'TERMINATION', 'Chấm dứt hợp đồng', reason);
 };

@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -45,6 +46,25 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
       // Chỉ được update trạng thái nếu là người liên quan
       allow update: if isSignedIn() && (resource.data.employerId == request.auth.uid || resource.data.workerId == request.auth.uid);
+      
+      // Sub-collection LOGS (Lịch sử nhân viên)
+      match /logs/{logId} {
+        // Fetch parent document to verify permissions
+        function getApp() {
+          return get(/databases/$(database)/documents/applications/$(appId)).data;
+        }
+
+        // Cả Employer và Worker liên quan đều được xem log
+        allow read: if isSignedIn() && (
+          getApp().workerId == request.auth.uid || 
+          getApp().employerId == request.auth.uid
+        );
+        
+        // Chỉ Employer mới được tạo log (thưởng/phạt/trả lương)
+        allow create: if isSignedIn() && (
+          getApp().employerId == request.auth.uid
+        );
+      }
     }
 
     // --- 4. NOTIFICATIONS (THÔNG BÁO) ---

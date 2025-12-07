@@ -17,7 +17,8 @@
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.0.0",
     "@capacitor/geolocation": "^7.0.0",
-    "@capacitor/app": "^7.0.0"
+    "@capacitor/app": "^7.0.0",
+    "ethers": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

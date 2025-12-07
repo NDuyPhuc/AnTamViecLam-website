@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../services/firebase';
@@ -55,14 +56,15 @@ const EmployerJobCard: React.FC<{
 
 const ApplicantCard: React.FC<{ 
     application: Application,
-    onStatusUpdate: (status: 'accepted' | 'rejected') => void;
+    onStatusUpdate: (status: 'accepted' | 'rejected' | 'hired') => void;
     onViewProfile: () => void;
     isUpdating: boolean;
 }> = ({ application, onStatusUpdate, onViewProfile, isUpdating }) => {
     const statusInfo = {
         pending: { text: 'Chờ duyệt', className: 'bg-yellow-100 text-yellow-800' },
-        accepted: { text: 'Đã chấp nhận', className: 'bg-green-100 text-green-800' },
+        accepted: { text: 'Đã sơ tuyển', className: 'bg-blue-100 text-blue-800' },
         rejected: { text: 'Đã từ chối', className: 'bg-red-100 text-red-800' },
+        hired: { text: 'Nhân viên chính thức', className: 'bg-green-100 text-green-800' },
     };
     
     const currentStatus = statusInfo[application.status] || statusInfo.pending;
@@ -102,16 +104,26 @@ const ApplicantCard: React.FC<{
                     </p>
                 </div>
             </div>
-            <div className="flex items-center space-x-2 flex-shrink-0 w-full sm:w-auto justify-end">
+            <div className="flex flex-col items-end space-y-2 flex-shrink-0 w-full sm:w-auto">
                  {application.status === 'pending' && (
-                  <>
-                    <button onClick={() => onStatusUpdate('accepted')} disabled={isUpdating} className="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 hover:bg-green-200 disabled:opacity-50">
-                      {isUpdating ? '...' : 'Chấp nhận'}
+                  <div className="flex space-x-2">
+                    <button onClick={() => onStatusUpdate('accepted')} disabled={isUpdating} className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-50">
+                      {isUpdating ? '...' : 'Sơ tuyển'}
                     </button>
                     <button onClick={() => onStatusUpdate('rejected')} disabled={isUpdating} className="px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 hover:bg-red-200 disabled:opacity-50">
                       {isUpdating ? '...' : 'Từ chối'}
                     </button>
-                  </>
+                  </div>
+                )}
+                {application.status === 'accepted' && (
+                    <button 
+                        onClick={() => onStatusUpdate('hired')} 
+                        disabled={isUpdating} 
+                        className="px-4 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-md disabled:opacity-50 transition-colors"
+                        title="Xác nhận sau khi đã phỏng vấn offline thành công"
+                    >
+                        {isUpdating ? '...' : 'Xác nhận nhân viên'}
+                    </button>
                 )}
                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${currentStatus.className}`}>
                     {currentStatus.text}
@@ -127,8 +139,9 @@ const WorkerApplicationCard: React.FC<{
 }> = ({ application, onClick }) => {
     const statusInfo = {
         pending: { text: 'Đang chờ', className: 'bg-yellow-100 text-yellow-800' },
-        accepted: { text: 'Đã chấp nhận', className: 'bg-green-100 text-green-800' },
+        accepted: { text: 'Đã sơ tuyển', className: 'bg-blue-100 text-blue-800' },
         rejected: { text: 'Đã từ chối', className: 'bg-red-100 text-red-800' },
+        hired: { text: 'Đã trúng tuyển', className: 'bg-green-100 text-green-800' },
     };
     const currentStatus = statusInfo[application.status] || statusInfo.pending;
 
@@ -251,14 +264,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
     return { openJobs: open, closedJobs: closed };
   }, [myJobs]);
   
-  const { pendingApplications, acceptedApplications, rejectedApplications } = useMemo(() => {
+  const { pendingApplications, acceptedApplications, rejectedApplications, hiredApplications } = useMemo(() => {
     if (currentUserData?.userType !== UserRole.Worker) {
-      return { pendingApplications: [], acceptedApplications: [], rejectedApplications: [] };
+      return { pendingApplications: [], acceptedApplications: [], rejectedApplications: [], hiredApplications: [] };
     }
     return {
       pendingApplications: myApplications.filter(app => app.status === 'pending'),
       acceptedApplications: myApplications.filter(app => app.status === 'accepted'),
       rejectedApplications: myApplications.filter(app => app.status === 'rejected'),
+      hiredApplications: myApplications.filter(app => app.status === 'hired'),
     };
   }, [myApplications, currentUserData]);
 
@@ -275,7 +289,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
     }
   };
   
-  const handleApplicationStatusUpdate = async (application: Application, status: 'accepted' | 'rejected') => {
+  const handleApplicationStatusUpdate = async (application: Application, status: 'accepted' | 'rejected' | 'hired') => {
       const uniqueId = `${application.jobId}-${application.id}`;
       setUpdatingApplicationId(uniqueId);
       try {
@@ -740,6 +754,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
       {currentUserData.userType === UserRole.Worker && (
         <div className="max-w-2xl w-full mx-auto mt-12 space-y-10">
             <div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Công việc chính thức (Đã trúng tuyển)</h3>
+                {myAppsLoading ? <Spinner /> : hiredApplications.length > 0 ? (
+                    <div className="space-y-3">
+                        {hiredApplications.map(app => (
+                            <WorkerApplicationCard 
+                                key={`${app.jobId}-${app.id}`} 
+                                application={app} 
+                                onClick={handleViewJobDetail}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">Bạn chưa có công việc chính thức nào.</p>
+                )}
+            </div>
+            <div>
                 <h3 className="text-2xl font-bold text-gray-800 mb-4">Đơn ứng tuyển đang chờ</h3>
                 {myAppsLoading ? <Spinner /> : pendingApplications.length > 0 ? (
                     <div className="space-y-3">
@@ -756,7 +786,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
                 )}
             </div>
              <div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Công việc đã được chấp thuận</h3>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">Sơ tuyển thành công</h3>
                  {myAppsLoading ? <Spinner /> : acceptedApplications.length > 0 ? (
                     <div className="space-y-3">
                     {acceptedApplications.map(app => (
@@ -768,7 +798,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
                     ))}
                     </div>
                 ) : (
-                    <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">Chưa có đơn ứng tuyển nào được chấp thuận.</p>
+                    <p className="text-gray-500 bg-gray-50 p-4 rounded-lg text-center">Chưa có đơn ứng tuyển nào được sơ tuyển.</p>
                 )}
             </div>
             <div>
