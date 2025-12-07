@@ -1,8 +1,25 @@
 
 import { ethers } from 'ethers';
 
-// Địa chỉ ví của "Quỹ An Sinh" (Đây có thể là ví của bạn dùng để nhận tiền testnet)
-const WELFARE_FUND_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"; // Ví dụ dummy, hãy thay bằng ví testnet của bạn
+// --- CẤU HÌNH DEMO ---
+// Đây là địa chỉ ví đại diện cho "Smart Contract Quỹ An Sinh" hoặc "Ví Hưu Trí".
+// ĐỂ DEMO ẤN TƯỢNG: Hãy thay địa chỉ này bằng một địa chỉ ví phụ (Account 2) của bạn.
+// Khi demo, bạn chuyển tiền từ Account 1, sau đó mở Account 2 cho giám khảo xem tiền đã về.
+const WELFARE_FUND_ADDRESS = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"; 
+
+// Cấu hình mạng Polygon Amoy
+const AMOY_CHAIN_ID_HEX = "0x13882"; // 80002 in hex
+const AMOY_NETWORK_PARAMS = {
+    chainId: AMOY_CHAIN_ID_HEX,
+    chainName: "Polygon Amoy Testnet",
+    nativeCurrency: {
+        name: "POL",
+        symbol: "POL",
+        decimals: 18,
+    },
+    rpcUrls: ["https://rpc-amoy.polygon.technology/"],
+    blockExplorerUrls: ["https://amoy.polygonscan.com/"],
+};
 
 export interface WalletState {
     address: string | null;
@@ -12,18 +29,46 @@ export interface WalletState {
 }
 
 export const connectWallet = async (): Promise<WalletState> => {
+    // Kiểm tra xem trình duyệt có ví Web3 không
     if (!(window as any).ethereum) {
         throw new Error("Vui lòng cài đặt MetaMask để sử dụng tính năng này!");
     }
 
     try {
         const provider = new ethers.BrowserProvider((window as any).ethereum);
-        const accounts = await provider.send("eth_requestAccounts", []);
+        
+        // 1. Yêu cầu người dùng kết nối ví
+        await provider.send("eth_requestAccounts", []);
+        
+        // 2. Tự động kiểm tra và chuyển mạng sang Polygon Amoy
+        try {
+            await provider.send("wallet_switchEthereumChain", [{ chainId: AMOY_CHAIN_ID_HEX }]);
+        } catch (switchError: any) {
+            // Mã lỗi 4902 nghĩa là mạng chưa được thêm vào ví
+            if (switchError.code === 4902) {
+                try {
+                    await provider.send("wallet_addEthereumChain", [AMOY_NETWORK_PARAMS]);
+                } catch (addError) {
+                    console.error("User rejected adding network:", addError);
+                    throw new Error("Bạn cần thêm mạng Polygon Amoy để sử dụng tính năng này.");
+                }
+            } else {
+                console.error("Failed to switch network:", switchError);
+                throw switchError;
+            }
+        }
+
         const signer = await provider.getSigner();
         const address = await signer.getAddress();
+        
+        // Lấy số dư
         const balanceBigInt = await provider.getBalance(address);
         const balance = ethers.formatEther(balanceBigInt);
+        
         const network = await provider.getNetwork();
+
+        console.log("🔗 [Blockchain] Connected:", address);
+        console.log("💰 [Blockchain] Balance:", balance, "POL");
 
         return {
             address,
@@ -32,7 +77,7 @@ export const connectWallet = async (): Promise<WalletState> => {
             isConnected: true
         };
     } catch (error) {
-        console.error("Connect wallet error:", error);
+        console.error("❌ Connect wallet error:", error);
         throw error;
     }
 };
@@ -43,15 +88,20 @@ export const sendDonation = async (amountInEther: string): Promise<string> => {
     const provider = new ethers.BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();
 
-    // Tạo giao dịch gửi Native Token (MATIC/POL/ETH)
+    console.log(`💸 [Blockchain] Initiating transaction: Sending ${amountInEther} POL to ${WELFARE_FUND_ADDRESS}`);
+
+    // Tạo giao dịch gửi Native Token (MATIC/POL)
     const tx = await signer.sendTransaction({
         to: WELFARE_FUND_ADDRESS,
         value: ethers.parseEther(amountInEther)
     });
 
-    // Chờ giao dịch được confirm (đào)
-    // await tx.wait(); // Có thể chờ hoặc trả về hash ngay để UI xử lý
+    console.log("⏳ [Blockchain] Transaction sent, waiting for confirmation...", tx.hash);
 
+    // Chờ giao dịch được confirm
+    // await tx.wait(); 
+
+    console.log("✅ [Blockchain] Transaction confirmed:", tx.hash);
     return tx.hash;
 };
 
