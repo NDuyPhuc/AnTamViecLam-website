@@ -147,7 +147,11 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
           <div className="flex items-center justify-between h-20">
               <div className="flex items-center space-x-10">
                   <button onClick={() => setActiveView(View.Jobs)} className="flex items-center flex-shrink-0 group">
-                      <ShieldCheckIcon className="h-8 w-8 text-indigo-600 group-hover:animate-pulse" />
+                      <img 
+                        src="https://ik.imagekit.io/duyphuc/AN%20T%C3%82M%20VI%E1%BB%86CL%C3%80M.jpg" 
+                        alt="An Tâm Việc Làm Logo" 
+                        className="h-10 w-10 rounded-full object-cover group-hover:opacity-90 transition-opacity" 
+                      />
                       <h1 className="ml-3 text-2xl font-bold text-gray-800">An Tâm Việc Làm</h1>
                   </button>
                   <nav className="flex items-baseline space-x-2 lg:space-x-4">

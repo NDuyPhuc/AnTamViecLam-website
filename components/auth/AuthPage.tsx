@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
@@ -100,8 +101,12 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
         </button>
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl border border-gray-100 p-8 space-y-6">
         <div className="flex flex-col items-center">
-          <ShieldCheckIcon className="h-12 w-12 text-indigo-600" />
-          <h1 className="mt-3 text-3xl font-bold text-gray-800">Chào mừng đến An Tâm Việc Làm</h1>
+          <img 
+            src="https://ik.imagekit.io/duyphuc/AN%20T%C3%82M%20VI%E1%BB%86CL%C3%80M.jpg" 
+            alt="An Tâm Việc Làm Logo" 
+            className="h-24 w-24 rounded-full object-cover mb-2 shadow-md" 
+          />
+          <h1 className="mt-3 text-3xl font-bold text-gray-800 text-center">Chào mừng đến<br/>An Tâm Việc Làm</h1>
           <p className="text-gray-600 mt-2">{isLogin ? 'Đăng nhập vào tài khoản của bạn' : 'Tạo tài khoản mới'}</p>
         </div>
         

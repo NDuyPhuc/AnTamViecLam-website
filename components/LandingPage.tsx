@@ -1,3 +1,4 @@
+
 import React from 'react';
 import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import BriefcaseIcon from './icons/BriefcaseIcon';
@@ -74,7 +75,11 @@ const LandingPage: React.FC<{ onNavigateToAuth: () => void }> = ({ onNavigateToA
                     <div className="flex items-center justify-between h-20">
                         <div className="flex items-center space-x-10">
                             <a href="#" className="flex items-center flex-shrink-0 group">
-                                <ShieldCheckIcon className="h-8 w-8 text-indigo-600" />
+                                <img 
+                                    src="https://ik.imagekit.io/duyphuc/AN%20T%C3%82M%20VI%E1%BB%86CL%C3%80M.jpg" 
+                                    alt="An Tâm Việc Làm Logo" 
+                                    className="h-10 w-10 rounded-full object-cover" 
+                                />
                                 <h1 className="ml-3 text-2xl font-bold">An Tâm Việc Làm</h1>
                             </a>
                             <nav className="hidden md:flex items-baseline space-x-6">
@@ -251,7 +256,11 @@ const LandingPage: React.FC<{ onNavigateToAuth: () => void }> = ({ onNavigateToA
                    <div className="grid md:grid-cols-3 gap-8">
                         <div className="md:col-span-1">
                              <a href="#" className="flex items-center justify-center md:justify-start flex-shrink-0 group">
-                                <ShieldCheckIcon className="h-8 w-8 text-indigo-400" />
+                                <img 
+                                    src="https://ik.imagekit.io/duyphuc/AN%20T%C3%82M%20VI%E1%BB%86CL%C3%80M.jpg" 
+                                    alt="An Tâm Việc Làm Logo" 
+                                    className="h-10 w-10 rounded-full object-cover" 
+                                />
                                 <h1 className="ml-3 text-2xl font-bold">An Tâm Việc Làm</h1>
                             </a>
                             <p className="text-gray-400 mt-2 text-center md:text-left">Nền tảng an sinh và việc làm cho lao động tự do.</p>
