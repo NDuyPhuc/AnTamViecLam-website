@@ -6,8 +6,6 @@ import { NotificationType } from '../types';
 
 /**
  * Allows a worker to apply for a job.
- * Creates an application document in a top-level "applications" collection.
- * Uses a composite ID "jobId_workerId" to prevent duplicate applications.
  */
 export const applyForJob = async (
     job: Job, 
@@ -26,6 +24,9 @@ export const applyForJob = async (
   const applicationRef = db.collection('applications').doc(applicationId);
 
   try {
+      // Check existence first
+      // Note: With the new Firestore Rules, this will return doc.exists = false if not found,
+      // instead of throwing "Insufficient Permissions".
       const docSnap = await applicationRef.get();
       if (docSnap.exists) {
         throw new Error('You have already applied for this job.');
@@ -49,18 +50,17 @@ export const applyForJob = async (
         performanceScore: 50,
       };
 
-      // FIX QUAN TRỌNG: Tách Batch thành 2 lệnh riêng biệt.
-      // 1. Tạo Application (QUAN TRỌNG NHẤT) - Nếu cái này thành công, coi như ứng tuyển thành công.
+      // 1. Create Application
       await applicationRef.set(applicationData);
 
-      // 2. Tăng số lượng ứng viên (PHỤ) - Nếu lỗi quyền (permission denied) thì bỏ qua, không chặn luồng chính.
+      // 2. Increment Applicant Count (Safely)
       try {
           const jobRef = db.collection('jobs').doc(job.id);
           await jobRef.update({
               applicantCount: increment(1)
           });
       } catch (countError) {
-          console.warn("Warning: Could not increment applicant count due to permissions. Ignoring...", countError);
+          console.warn("Warning: Could not increment applicant count. This does not affect the application.", countError);
       }
 
       // Send notification to employer
@@ -79,19 +79,23 @@ export const applyForJob = async (
 
 /**
  * Checks if a worker has already applied for a specific job.
- * Returns true if an application document exists, false otherwise.
  */
 export const checkIfApplied = async (jobId: string, workerId: string): Promise<boolean> => {
   const applicationId = `${jobId}_${workerId}`;
   const applicationRef = db.collection('applications').doc(applicationId);
-  const docSnap = await applicationRef.get();
-  return docSnap.exists;
+  try {
+      const docSnap = await applicationRef.get();
+      return docSnap.exists;
+  } catch (error) {
+      // If permission denied or other error, assume false to allow UI to show button
+      // (The actual apply action might fail if it's a real permission issue, but this unblocks the UI check)
+      console.warn("Error checking application status:", error);
+      return false;
+  }
 };
 
 /**
  * Subscribes to all applications for jobs posted by a specific employer.
- * Queries the top-level 'applications' collection.
- * Sorts on the client to avoid composite index requirements.
  */
 export const subscribeToApplicationsForEmployer = (employerId: string, callback: (apps: Application[]) => void) => {
     const applicationsCollection = db.collection('applications');
@@ -127,9 +131,7 @@ export const subscribeToApplicationsForEmployer = (employerId: string, callback:
             applications.push(application);
         });
         
-        // Sort client-side by date, newest first
         applications.sort((a, b) => new Date(b.applicationDate).getTime() - new Date(a.applicationDate).getTime());
-        
         callback(applications);
     }, (error) => {
         console.error("Error fetching employer applications: ", error);
@@ -141,7 +143,6 @@ export const subscribeToApplicationsForEmployer = (employerId: string, callback:
 
 /**
  * Subscribes to all applications submitted by a specific worker.
- * Sorts on the client to avoid composite index requirements.
  */
 export const subscribeToApplicationsForWorker = (workerId: string, callback: (apps: Application[]) => void) => {
     const applicationsCollection = db.collection('applications');
@@ -177,9 +178,7 @@ export const subscribeToApplicationsForWorker = (workerId: string, callback: (ap
             applications.push(application);
         });
 
-        // Sort client-side by date, newest first
         applications.sort((a, b) => new Date(b.applicationDate).getTime() - new Date(a.applicationDate).getTime());
-
         callback(applications);
     }, (error) => {
         console.error("Error fetching worker applications: ", error);
@@ -197,11 +196,9 @@ export const updateApplicationStatus = async (
   application: Application,
   status: 'accepted' | 'rejected' | 'hired' | 'terminated'
 ): Promise<void> => {
-  // Use the application's ID to find the document in the top-level collection.
   const applicationRef = db.collection('applications').doc(application.id);
   await applicationRef.update({ status });
 
-  // Notify the worker about the status change
   let notificationType = NotificationType.APPLICATION_ACCEPTED;
   let message = '';
   let link = '/profile';
@@ -219,14 +216,13 @@ export const updateApplicationStatus = async (
           link = '/insurance';
           break;
       case 'terminated':
-          notificationType = NotificationType.APPLICATION_REJECTED; // Reuse red styling
+          notificationType = NotificationType.APPLICATION_REJECTED; 
           message = `Hợp đồng công việc "${application.jobTitle}" đã kết thúc.`;
           break;
   }
   
   await createNotification(application.workerId, notificationType, message, link);
 
-  // If hired, add an initial log
   if (status === 'hired') {
       await addEmploymentLog(application.id, 'HIRED', 'Bắt đầu làm việc', 'Chào mừng nhân viên mới!');
   }
@@ -244,7 +240,6 @@ export const addEmploymentLog = async (
 ): Promise<void> => {
     const logsRef = db.collection('applications').doc(applicationId).collection('logs');
     
-    // Construct payload safely to avoid "Unsupported field value: undefined"
     const payload: any = {
         type,
         title,
@@ -252,7 +247,6 @@ export const addEmploymentLog = async (
         date: serverTimestamp()
     };
 
-    // Only add amount if it's defined (not undefined)
     if (amount !== undefined && amount !== null) {
         payload.amount = amount;
     }

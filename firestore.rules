@@ -17,8 +17,7 @@ service cloud.firestore {
       allow read: if true; 
       allow create: if isSignedIn();
       
-      // FIX: Cho phép mọi user đã đăng nhập được update job.
-      // Điều này bắt buộc để Worker có thể chạy lệnh increment(1) vào field applicantCount.
+      // Cho phép mọi user đã đăng nhập update (để tăng biến đếm applicantCount)
       allow update: if isSignedIn();
       
       allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
@@ -37,11 +36,15 @@ service cloud.firestore {
 
     // --- 3. APPLICATIONS (ĐƠN ỨNG TUYỂN) ---
     match /applications/{appId} {
-      // Cho phép tạo và sửa đơn nếu đã đăng nhập
       allow create: if isSignedIn();
       allow update: if isSignedIn();
       
+      // FIX LỖI QUAN TRỌNG:
+      // Thêm điều kiện 'resource == null'. 
+      // Khi Client gọi .get() trên một document chưa tồn tại, resource sẽ là null.
+      // Rule cũ cố truy cập resource.data.workerId gây lỗi.
       allow read: if isSignedIn() && (
+        resource == null || 
         resource.data.workerId == request.auth.uid || 
         resource.data.employerId == request.auth.uid
       );
