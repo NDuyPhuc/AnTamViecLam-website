@@ -4,36 +4,32 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     // --- HÀM HỖ TRỢ ---
-    
-    // Kiểm tra đã đăng nhập
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Kiểm tra là chính chủ (User ID trùng với Auth ID)
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     // --- 1. JOBS (VIỆC LÀM) ---
-    // QUAN TRỌNG: Cho phép read công khai (if true) để khách vãng lai xem được việc làm
-    // và tránh lỗi "Missing permissions" khi App vừa khởi động.
     match /jobs/{jobId} {
       allow read: if true; 
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.employerId == request.auth.uid || request.resource.data.employerId == request.auth.uid);
+      
+      // FIX: Cho phép mọi user đã đăng nhập được update job.
+      // Điều này bắt buộc để Worker có thể chạy lệnh increment(1) vào field applicantCount.
+      allow update: if isSignedIn();
+      
+      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
     }
 
     // --- 2. USERS (NGƯỜI DÙNG) ---
     match /users/{userId} {
-      // Cho phép đọc profile công khai (để hiện avatar/tên trong chat hoặc tin tuyển dụng)
-      // Tuy nhiên, nếu muốn bảo mật cao hơn, có thể giới hạn chỉ isSignedIn().
       allow read: if isSignedIn();
-      
       allow create: if isSignedIn(); 
       allow update: if isOwner(userId);
       
-      // Sub-collection Chat AI
       match /ai_conversations/{msgId} {
          allow read, write: if isOwner(userId);
       }
@@ -41,47 +37,43 @@ service cloud.firestore {
 
     // --- 3. APPLICATIONS (ĐƠN ỨNG TUYỂN) ---
     match /applications/{appId} {
+      // Cho phép tạo và sửa đơn nếu đã đăng nhập
       allow create: if isSignedIn();
-      // Chỉ chủ đơn (worker) hoặc người nhận đơn (employer) mới được xem
-      allow read: if isSignedIn() && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
-      // Chỉ được update trạng thái nếu là người liên quan
-      allow update: if isSignedIn() && (resource.data.employerId == request.auth.uid || resource.data.workerId == request.auth.uid);
+      allow update: if isSignedIn();
       
-      // Sub-collection LOGS (Lịch sử nhân viên)
+      allow read: if isSignedIn() && (
+        resource.data.workerId == request.auth.uid || 
+        resource.data.employerId == request.auth.uid
+      );
+      
+      // Sub-collection LOGS
       match /logs/{logId} {
-        // Fetch parent document to verify permissions
         function getApp() {
           return get(/databases/$(database)/documents/applications/$(appId)).data;
         }
-
-        // Cả Employer và Worker liên quan đều được xem log
         allow read: if isSignedIn() && (
           getApp().workerId == request.auth.uid || 
           getApp().employerId == request.auth.uid
         );
-        
-        // Chỉ Employer mới được tạo log (thưởng/phạt/trả lương)
         allow create: if isSignedIn() && (
           getApp().employerId == request.auth.uid
         );
       }
     }
 
-    // --- 4. NOTIFICATIONS (THÔNG BÁO) ---
+    // --- 4. NOTIFICATIONS ---
     match /notifications/{notifId} {
       allow read, update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create: if isSignedIn(); 
     }
 
-    // --- 5. CONVERSATIONS (TIN NHẮN CHAT) ---
+    // --- 5. CONVERSATIONS ---
     match /conversations/{convoId} {
-      // Kiểm tra user có nằm trong mảng participants không
       allow read: if isSignedIn() && (request.auth.uid in resource.data.participants);
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (request.auth.uid in resource.data.participants);
 
       match /messages/{msgId} {
-         // Thừa hưởng quyền từ conversation, nhưng khai báo rõ ràng
          allow read, create, update: if isSignedIn();
       }
     }

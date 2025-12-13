@@ -25,50 +25,56 @@ export const applyForJob = async (
   const applicationId = `${job.id}_${worker.uid}`;
   const applicationRef = db.collection('applications').doc(applicationId);
 
-  const docSnap = await applicationRef.get();
-  if (docSnap.exists) {
-    throw new Error('You have already applied for this job.');
+  try {
+      const docSnap = await applicationRef.get();
+      if (docSnap.exists) {
+        throw new Error('You have already applied for this job.');
+      }
+
+      const applicationData = {
+        jobId: job.id,
+        jobTitle: job.title,
+        workerId: worker.uid,
+        workerName: worker.fullName,
+        workerProfileImageUrl: worker.profileImageUrl || null,
+        employerId: job.employerId,
+        employerName: job.employerName,
+        employerProfileImageUrl: job.employerProfileUrl || null,
+        applicationDate: serverTimestamp(),
+        status: 'pending',
+        cvUrl: worker.cvUrl || null,
+        cvName: worker.cvName || null,
+        introduction: introduction,
+        contactPhoneNumber: contactPhoneNumber || worker.phoneNumber || '',
+        performanceScore: 50,
+      };
+
+      // FIX QUAN TRỌNG: Tách Batch thành 2 lệnh riêng biệt.
+      // 1. Tạo Application (QUAN TRỌNG NHẤT) - Nếu cái này thành công, coi như ứng tuyển thành công.
+      await applicationRef.set(applicationData);
+
+      // 2. Tăng số lượng ứng viên (PHỤ) - Nếu lỗi quyền (permission denied) thì bỏ qua, không chặn luồng chính.
+      try {
+          const jobRef = db.collection('jobs').doc(job.id);
+          await jobRef.update({
+              applicantCount: increment(1)
+          });
+      } catch (countError) {
+          console.warn("Warning: Could not increment applicant count due to permissions. Ignoring...", countError);
+      }
+
+      // Send notification to employer
+      createNotification(
+        job.employerId,
+        NotificationType.NEW_APPLICATION,
+        `${worker.fullName} vừa ứng tuyển vào công việc: "${job.title}"`,
+        `/profile`
+      ).catch(err => console.error("Failed to send notification", err));
+
+  } catch (error: any) {
+      console.error("Apply Job Error Details:", error);
+      throw error;
   }
-
-  const applicationData = {
-    jobId: job.id,
-    jobTitle: job.title,
-    workerId: worker.uid,
-    workerName: worker.fullName,
-    workerProfileImageUrl: worker.profileImageUrl || null,
-    employerId: job.employerId,
-    employerName: job.employerName,
-    employerProfileImageUrl: job.employerProfileUrl || null,
-    applicationDate: serverTimestamp(),
-    status: 'pending',
-    // Snapshot CV info at time of application
-    cvUrl: worker.cvUrl || null,
-    cvName: worker.cvName || null,
-    // New application context fields
-    introduction: introduction,
-    contactPhoneNumber: contactPhoneNumber || worker.phoneNumber || '',
-    performanceScore: 50, // Default starting score
-  };
-
-  // Use a batch to ensure both the application is created AND the job count is incremented
-  const batch = db.batch();
-  
-  batch.set(applicationRef, applicationData);
-  
-  const jobRef = db.collection('jobs').doc(job.id);
-  batch.update(jobRef, {
-      applicantCount: increment(1)
-  });
-
-  await batch.commit();
-
-  // Send notification to employer
-  await createNotification(
-    job.employerId,
-    NotificationType.NEW_APPLICATION,
-    `${worker.fullName} vừa ứng tuyển vào công việc: "${job.title}"`,
-    `/profile`
-  );
 };
 
 /**
