@@ -2,83 +2,117 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- HÀM HỖ TRỢ ---
+
+    // =====================
+    // ====== HELPERS ======
+    // =====================
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- 1. JOBS (VIỆC LÀM) ---
-    match /jobs/{jobId} {
-      allow read: if true; 
-      allow create: if isSignedIn();
-      
-      // Cho phép mọi user đã đăng nhập update (để tăng biến đếm applicantCount)
-      allow update: if isSignedIn();
-      
-      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
     }
 
-    // --- 2. USERS (NGƯỜI DÙNG) ---
+    // =====================
+    // ====== JOBS =========
+    // =====================
+    match /jobs/{jobId} {
+      // Public read
+      allow read: if true;
+
+      // User đăng nhập hoặc admin
+      allow create: if isSignedIn() || isAdmin();
+
+      // Cho phép update (vd tăng applicantCount)
+      allow update: if isSignedIn() || isAdmin();
+
+      // Chỉ chủ job hoặc admin được xóa
+      allow delete: if isAdmin() ||
+        (isSignedIn() && resource.data.employerId == request.auth.uid);
+    }
+
+    // =====================
+    // ====== USERS ========
+    // =====================
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn(); 
-      allow update: if isOwner(userId);
-      
+      allow read: if isSignedIn() || isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isOwner(userId);
+
+      // ---- AI CONVERSATIONS (SUBCOLLECTION)
       match /ai_conversations/{msgId} {
-         allow read, write: if isOwner(userId);
+        allow read, write: if isAdmin() || isOwner(userId);
       }
     }
 
-    // --- 3. APPLICATIONS (ĐƠN ỨNG TUYỂN) ---
+    // =========================
+    // ===== APPLICATIONS ======
+    // =========================
     match /applications/{appId} {
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      
-      // FIX LỖI QUAN TRỌNG:
-      // Thêm điều kiện 'resource == null'. 
-      // Khi Client gọi .get() trên một document chưa tồn tại, resource sẽ là null.
-      // Rule cũ cố truy cập resource.data.workerId gây lỗi.
-      allow read: if isSignedIn() && (
-        resource == null || 
-        resource.data.workerId == request.auth.uid || 
-        resource.data.employerId == request.auth.uid
+      allow create, update: if isSignedIn() || isAdmin();
+
+      // Read: worker | employer | admin
+      // resource == null để tránh crash khi get doc chưa tồn tại
+      allow read: if isAdmin() || (
+        isSignedIn() && (
+          resource == null ||
+          resource.data.workerId == request.auth.uid ||
+          resource.data.employerId == request.auth.uid
+        )
       );
-      
-      // Sub-collection LOGS
+
+      // ----- SUBCOLLECTION: LOGS
       match /logs/{logId} {
         function getApp() {
           return get(/databases/$(database)/documents/applications/$(appId)).data;
         }
-        allow read: if isSignedIn() && (
-          getApp().workerId == request.auth.uid || 
-          getApp().employerId == request.auth.uid
+
+        allow read: if isAdmin() || (
+          isSignedIn() && (
+            getApp().workerId == request.auth.uid ||
+            getApp().employerId == request.auth.uid
+          )
         );
-        allow create: if isSignedIn() && (
-          getApp().employerId == request.auth.uid
+
+        allow create: if isAdmin() || (
+          isSignedIn() && getApp().employerId == request.auth.uid
         );
       }
     }
 
-    // --- 4. NOTIFICATIONS ---
+    // =========================
+    // ===== NOTIFICATIONS =====
+    // =========================
     match /notifications/{notifId} {
-      allow read, update: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn(); 
+      allow read, update: if isAdmin() ||
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isSignedIn() || isAdmin();
     }
 
-    // --- 5. CONVERSATIONS ---
+    // =========================
+    // ===== CONVERSATIONS =====
+    // =========================
     match /conversations/{convoId} {
-      allow read: if isSignedIn() && (request.auth.uid in resource.data.participants);
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (request.auth.uid in resource.data.participants);
+      allow read, create, update: if isAdmin() ||
+        (isSignedIn() && request.auth.uid in resource.data.participants);
 
+      // ---- SUBCOLLECTION: MESSAGES
       match /messages/{msgId} {
-         allow read, create, update: if isSignedIn();
+        allow read, create, update: if isAdmin() || isSignedIn();
       }
+    }
+
+    // =========================
+    // ===== DEFAULT DENY ======
+    // =========================
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

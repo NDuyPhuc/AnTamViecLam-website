@@ -24,7 +24,7 @@ export interface Job {
   payType: 'THEO GIỜ' | 'THEO NGÀY' | 'THEO THÁNG';
   jobType?: 'Thời vụ' | 'Bán thời gian' | 'Linh hoạt' | 'Toàn thời gian';
   
-  status: 'OPEN' | 'CLOSED';
+  status: 'OPEN' | 'CLOSED'; // OPEN maps to 'active' logic in Admin
   createdAt: string; // Firestore Timestamp converted to ISO string
   hiredWorkerId: string | null;
 
@@ -55,6 +55,8 @@ export interface WorkExperience {
   duration: string;
 }
 
+export type KycStatus = 'none' | 'pending' | 'verified' | 'rejected';
+
 export interface UserData {
   uid: string;
   email: string | null;
@@ -77,6 +79,15 @@ export interface UserData {
   csrScore?: number; // Điểm trách nhiệm xã hội cho NTD
   welfareFundBalance?: number; // Số dư quỹ thưởng an sinh của NTD
   pensionBookBalance?: number; // Số dư sổ hưu trí của NLĐ
+
+  // KYC Fields - Admin Sync
+  kycStatus?: KycStatus;
+  kycImages?: string[]; // Array of image URLs [front, back, portrait]
+  kycRejectReason?: string;
+  kycSubmittedAt?: string;
+  
+  // Security Fields - Admin Sync
+  isDisabled?: boolean; // Nếu true => Ban user
 }
 
 export type LogType = 'PAYMENT' | 'BONUS' | 'PENALTY' | 'LEAVE' | 'TERMINATION' | 'HIRED';
@@ -119,6 +130,8 @@ export enum NotificationType {
   NEW_JOB_MATCH = 'NEW_JOB_MATCH',
   APPLICATION_ACCEPTED = 'APPLICATION_ACCEPTED',
   APPLICATION_REJECTED = 'APPLICATION_REJECTED',
+  KYC_APPROVED = 'KYC_APPROVED',
+  KYC_REJECTED = 'KYC_REJECTED'
 }
 
 export interface Notification {

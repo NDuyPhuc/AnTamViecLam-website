@@ -42,26 +42,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const docSnap = await userDocRef.get();
     if (docSnap.exists) {
       const data = docSnap.data();
+      
+      // SECURITY: Check if user is banned
+      if (data?.isDisabled === true) {
+          throw new Error("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ Admin.");
+      }
+
       // Convert timestamp to ISO string to prevent serialization issues
-      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      const kycSubmittedAt = data?.kycSubmittedAt?.toDate ? data.kycSubmittedAt.toDate().toISOString() : undefined;
       
       const userData: UserData = {
-          uid: data.uid,
-          email: data.email,
-          userType: data.userType,
+          uid: data?.uid,
+          email: data?.email,
+          userType: data?.userType,
           createdAt: createdAt,
-          fullName: data.fullName,
-          phoneNumber: data.phoneNumber,
-          address: data.address,
-          profileImageUrl: data.profileImageUrl,
-          fcmTokens: data.fcmTokens || [],
-          // Worker-specific profile fields
-          bio: data.bio || '',
-          skills: data.skills || [],
-          workHistory: data.workHistory || [],
-          cvUrl: data.cvUrl || null,
-          cvName: data.cvName || null,
-          walletAddress: data.walletAddress || null,
+          fullName: data?.fullName,
+          phoneNumber: data?.phoneNumber,
+          address: data?.address,
+          profileImageUrl: data?.profileImageUrl,
+          fcmTokens: data?.fcmTokens || [],
+          bio: data?.bio || '',
+          skills: data?.skills || [],
+          workHistory: data?.workHistory || [],
+          cvUrl: data?.cvUrl || null,
+          cvName: data?.cvName || null,
+          walletAddress: data?.walletAddress || null,
+          
+          // KYC Fields
+          kycStatus: data?.kycStatus || 'none',
+          kycImages: data?.kycImages || [],
+          kycRejectReason: data?.kycRejectReason || '',
+          kycSubmittedAt: kycSubmittedAt,
+          isDisabled: data?.isDisabled || false,
       };
       setCurrentUserData(userData as UserData);
     } else {
@@ -72,7 +85,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const refetchUserData = useCallback(async () => {
     if (currentUser) {
-        await fetchUserData(currentUser);
+        try {
+            await fetchUserData(currentUser);
+        } catch (e) {
+            // If fetch fail (e.g. banned), logout
+            await logout();
+        }
     }
   }, [currentUser]);
 
@@ -98,25 +116,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       workHistory: [],
       cvUrl: null,
       cvName: null,
+      kycStatus: 'none',
+      isDisabled: false, // Default false
     });
     return userCredential;
   };
 
-  const login = (email: string, password: string) => {
-    return auth.signInWithEmailAndPassword(email, password);
+  const login = async (email: string, password: string) => {
+    // Standard Firebase login
+    const credential = await auth.signInWithEmailAndPassword(email, password);
+    // Extra security check handled in onAuthStateChanged -> fetchUserData
+    return credential;
   };
 
   const logout = async () => {
     try {
-        // 1. Set trạng thái Offline trên Realtime Database
         if (currentUser) {
             await setUserOffline(currentUser.uid);
         }
-        
-        // 2. Đăng xuất Firebase Auth
         await auth.signOut();
-
-        // 3. Xóa Service Workers để tránh lỗi Cache/Stale State
         if ('serviceWorker' in navigator) {
             try {
                 const registrations = await navigator.serviceWorker.getRegistrations();
@@ -127,17 +145,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 console.warn("Could not unregister service workers:", error);
             }
         }
-
-        // 4. Xóa sạch Local Storage & Session Storage
         localStorage.clear();
         sessionStorage.clear();
-
-        // 5. QUAN TRỌNG: Tải lại trang (Reload) để reset toàn bộ React State (Memory Heap).
         window.location.reload();
-        
     } catch (error) {
         console.error("Logout error:", error);
-        // Fallback reload anyway
         window.location.reload();
     }
   };
@@ -146,20 +158,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new firebase.auth.GoogleAuthProvider();
     try {
         await auth.signInWithPopup(provider);
-        // NOTE: We do NOT create the user document here anymore.
-        // We let CompleteProfilePage handle the role selection and document creation 
-        // if the user document doesn't exist.
     } catch (error) {
         console.error("Error with Google Sign-in Popup:", error);
         throw error;
     }
   };
 
+  // --- REAL-TIME BAN MONITORING ---
+  useEffect(() => {
+      let unsubscribeUserDoc: () => void;
+
+      if (currentUser) {
+          const userRef = db.collection('users').doc(currentUser.uid);
+          unsubscribeUserDoc = userRef.onSnapshot((doc) => {
+              const data = doc.data();
+              if (data && data.isDisabled === true) {
+                  console.warn("User has been disabled by Admin. Logging out.");
+                  alert("Tài khoản của bạn đã bị khóa bởi Quản trị viên.");
+                  logout();
+              }
+          });
+      }
+
+      return () => {
+          if (unsubscribeUserDoc) unsubscribeUserDoc();
+      };
+  }, [currentUser]);
+
+
   useEffect(() => {
     let presenceCleanup: (() => void) | undefined;
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-        // Clean up previous presence listener if it exists
         if (presenceCleanup) {
           presenceCleanup();
           presenceCleanup = undefined;
@@ -167,12 +197,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setCurrentUser(user);
         if (user) {
-            await fetchUserData(user);
-            // Only setup extras if userData exists (meaning they finished profile completion)
-            // However, requestNotificationPermission is safe to call early
-            await requestNotificationPermission(user.uid);
-            // Start presence tracking
-            presenceCleanup = updateUserPresence(user.uid);
+            try {
+                await fetchUserData(user);
+                await requestNotificationPermission(user.uid);
+                presenceCleanup = updateUserPresence(user.uid);
+            } catch (error: any) {
+                console.error("Auth check failed (likely disabled):", error.message);
+                alert(error.message);
+                await auth.signOut();
+                setCurrentUser(null);
+                setCurrentUserData(null);
+            }
         } else {
             setCurrentUserData(null);
         }

@@ -13,6 +13,9 @@ import PlusCircleIcon from './icons/PlusCircleIcon';
 import TrashIcon from './icons/TrashIcon';
 import DocumentTextIcon from './icons/DocumentTextIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
+import ShieldCheckIcon from './icons/ShieldCheckIcon';
+import ShieldExclamationIcon from './icons/ShieldExclamationIcon';
+import KycModal from './KycModal';
 import { useTranslation } from 'react-i18next';
 
 interface ProfilePageProps {
@@ -26,6 +29,7 @@ const EmployerJobCard: React.FC<{
     isUpdating: boolean,
     onClick: (job: Job) => void
 }> = ({ job, onStatusChange, isUpdating, onClick }) => {
+    const { t } = useTranslation();
     const isClosed = job.status === 'CLOSED';
     return (
         <div 
@@ -35,6 +39,7 @@ const EmployerJobCard: React.FC<{
             <div>
                 <p className="font-semibold text-gray-800">{job.title}</p>
                 <p className="text-sm text-gray-500">{job.addressString}</p>
+                {isClosed && <p className="text-xs text-red-500 italic mt-1">{t('profile.job_closed_label')}</p>}
             </div>
             <button
                 onClick={(e) => {
@@ -48,7 +53,7 @@ const EmployerJobCard: React.FC<{
                         : 'bg-red-100 text-red-800 hover:bg-red-200'
                 }`}
             >
-                {isUpdating ? '...' : (isClosed ? 'Mở lại' : 'Đóng')}
+                {isUpdating ? '...' : (isClosed ? t('profile.btn_reopen') : t('profile.btn_close_job'))}
             </button>
         </div>
     );
@@ -60,12 +65,13 @@ const ApplicantCard: React.FC<{
     onViewProfile: () => void;
     isUpdating: boolean;
 }> = ({ application, onStatusUpdate, onViewProfile, isUpdating }) => {
-    // Note: In a real complete i18n, status text should also be keys
+    const { t } = useTranslation();
+    
     const statusInfo = {
-        pending: { text: 'Chờ duyệt', className: 'bg-yellow-100 text-yellow-800' },
-        accepted: { text: 'Đã sơ tuyển', className: 'bg-blue-100 text-blue-800' },
-        rejected: { text: 'Đã từ chối', className: 'bg-red-100 text-red-800' },
-        hired: { text: 'Nhân viên chính thức', className: 'bg-green-100 text-green-800' },
+        pending: { text: t('profile.status_pending'), className: 'bg-yellow-100 text-yellow-800' },
+        accepted: { text: t('profile.status_accepted'), className: 'bg-blue-100 text-blue-800' },
+        rejected: { text: t('profile.status_rejected'), className: 'bg-red-100 text-red-800' },
+        hired: { text: t('profile.status_hired'), className: 'bg-green-100 text-green-800' },
     };
     
     const currentStatus = statusInfo[application.status] || statusInfo.pending;
@@ -97,10 +103,10 @@ const ApplicantCard: React.FC<{
                         )}
                      </div>
                     <p className="text-sm text-gray-600">
-                        Đã ứng tuyển vào: <span className="font-medium text-indigo-600">{application.jobTitle}</span>
+                        {t('profile.applied_job')}: <span className="font-medium text-indigo-600">{application.jobTitle}</span>
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
-                        Ngày: {new Date(application.applicationDate).toLocaleDateString()}
+                        {t('profile.date')}: {new Date(application.applicationDate).toLocaleDateString()}
                     </p>
                 </div>
             </div>
@@ -108,10 +114,10 @@ const ApplicantCard: React.FC<{
                  {application.status === 'pending' && (
                   <div className="flex space-x-2">
                     <button onClick={() => onStatusUpdate('accepted')} disabled={isUpdating} className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 hover:bg-blue-200 disabled:opacity-50">
-                      {isUpdating ? '...' : 'Sơ tuyển'}
+                      {isUpdating ? '...' : t('profile.btn_accept')}
                     </button>
                     <button onClick={() => onStatusUpdate('rejected')} disabled={isUpdating} className="px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 hover:bg-red-200 disabled:opacity-50">
-                      {isUpdating ? '...' : 'Từ chối'}
+                      {isUpdating ? '...' : t('profile.btn_reject')}
                     </button>
                   </div>
                 )}
@@ -121,7 +127,7 @@ const ApplicantCard: React.FC<{
                         disabled={isUpdating} 
                         className="px-4 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-md disabled:opacity-50 transition-colors"
                     >
-                        {isUpdating ? '...' : 'Xác nhận nhân viên'}
+                        {isUpdating ? '...' : t('profile.btn_hire')}
                     </button>
                 )}
                 <span className={`px-3 py-1 text-xs font-semibold rounded-full ${currentStatus.className}`}>
@@ -136,12 +142,12 @@ const WorkerApplicationCard: React.FC<{
     application: Application,
     onClick: (jobId: string) => void
 }> = ({ application, onClick }) => {
-    // Ideally these status texts should also be i18n keys
+    const { t } = useTranslation();
     const statusInfo = {
-        pending: { text: 'Đang chờ', className: 'bg-yellow-100 text-yellow-800' },
-        accepted: { text: 'Đã sơ tuyển', className: 'bg-blue-100 text-blue-800' },
-        rejected: { text: 'Đã từ chối', className: 'bg-red-100 text-red-800' },
-        hired: { text: 'Đã trúng tuyển', className: 'bg-green-100 text-green-800' },
+        pending: { text: t('profile.status_pending'), className: 'bg-yellow-100 text-yellow-800' },
+        accepted: { text: t('profile.status_accepted'), className: 'bg-blue-100 text-blue-800' },
+        rejected: { text: t('profile.status_rejected'), className: 'bg-red-100 text-red-800' },
+        hired: { text: t('profile.status_hired'), className: 'bg-green-100 text-green-800' },
     };
     const currentStatus = statusInfo[application.status] || statusInfo.pending;
 
@@ -152,9 +158,9 @@ const WorkerApplicationCard: React.FC<{
         >
             <div className="flex-grow text-left w-full sm:w-auto">
                 <p className="font-semibold text-gray-800">{application.jobTitle}</p>
-                <p className="text-sm text-gray-500">Nhà tuyển dụng: <span className="font-medium">{application.employerName}</span></p>
+                <p className="text-sm text-gray-500">{t('profile.employer_label')}: <span className="font-medium">{application.employerName}</span></p>
                 <p className="text-xs text-gray-400 mt-1">
-                    Ngày nộp đơn: {new Date(application.applicationDate).toLocaleDateString()}
+                    {t('profile.applied_date')}: {new Date(application.applicationDate).toLocaleDateString()}
                 </p>
             </div>
             <div className="flex-shrink-0 flex items-center gap-2">
@@ -195,6 +201,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showKycModal, setShowKycModal] = useState(false);
 
   // Employer's data state
   const [myJobs, setMyJobs] = useState<Job[]>([]);
@@ -259,6 +266,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
 
   const { openJobs, closedJobs } = useMemo(() => {
     const open = myJobs.filter(job => job.status === 'OPEN');
+    // Admin closed jobs will also appear here if status is 'CLOSED'
     const closed = myJobs.filter(job => job.status === 'CLOSED');
     return { openJobs: open, closedJobs: closed };
   }, [myJobs]);
@@ -466,9 +474,80 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
     return <Spinner message={t('common.loading')}/>;
   }
 
+  // --- KYC Status Helper ---
+  const renderKycStatus = () => {
+      const status = currentUserData.kycStatus || 'none';
+      
+      if (status === 'verified') {
+          return (
+              <div className="flex items-center gap-2 text-green-700 bg-green-50 px-4 py-2 rounded-xl border border-green-200 shadow-sm">
+                  <ShieldCheckIcon className="w-5 h-5" />
+                  <div>
+                      <span className="font-bold text-sm block">{t('profile.kyc_verified')}</span>
+                      <span className="text-xs text-green-600">{t('profile.kyc_trusted')}</span>
+                  </div>
+              </div>
+          );
+      }
+      if (status === 'pending') {
+          return (
+              <div className="flex items-center gap-2 text-yellow-700 bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-200 shadow-sm cursor-not-allowed opacity-80">
+                  <Spinner />
+                  <div>
+                      <span className="font-bold text-sm block">{t('profile.kyc_pending')}</span>
+                      <span className="text-xs">{t('profile.kyc_pending_desc')}</span>
+                  </div>
+              </div>
+          );
+      }
+      if (status === 'rejected') {
+          return (
+              <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 text-red-700 bg-red-50 px-4 py-3 rounded-xl border border-red-200 shadow-sm">
+                      <XCircleIcon className="w-6 h-6 flex-shrink-0" />
+                      <div>
+                          <span className="font-bold text-sm block">{t('profile.kyc_rejected')}</span>
+                          {currentUserData.kycRejectReason && (
+                              <p className="text-xs mt-1">{t('profile.kyc_reason')} <span className="font-semibold">{currentUserData.kycRejectReason}</span></p>
+                          )}
+                      </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowKycModal(true)} 
+                    className="text-sm text-white bg-red-600 hover:bg-red-700 py-2 rounded-lg font-medium shadow-sm transition-colors"
+                  >
+                      {t('profile.kyc_resubmit')}
+                  </button>
+              </div>
+          );
+      }
+      // status === 'none'
+      return (
+          <button 
+            onClick={() => setShowKycModal(true)}
+            className="group flex items-center gap-3 text-gray-700 bg-white hover:bg-gray-50 px-4 py-2 rounded-xl border border-gray-300 shadow-sm transition-all hover:border-indigo-400"
+          >
+              <div className="p-2 bg-gray-100 rounded-full group-hover:bg-indigo-100 transition-colors">
+                  <ShieldExclamationIcon className="w-5 h-5 text-gray-500 group-hover:text-indigo-600" />
+              </div>
+              <div className="text-left">
+                  <span className="font-bold text-sm block text-gray-800">{t('profile.kyc_none')}</span>
+                  <span className="text-xs text-gray-500">{t('profile.kyc_none_desc')}</span>
+              </div>
+          </button>
+      );
+  };
+
   return (
-    <div className="space-y-8">
-      <h2 className="text-3xl font-bold text-gray-800">{t('profile.title')}</h2>
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div>
+              <h2 className="text-3xl font-bold text-gray-800">{t('profile.title')}</h2>
+              <p className="text-gray-500 text-sm mt-1">Quản lý thông tin cá nhân và trạng thái tài khoản</p>
+          </div>
+          {renderKycStatus()}
+      </div>
+
       <div className="max-w-2xl w-full bg-white rounded-2xl shadow-sm p-6 sm:p-8 border border-gray-200 mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex flex-col items-center space-y-4">
@@ -482,7 +561,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
                 <button 
                     type="button" 
                     onClick={handleAvatarClick}
-                    className="relative w-32 h-32 rounded-full group bg-gray-100 flex items-center justify-center cursor-pointer border-2 border-dashed hover:border-indigo-400 transition-all"
+                    className="relative w-32 h-32 rounded-full group bg-gray-100 flex items-center justify-center cursor-pointer border-2 border-dashed hover:border-indigo-400 transition-all shadow-inner"
                     aria-label="Change avatar"
                 >
                     {avatarPreview || (currentUserData && currentUserData.profileImageUrl) ? (
@@ -511,16 +590,19 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
                 />
             </div>
              <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">{t('profile.full_name')}</label>
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                    {t('profile.full_name')} <span className="text-red-500">*</span>
+                </label>
                 <input
                     id="fullName"
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder={t('profile.full_name')}
+                    placeholder={t('profile.fullname_placeholder')}
                     required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
+                <p className="text-xs text-gray-500 mt-1 italic">{t('profile.fullname_hint')}</p>
             </div>
             <div>
                 <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-1">{t('profile.phone')}</label>
@@ -643,7 +725,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
               <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors flex items-center justify-center"
+                  className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors flex items-center justify-center shadow-md"
               >
                    {isLoading && (
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -797,6 +879,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
       )}
 
       {isFetchingJob && <Spinner fullScreen message={t('common.loading')}/>}
+      
+      {showKycModal && (
+          <KycModal 
+            onClose={() => setShowKycModal(false)}
+            onSuccess={() => {
+                setShowKycModal(false);
+                refetchUserData();
+                alert(t('profile.kyc_success_alert'));
+            }}
+          />
+      )}
     </div>
   );
 };

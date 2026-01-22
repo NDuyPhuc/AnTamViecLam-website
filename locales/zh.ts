@@ -140,16 +140,6 @@ export default {
     "error_browser_support": "浏览器不支持地理定位。",
     "error_generic": "无法获取位置。请重试。"
   },
-  "time": {
-    "just_now": "刚刚",
-    "seconds_ago": "{{count}} 秒前",
-    "minutes_ago": "{{count}} 分钟前",
-    "hours_ago": "{{count}} 小时前",
-    "days_ago": "{{count}} 天前",
-    "yesterday": "昨天",
-    "presence_active": "当前在线",
-    "presence_active_ago": "活跃于 {{time}}"
-  },
   "app": {
     "search_jobs": "搜索职位",
     "available_jobs": "可用职位",
@@ -209,8 +199,7 @@ export default {
     "type_day": "按天",
     "type_hour": "按小时",
     "type_month": "按月",
-    "placeholder_address": "例如：ABC路123号...",
-    "error_location_required": "请在地图上标记位置。"
+    "placeholder_address": "例如：ABC路123号..."
   },
   "profile": {
     "title": "您的个人资料",
@@ -237,7 +226,34 @@ export default {
     "worker_pending": "待处理申请",
     "worker_accepted": "初筛通过",
     "worker_rejected": "已拒绝",
-    "avatar_hint": "点击更改头像"
+    "avatar_hint": "点击更改头像",
+    "kyc_verified": "已验证身份",
+    "kyc_trusted": "可信账户",
+    "kyc_pending": "等待批准...",
+    "kyc_pending_desc": "信息正在审核中",
+    "kyc_rejected": "验证被拒绝",
+    "kyc_reason": "原因：",
+    "kyc_resubmit": "重新提交资料",
+    "kyc_none": "未验证",
+    "kyc_none_desc": "立即验证以增加信任",
+    "kyc_success_alert": "KYC 资料提交成功！请等待管理员批准。",
+    
+    "status_pending": "待审核",
+    "status_accepted": "初筛通过",
+    "status_rejected": "已拒绝",
+    "status_hired": "正式员工",
+    "btn_reopen": "重新开放",
+    "btn_close_job": "关闭",
+    "job_closed_label": "已关闭 / 隐藏",
+    "btn_accept": "接受",
+    "btn_reject": "拒绝",
+    "btn_hire": "确认录用",
+    "employer_label": "雇主",
+    "applied_date": "申请日期",
+    "applied_job": "申请职位",
+    "date": "日期",
+    "fullname_placeholder": "输入身份证上的全名",
+    "fullname_hint": "请输入真实姓名以便 AI 更快验证身份。"
   },
   "chat": {
     "assistant_name": "AI 助手",
@@ -418,5 +434,33 @@ export default {
     "intro": "简介",
     "skills": "技能",
     "work_history": "工作经历"
+  },
+  "kyc": {
+    "title": "身份验证 (KYC)",
+    "step_1_title": "准备工作",
+    "step_1_desc": "请准备好您的身份证件 (CCCD) 并确保光线充足。",
+    "step_2_title": "身份证正面",
+    "step_2_desc": "清晰拍摄身份证正面。避免反光，确保四角可见。",
+    "step_3_title": "身份证背面",
+    "step_3_desc": "清晰拍摄身份证背面。确保条形码和号码清晰可读。",
+    "step_4_title": "人像照片",
+    "step_4_desc": "自拍一张。请勿佩戴墨镜或帽子，直视前方。",
+    "note_title": "重要提示：",
+    "note_1": "使用原始照片，请勿编辑/使用滤镜。",
+    "note_2": "账户名称必须与身份证上的名称一致。",
+    "note_3": "管理员将在 24 小时内审核资料。",
+    "start_btn": "立即开始",
+    "retake": "重拍",
+    "upload_hint": "点击拍摄或上传照片",
+    "uploading": "上传中...",
+    "back": "返回",
+    "completed_title": "上传完成！",
+    "completed_desc": "提交前请检查下方的 3 张照片。",
+    "label_front": "正面",
+    "label_back": "背面",
+    "label_portrait": "人像",
+    "retry": "重做",
+    "sending": "发送中...",
+    "submit": "提交审核"
   }
-};
+}

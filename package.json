@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.2.3",
     "@google/genai": "^1.29.0",
     "firebase": "^12.5.0",
     "marked": "12.0.2",
