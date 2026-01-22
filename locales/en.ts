@@ -54,7 +54,13 @@ export default {
     "why_us_2_title": "Efficient & Fast",
     "why_us_2_desc": "Finding suitable seasonal labor has never been easier.",
     "why_us_3_title": "Social Impact",
-    "why_us_3_desc": "Joining hands to solve social security issues for millions of freelancers."
+    "why_us_3_desc": "Joining hands to solve social security issues for millions of freelancers.",
+    "testimonial_1_quote": "Thanks to An Tam Viec Lam, I found a construction job near home with stable income.",
+    "testimonial_1_name": "Mr. Minh Tuan",
+    "testimonial_1_role": "Construction Worker",
+    "testimonial_2_quote": "The platform helps me quickly find hourly help whenever my restaurant is busy.",
+    "testimonial_2_name": "Ms. Lan Anh",
+    "testimonial_2_role": "Restaurant Owner"
   },
   "auth": {
     "back_home": "Back to Home",
@@ -86,7 +92,14 @@ export default {
     "error_wrong_password": "Wrong password. Please try again.",
     "error_email_in_use": "This email is already in use.",
     "error_weak_password": "Password must be at least 6 characters.",
-    "error_missing_name": "Please enter your full name."
+    "error_missing_name": "Please enter your full name.",
+    "error_popup_closed": "You closed the login popup. Please try again.",
+    "error_google_login": "Google login failed. Please try again.",
+    "error_required_field": "Please fill out this field.",
+    "error_invalid_cv_type": "Please upload PDF or Word documents only.",
+    "error_file_too_large": "File is too large. Please choose a file smaller than 5MB.",
+    "error_login_required": "You need to login to apply.",
+    "error_missing_phone": "Please enter a contact phone number."
   },
   "messaging": {
     "title": "Messages",
@@ -163,7 +176,8 @@ export default {
     "location": "Location",
     "view_map": "View on map",
     "employer_post": "This is your post",
-    "detail_modal_title": "Job Details"
+    "detail_modal_title": "Job Details",
+    "error_not_found": "This job no longer exists."
   },
   "filters": {
     "location": "Location",
@@ -195,7 +209,8 @@ export default {
     "type_day": "Daily",
     "type_hour": "Hourly",
     "type_month": "Monthly",
-    "placeholder_address": "Ex: 123 ABC Street..."
+    "placeholder_address": "Ex: 123 ABC Street...",
+    "error_location_required": "Please pin a location on the map."
   },
   "profile": {
     "title": "Your Profile",
@@ -364,7 +379,8 @@ export default {
     "confirm_adjustment_desc": "You are about to <1>{{action}}</1> <3>{{value}} points</3> for the employee.",
     "action_bonus": "reward",
     "action_penalty": "penalize",
-    "enter_reason": "Enter specific reason (Required)..."
+    "enter_reason": "Enter specific reason (Required)...",
+    "error_terminate": "Could not terminate contract."
   },
   "ai_rec": {
     "title": "Smart Job Recommendations",

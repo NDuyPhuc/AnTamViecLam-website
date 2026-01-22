@@ -41,9 +41,14 @@ const CompleteProfilePage: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+          setError(t('auth.error_file_too_large'));
+          return;
+      }
       setAvatarFile(file);
       const previewUrl = URL.createObjectURL(file);
       setAvatarPreview(previewUrl);
+      setError('');
     }
   };
 
@@ -109,6 +114,14 @@ const CompleteProfilePage: React.FC = () => {
         }
         setIsLoading(false);
     }
+  };
+
+  const handleInvalid = (e: React.FormEvent<HTMLInputElement>) => {
+    e.currentTarget.setCustomValidity(t('auth.error_required_field'));
+  };
+
+  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+    e.currentTarget.setCustomValidity('');
   };
 
   return (
@@ -195,6 +208,8 @@ const CompleteProfilePage: React.FC = () => {
                         type="text"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
+                        onInvalid={handleInvalid}
+                        onInput={handleInput}
                         placeholder={t('profile.full_name')}
                         required
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"

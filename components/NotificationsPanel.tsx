@@ -6,6 +6,7 @@ import UserIcon from './icons/UserIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import XCircleIcon from './icons/XCircleIcon';
 import { useTranslation } from 'react-i18next';
+import { formatTimeAgo } from '../utils/formatters';
 
 interface NotificationsPanelProps {
     notifications: Notification[];
@@ -51,7 +52,7 @@ const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
 };
 
 const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, onNotificationClick, onMarkAllAsRead, onClose }) => {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
@@ -93,7 +94,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, 
                                     <div className="flex-1">
                                         <p className="text-sm text-gray-700">{displayText}</p>
                                         <p className="text-xs text-gray-500 mt-1">
-                                            {new Date(notification.createdAt).toLocaleString(i18n.language)}
+                                            {formatTimeAgo(notification.createdAt)}
                                         </p>
                                     </div>
                                     {!notification.isRead && (

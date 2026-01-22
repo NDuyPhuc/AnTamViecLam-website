@@ -54,7 +54,13 @@ export default {
     "why_us_2_title": "Hiệu Quả & Nhanh Chóng",
     "why_us_2_desc": "Việc tìm kiếm lao động thời vụ phù hợp trở nên dễ dàng hơn bao giờ hết.",
     "why_us_3_title": "Tác Động Xã Hội",
-    "why_us_3_desc": "Chung tay giải quyết bài toán an sinh cho hàng triệu lao động tự do."
+    "why_us_3_desc": "Chung tay giải quyết bài toán an sinh cho hàng triệu lao động tự do.",
+    "testimonial_1_quote": "Nhờ An Tâm Việc Làm, tôi đã tìm được công việc phụ hồ gần nhà với thu nhập ổn định.",
+    "testimonial_1_name": "Anh Minh Tuấn",
+    "testimonial_1_role": "Lao động xây dựng",
+    "testimonial_2_quote": "Nền tảng giúp tôi nhanh chóng tìm được người giúp việc theo giờ mỗi khi quán đông khách.",
+    "testimonial_2_name": "Chị Lan Anh",
+    "testimonial_2_role": "Chủ quán ăn"
   },
   "auth": {
     "back_home": "Quay lại trang chủ",
@@ -86,7 +92,14 @@ export default {
     "error_wrong_password": "Sai mật khẩu. Vui lòng thử lại.",
     "error_email_in_use": "Email này đã được sử dụng.",
     "error_weak_password": "Mật khẩu phải có ít nhất 6 ký tự.",
-    "error_missing_name": "Vui lòng nhập họ và tên của bạn."
+    "error_missing_name": "Vui lòng nhập họ và tên của bạn.",
+    "error_popup_closed": "Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại.",
+    "error_google_login": "Đăng nhập với Google thất bại. Vui lòng thử lại.",
+    "error_required_field": "Vui lòng điền vào trường này.",
+    "error_invalid_cv_type": "Vui lòng chỉ tải lên file PDF hoặc Word.",
+    "error_file_too_large": "File quá lớn. Vui lòng chọn file nhỏ hơn 5MB.",
+    "error_login_required": "Bạn cần đăng nhập để ứng tuyển.",
+    "error_missing_phone": "Vui lòng nhập số điện thoại liên hệ."
   },
   "messaging": {
     "title": "Tin nhắn",
@@ -163,7 +176,8 @@ export default {
     "location": "Địa điểm làm việc",
     "view_map": "Xem trên bản đồ",
     "employer_post": "Đây là bài đăng của bạn",
-    "detail_modal_title": "Chi tiết công việc"
+    "detail_modal_title": "Chi tiết công việc",
+    "error_not_found": "Công việc này không còn tồn tại."
   },
   "filters": {
     "location": "Địa điểm",
@@ -195,7 +209,8 @@ export default {
     "type_day": "Theo ngày",
     "type_hour": "Theo giờ",
     "type_month": "Theo tháng",
-    "placeholder_address": "VD: 123 Đường ABC..."
+    "placeholder_address": "VD: 123 Đường ABC...",
+    "error_location_required": "Vui lòng ghim vị trí trên bản đồ."
   },
   "profile": {
     "title": "Hồ sơ của bạn",
@@ -364,7 +379,8 @@ export default {
     "confirm_adjustment_desc": "Bạn đang <1>{{action}}</1> <3>{{value}} điểm</3> cho nhân viên.",
     "action_bonus": "thưởng",
     "action_penalty": "phạt",
-    "enter_reason": "Nhập lý do cụ thể (Bắt buộc)..."
+    "enter_reason": "Nhập lý do cụ thể (Bắt buộc)...",
+    "error_terminate": "Không thể chấm dứt hợp đồng."
   },
   "ai_rec": {
     "title": "Gợi ý Việc làm Thông minh",

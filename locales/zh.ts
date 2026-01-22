@@ -54,7 +54,13 @@ export default {
     "why_us_2_title": "高效快捷",
     "why_us_2_desc": "寻找合适的临时工作从未如此简单。",
     "why_us_3_title": "社会影响",
-    "why_us_3_desc": "携手解决数百万自由职业者的社会保障问题。"
+    "why_us_3_desc": "携手解决数百万自由职业者的社会保障问题。",
+    "testimonial_1_quote": "感谢 An Tam Viec Lam，我在家附近找到了一份收入稳定的建筑工作。",
+    "testimonial_1_name": "Minh Tuan 先生",
+    "testimonial_1_role": "建筑工人",
+    "testimonial_2_quote": "每当餐馆生意繁忙时，该平台都能帮助我快速找到小时工。",
+    "testimonial_2_name": "Lan Anh 女士",
+    "testimonial_2_role": "餐馆老板"
   },
   "auth": {
     "back_home": "返回首页",
@@ -86,7 +92,14 @@ export default {
     "error_wrong_password": "密码错误。请重试。",
     "error_email_in_use": "此电子邮件已被使用。",
     "error_weak_password": "密码必须至少为 6 个字符。",
-    "error_missing_name": "请输入您的全名。"
+    "error_missing_name": "请输入您的全名。",
+    "error_popup_closed": "您关闭了登录弹窗。请重试。",
+    "error_google_login": "Google 登录失败。请重试。",
+    "error_required_field": "请填写此字段。",
+    "error_invalid_cv_type": "请仅上传 PDF 或 Word 文档。",
+    "error_file_too_large": "文件太大。请选择小于 5MB 的文件。",
+    "error_login_required": "您需要登录才能申请。",
+    "error_missing_phone": "请输入联系电话。"
   },
   "messaging": {
     "title": "消息",
@@ -163,7 +176,8 @@ export default {
     "location": "工作地点",
     "view_map": "在地图上查看",
     "employer_post": "这是您的帖子",
-    "detail_modal_title": "职位详情"
+    "detail_modal_title": "职位详情",
+    "error_not_found": "该职位已不存在。"
   },
   "filters": {
     "location": "地点",
@@ -195,7 +209,8 @@ export default {
     "type_day": "按天",
     "type_hour": "按小时",
     "type_month": "按月",
-    "placeholder_address": "例如：ABC路123号..."
+    "placeholder_address": "例如：ABC路123号...",
+    "error_location_required": "请在地图上标记位置。"
   },
   "profile": {
     "title": "您的个人资料",
@@ -364,7 +379,8 @@ export default {
     "confirm_adjustment_desc": "您即将对员工进行 <1>{{action}}</1> <3>{{value}} 分</3>。",
     "action_bonus": "奖励",
     "action_penalty": "惩罚",
-    "enter_reason": "输入具体原因 (必填)..."
+    "enter_reason": "输入具体原因 (必填)...",
+    "error_terminate": "无法终止合同。"
   },
   "ai_rec": {
     "title": "智能职位推荐",

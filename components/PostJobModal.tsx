@@ -153,7 +153,7 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ onClose, userLocation }) =>
     }
     
     if (!coordinates) {
-        setError(t('post_job.map_pin_desc'));
+        setError(t('post_job.error_location_required')); 
         return;
     }
     if (!selectedProvince || !selectedDistrict || !selectedWard) {

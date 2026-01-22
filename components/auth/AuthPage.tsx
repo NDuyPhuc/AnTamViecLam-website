@@ -28,6 +28,14 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
   const [googleLoading, setGoogleLoading] = useState(false);
   const { signup, login, loginWithGoogle } = useAuth();
 
+  const handleInvalid = (e: React.FormEvent<HTMLInputElement>) => {
+    e.currentTarget.setCustomValidity(t('auth.error_required_field'));
+  };
+
+  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+    e.currentTarget.setCustomValidity('');
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -61,7 +69,7 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
           setError(t('auth.error_weak_password'));
           break;
         case 'auth/popup-closed-by-user':
-          setError('Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại.'); // Fallback translation for complex error
+          setError(t('auth.error_popup_closed')); 
           break;
         default:
           setError(t('common.error'));
@@ -80,10 +88,10 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
       } catch (err: any) {
          switch (err.code) {
             case 'auth/popup-closed-by-user':
-              setError('Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại.');
+              setError(t('auth.error_popup_closed'));
               break;
             default:
-              setError('Đăng nhập với Google thất bại. Vui lòng thử lại.');
+              setError(t('auth.error_google_login'));
               break;
          }
          // Set loading to false only in case of error, as success will trigger a page reload
@@ -145,6 +153,8 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onInvalid={handleInvalid}
+            onInput={handleInput}
             placeholder={t('auth.email_placeholder')}
             required
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -153,6 +163,8 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onInvalid={handleInvalid}
+            onInput={handleInput}
             placeholder={t('auth.password_placeholder')}
             required
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
@@ -163,6 +175,8 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                onInvalid={handleInvalid}
+                onInput={handleInput}
                 placeholder={t('auth.confirm_password_placeholder')}
                 required
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"

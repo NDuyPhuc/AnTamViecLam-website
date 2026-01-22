@@ -57,15 +57,15 @@ const LandingPage: React.FC<{ onNavigateToAuth: () => void }> = ({ onNavigateToA
 
     const testimonials = [
         {
-            quote: "Nhờ An Tâm Việc Làm, tôi đã tìm được công việc phụ hồ gần nhà với thu nhập ổn định.",
-            name: "Anh Minh Tuấn",
-            role: "Lao động xây dựng",
+            quote: t('landing.testimonial_1_quote'),
+            name: t('landing.testimonial_1_name'),
+            role: t('landing.testimonial_1_role'),
             avatar: "https://images.unsplash.com/photo-1581092921462-2150b3e19190?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
         },
         {
-            quote: "Nền tảng giúp tôi nhanh chóng tìm được người giúp việc theo giờ mỗi khi quán đông khách.",
-            name: "Chị Lan Anh",
-            role: "Chủ quán ăn",
+            quote: t('landing.testimonial_2_quote'),
+            name: t('landing.testimonial_2_name'),
+            role: t('landing.testimonial_2_role'),
             avatar: "https://images.unsplash.com/photo-1600565193348-f74d3c2723a9?q=80&w=2940&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
         }
     ];

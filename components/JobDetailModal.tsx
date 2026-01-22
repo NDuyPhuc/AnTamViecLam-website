@@ -60,7 +60,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
   const handleStartApply = () => {
       if (!currentUser || !currentUserData) {
-        setApplyError("Bạn cần đăng nhập để ứng tuyển."); // Can extract to i18n
+        setApplyError(t('auth.error_login_required')); 
         return;
       }
       setShowApplyForm(true);
@@ -71,7 +71,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
     if (!currentUser || !currentUserData) return;
     
     if (!contactPhone.trim()) {
-        setApplyError("Vui lòng nhập số điện thoại liên hệ.");
+        setApplyError(t('auth.error_missing_phone'));
         return;
     }
 

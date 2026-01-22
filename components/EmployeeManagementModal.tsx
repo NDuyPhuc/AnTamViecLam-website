@@ -107,7 +107,7 @@ const EmployeeManagementModal: React.FC<EmployeeManagementModalProps> = ({ emplo
             onClose();
         } catch (err: any) {
             console.error("Termination error:", err);
-            alert(`Lỗi: ${err.message || 'Không thể chấm dứt hợp đồng.'}`);
+            alert(`${t('common.error')}: ${err.message || t('employee_mgmt.error_terminate')}`);
         } finally {
             setIsSubmitting(false);
         }

@@ -312,7 +312,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
               if (job) {
                   onJobSelect(job);
               } else {
-                  alert("Công việc này không còn tồn tại.");
+                  alert(t('job.error_not_found'));
               }
           }
       } catch (err) {
@@ -349,12 +349,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
                           validExtensions.some(ext => filename.endsWith(ext));
 
           if (!isValid) {
-              setError("Vui lòng chỉ tải lên file PDF hoặc Word.");
+              setError(t('auth.error_invalid_cv_type'));
               return;
           }
           
           if (file.size > 5 * 1024 * 1024) { // 5MB limit
-              setError("File quá lớn. Vui lòng chọn file nhỏ hơn 5MB.");
+              setError(t('auth.error_file_too_large'));
               return;
           }
           setCvFile(file);
