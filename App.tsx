@@ -108,7 +108,7 @@ const App: React.FC = () => {
                 console.log("Requesting Native Permissions...");
                 const request = await Geolocation.requestPermissions();
                 if (request.location !== 'granted') {
-                    throw { code: 1, message: "Quyền vị trí bị từ chối trên ứng dụng." };
+                    throw { code: 1, message: t('map.error_permission_denied_native') };
                 }
             }
 
@@ -131,7 +131,7 @@ const App: React.FC = () => {
             // ============================================
             
             if (!navigator.geolocation) {
-                throw new Error("Trình duyệt không hỗ trợ định vị.");
+                throw new Error(t('map.error_browser_support'));
             }
 
             // Wrap getCurrentPosition in a Promise for clean async/await usage
@@ -171,20 +171,20 @@ const App: React.FC = () => {
     } catch (e: any) {
         console.error("Location Error:", e);
         
-        let msg = "Không thể lấy vị trí. Vui lòng thử lại.";
+        let msg = t('map.error_generic');
         
         // Handle standard Geolocation error codes
         if (e.code === 1) { 
              if (isNative) {
-                 msg = "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.";
+                 msg = t('map.error_permission_denied_native');
              } else {
-                 msg = "Quyền vị trí chưa được cấp. Vui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép' (Reset Permission).\n2. Cài đặt Vị trí của trình duyệt.";
+                 msg = t('map.error_permission_denied');
              }
         }
-        else if (e.code === 2) msg = "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng."; 
-        else if (e.code === 3) msg = "Quá thời gian lấy vị trí."; 
+        else if (e.code === 2) msg = t('map.error_gps_off'); 
+        else if (e.code === 3) msg = t('map.error_timeout'); 
         else if (e.message) msg = e.message;
-        else if (typeof e === 'object') msg = `Lỗi vị trí: ${JSON.stringify(e)}`;
+        else if (typeof e === 'object') msg = `${t('map.error_generic')}: ${JSON.stringify(e)}`;
 
         setUserLocation(prev => {
             if (!prev) setLocationError(msg);
@@ -193,7 +193,7 @@ const App: React.FC = () => {
     } finally {
         setIsLocating(false);
     }
-  }, []);
+  }, [t]);
 
   // --- Web Permission Listener (Auto-Recovery) ---
   useEffect(() => {

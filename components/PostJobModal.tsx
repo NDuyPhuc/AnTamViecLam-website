@@ -261,18 +261,18 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ onClose, userLocation }) =>
                         <div>
                             <label htmlFor="jobType" className="block text-sm font-medium text-gray-700">{t('post_job.job_type')}</label>
                             <select id="jobType" value={jobType} onChange={e => setJobType(e.target.value as Job['jobType'])} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                <option>{t('job.type_seasonal')}</option>
-                                <option>{t('job.type_parttime')}</option>
-                                <option>{t('job.type_flexible')}</option>
-                                <option>{t('job.type_fulltime')}</option>
+                                <option value="Thời vụ">{t('job.type_seasonal')}</option>
+                                <option value="Bán thời gian">{t('job.type_parttime')}</option>
+                                <option value="Linh hoạt">{t('job.type_flexible')}</option>
+                                <option value="Toàn thời gian">{t('job.type_fulltime')}</option>
                             </select>
                         </div>
                         <div>
                             <label htmlFor="payType" className="block text-sm font-medium text-gray-700">{t('post_job.pay_type')}</label>
                             <select id="payType" value={payType} onChange={e => setPayType(e.target.value as Job['payType'])} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                <option value="THEO NGÀY">Theo ngày</option>
-                                <option value="THEO GIỜ">Theo giờ</option>
-                                <option value="THEO THÁNG">Theo tháng</option>
+                                <option value="THEO NGÀY">{t('post_job.type_day')}</option>
+                                <option value="THEO GIỜ">{t('post_job.type_hour')}</option>
+                                <option value="THEO THÁNG">{t('post_job.type_month')}</option>
                             </select>
                         </div>
                     </div>

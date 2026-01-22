@@ -103,13 +103,11 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
   // Helper to translate job type
   const getJobTypeLabel = (type: string | undefined) => {
       if (!type) return '';
-      switch (type) {
-          case 'Thời vụ': return t('job.type_seasonal');
-          case 'Bán thời gian': return t('job.type_parttime');
-          case 'Linh hoạt': return t('job.type_flexible');
-          case 'Toàn thời gian': return t('job.type_fulltime');
-          default: return type;
-      }
+      const key = type === 'Thời vụ' ? 'type_seasonal' :
+                  type === 'Bán thời gian' ? 'type_parttime' :
+                  type === 'Linh hoạt' ? 'type_flexible' :
+                  type === 'Toàn thời gian' ? 'type_fulltime' : null;
+      return key ? t(`job.${key}`) : type;
   };
 
   return (
