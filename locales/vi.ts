@@ -119,7 +119,23 @@ export default {
     "fix_connection": "Sửa lỗi kết nối",
     "retry": "Thử lại ngay",
     "retry_loading": "Đang thử lại...",
-    "drag_to_pick": "Di chuyển bản đồ để chọn vị trí"
+    "drag_to_pick": "Di chuyển bản đồ để chọn vị trí",
+    "error_permission_denied": "Quyền vị trí bị từ chối.\nVui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép' (Reset Permission).\n2. Cài đặt Vị trí của trình duyệt.",
+    "error_permission_denied_native": "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.",
+    "error_gps_off": "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng.",
+    "error_timeout": "Quá thời gian lấy vị trí.",
+    "error_browser_support": "Trình duyệt không hỗ trợ định vị.",
+    "error_generic": "Không thể lấy vị trí. Vui lòng thử lại."
+  },
+  "time": {
+    "just_now": "vừa xong",
+    "seconds_ago": "{{count}} giây trước",
+    "minutes_ago": "{{count}} phút trước",
+    "hours_ago": "{{count}} giờ trước",
+    "days_ago": "{{count}} ngày trước",
+    "yesterday": "hôm qua",
+    "presence_active": "Đang hoạt động",
+    "presence_active_ago": "Hoạt động {{time}}"
   },
   "app": {
     "search_jobs": "Tìm kiếm việc làm",

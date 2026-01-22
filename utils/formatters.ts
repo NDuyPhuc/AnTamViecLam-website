@@ -1,4 +1,6 @@
+
 import { Job } from '../types';
+import i18n from '../i18n';
 
 export const formatCurrency = (value: number | string) => {
     if (typeof value === 'string') return value;
@@ -69,28 +71,37 @@ export const formatTimeAgo = (dateString: string, context: 'post' | 'presence' =
   const seconds = Math.floor((now.getTime() - past.getTime()) / 1000);
 
   if (seconds < 5) {
-      return context === 'presence' ? 'vài giây trước' : 'vừa xong';
+      if (context === 'presence') {
+          return i18n.t('time.presence_active');
+      }
+      return i18n.t('time.just_now');
   }
   if (seconds < 60) {
-    return `${seconds} giây trước`;
+    return i18n.t('time.seconds_ago', { count: seconds });
   }
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) {
-    return `${minutes} phút trước`;
+    if (context === 'presence') {
+        return i18n.t('time.presence_active_ago', { time: i18n.t('time.minutes_ago', { count: minutes }) });
+    }
+    return i18n.t('time.minutes_ago', { count: minutes });
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours} giờ trước`;
+    if (context === 'presence') {
+        return i18n.t('time.presence_active_ago', { time: i18n.t('time.hours_ago', { count: hours }) });
+    }
+    return i18n.t('time.hours_ago', { count: hours });
   }
   const days = Math.floor(hours / 24);
   if (days === 1) {
-    return 'hôm qua';
+    return i18n.t('time.yesterday');
   }
   if (days < 7) {
-    return `${days} ngày trước`;
+    return i18n.t('time.days_ago', { count: days });
   }
   
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(i18n.language, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric'

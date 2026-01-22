@@ -119,7 +119,23 @@ export default {
     "fix_connection": "Fix Connection",
     "retry": "Try Again",
     "retry_loading": "Retrying...",
-    "drag_to_pick": "Drag map to select location"
+    "drag_to_pick": "Drag map to select location",
+    "error_permission_denied": "Location permission denied.\nPlease check:\n1. Lock icon 🔒 in address bar -> Select 'Allow' (Reset Permission).\n2. Browser Location Settings.",
+    "error_permission_denied_native": "Location permission denied. Please enable it in Settings.",
+    "error_gps_off": "No GPS signal found. Please check your connection.",
+    "error_timeout": "Location request timed out.",
+    "error_browser_support": "Browser does not support geolocation.",
+    "error_generic": "Unable to retrieve location. Please try again."
+  },
+  "time": {
+    "just_now": "just now",
+    "seconds_ago": "{{count}} seconds ago",
+    "minutes_ago": "{{count}} minutes ago",
+    "hours_ago": "{{count}} hours ago",
+    "days_ago": "{{count}} days ago",
+    "yesterday": "yesterday",
+    "presence_active": "Active now",
+    "presence_active_ago": "Active {{time}}"
   },
   "app": {
     "search_jobs": "Search Jobs",

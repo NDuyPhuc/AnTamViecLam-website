@@ -119,7 +119,23 @@ export default {
     "fix_connection": "修复连接",
     "retry": "重试",
     "retry_loading": "重试中...",
-    "drag_to_pick": "拖动地图选择位置"
+    "drag_to_pick": "拖动地图选择位置",
+    "error_permission_denied": "位置权限被拒绝。\n请检查：\n1. 地址栏上的锁图标 🔒 -> 选择“允许”（重置权限）。\n2. 浏览器位置设置。",
+    "error_permission_denied_native": "位置权限被拒绝。请在设置中启用。",
+    "error_gps_off": "未找到 GPS 信号。请检查您的连接。",
+    "error_timeout": "获取位置请求超时。",
+    "error_browser_support": "浏览器不支持地理定位。",
+    "error_generic": "无法获取位置。请重试。"
+  },
+  "time": {
+    "just_now": "刚刚",
+    "seconds_ago": "{{count}} 秒前",
+    "minutes_ago": "{{count}} 分钟前",
+    "hours_ago": "{{count}} 小时前",
+    "days_ago": "{{count}} 天前",
+    "yesterday": "昨天",
+    "presence_active": "当前在线",
+    "presence_active_ago": "活跃于 {{time}}"
   },
   "app": {
     "search_jobs": "搜索职位",

@@ -80,7 +80,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, 
                         notifications.map(notification => {
                             // Check if dynamic translation is possible
                             const displayText = (notification.translationKey) 
-                                ? t(notification.translationKey, notification.translationParams)
+                                ? t(notification.translationKey, notification.translationParams || {})
                                 : notification.message;
 
                             return (
