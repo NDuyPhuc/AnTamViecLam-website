@@ -1,26 +1,11 @@
 
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
-import { GoogleGenAI } from "@google/genai";
 import i18n from '../i18n';
 
 // --- CẤU HÌNH API URL ---
 // Sử dụng đường dẫn tuyệt đối để Mobile App gọi được Server Vercel
 const CHAT_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
 const ANALYZE_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/analyze";
-
-// --- CẤU HÌNH CLIENT SIDE (FALLBACK) ---
-// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
-// Note: In Vite, process.env.API_KEY might be empty. We check import.meta.env for fallback.
-const CLIENT_SIDE_API_KEY = process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || ""; 
-// ----------------------------------------------
-
-/**
- * Hàm helper để làm sạch chuỗi JSON từ AI (xóa markdown ```json nếu có)
- */
-const cleanJsonString = (jsonStr: string): string => {
-    if (!jsonStr) return "";
-    return jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-};
 
 /**
  * Gửi tin nhắn đến chatbot.
@@ -65,7 +50,6 @@ export const sendMessageToBot = async (
     };
 
     try {
-        // --- CHIẾN THUẬT 1: Gọi Backend Vercel ---
         console.log(`👉 [Step 1] Thử gọi Server Chat: ${CHAT_API_URL}`);
         
         const response = await fetchWithTimeout(CHAT_API_URL, {
@@ -76,7 +60,7 @@ export const sendMessageToBot = async (
                 history: formattedHistory,
                 systemInstruction: systemInstruction
             })
-        }, 15000); 
+        }, 20000); // 20s timeout
         
         const contentType = response.headers.get("content-type");
         if (response.ok && contentType && contentType.includes("application/json")) {
@@ -96,43 +80,9 @@ export const sendMessageToBot = async (
         throw new Error(errorMsg);
 
     } catch (backendError) {
-        // --- CHIẾN THUẬT 2: Fallback Client SDK ---
-        console.warn(`⚠️ [Backend Failed] ${backendError instanceof Error ? backendError.message : "Unknown error"}. Chuyển sang Client SDK.`);
-        console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
-
-        if (!CLIENT_SIDE_API_KEY) {
-            console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường.");
-            console.groupEnd();
-            return i18n.t('chat.error_maintenance');
-        }
-
-        try {
-            const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
-            
-            const result = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [
-                    ...formattedHistory,
-                    { role: 'user', parts: [{ text: message }] }
-                ],
-                config: {
-                    systemInstruction: systemInstruction,
-                }
-            });
-
-            console.log("✅ [Client SDK] Thành công!");
-            console.groupEnd();
-            return result.text || i18n.t('chat.error_no_content');
-            
-        } catch (clientError: any) {
-            console.error("❌ [Critical] Cả 2 cách đều thất bại:", clientError);
-            console.groupEnd();
-            
-            if (clientError.message?.includes("403") || clientError.toString().includes("PERMISSION_DENIED")) {
-                 return i18n.t('chat.error_api_key');
-            }
-            return i18n.t('chat.error_connection');
-        }
+        console.error("❌ [Backend Failed]", backendError);
+        console.groupEnd();
+        return i18n.t('chat.error_connection');
     }
 };
 
@@ -198,9 +148,7 @@ export const analyzeJobMatches = async (
         ]
     `;
 
-    // --- CHIẾN THUẬT HYBRID CHO ANALYZE ---
     try {
-         // --- CÁCH 1: Gọi Server API (Ưu tiên) ---
          console.log(`👉 [Step 1] Thử gọi Server Analyze: ${ANALYZE_API_URL}`);
          
          const response = await fetch(ANALYZE_API_URL, {
@@ -221,42 +169,8 @@ export const analyzeJobMatches = async (
          throw new Error(`Analyze Server Failed: ${response.status}`);
 
     } catch (serverError) {
-        // --- CÁCH 2: Fallback Client SDK ---
-        console.warn(`⚠️ [Backend Analyze Failed] ${serverError instanceof Error ? serverError.message : "Unknown error"}. Chuyển sang Client SDK.`);
-        
-        if (!CLIENT_SIDE_API_KEY) {
-            console.error("❌ [Client SDK] Thiếu API_KEY. Không thể phân tích.");
-            console.groupEnd();
-            return [];
-        }
-
-        try {
-            console.log("👉 [Step 2] Gọi trực tiếp từ Client...");
-            const ai = new GoogleGenAI({ apiKey: CLIENT_SIDE_API_KEY });
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config: {
-                    responseMimeType: "application/json", 
-                    temperature: 0.3,
-                }
-            });
-
-            const jsonText = cleanJsonString(response.text || "");
-            if (!jsonText) {
-                console.warn("⚠️ Client SDK trả về text rỗng");
-                return [];
-            }
-
-            const recommendations = JSON.parse(jsonText) as JobRecommendation[];
-            console.log("✅ [Client SDK] Thành công!", recommendations.length, "items");
-            console.groupEnd();
-            return recommendations.sort((a, b) => b.matchScore - a.matchScore);
-
-        } catch (clientError) {
-            console.error("❌ Error analyzing jobs (Client SDK):", clientError);
-            console.groupEnd();
-            return [];
-        }
+        console.error("❌ [Backend Analyze Failed]", serverError);
+        console.groupEnd();
+        return [];
     }
 };

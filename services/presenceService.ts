@@ -1,14 +1,16 @@
-import firebase from 'firebase/compat/app';
+
 import { rtdb } from './firebase';
+
+const firebase = (window as any).firebase;
 
 const isOfflineForDatabase = {
     isOnline: false,
-    lastSeen: firebase.database.ServerValue.TIMESTAMP,
+    lastSeen: firebase?.database?.ServerValue?.TIMESTAMP,
 };
 
 const isOnlineForDatabase = {
     isOnline: true,
-    lastSeen: firebase.database.ServerValue.TIMESTAMP,
+    lastSeen: firebase?.database?.ServerValue?.TIMESTAMP,
 };
 
 /**

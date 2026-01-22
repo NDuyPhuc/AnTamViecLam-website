@@ -1,18 +1,20 @@
 
 import React, { useContext, useState, useEffect, createContext, useCallback } from 'react';
-import type { User } from 'firebase/auth';
-import firebase from 'firebase/compat/app';
+import type { User, UserCredential } from 'firebase/auth';
 import { auth, db, serverTimestamp } from '../services/firebase';
 import { UserRole, UserData } from '../types';
 import { requestNotificationPermission } from '../services/notificationService';
 import { updateUserPresence, setUserOffline } from '../services/presenceService';
 
+// Access global firebase object for runtime classes like GoogleAuthProvider
+const firebase = (window as any).firebase;
+
 interface AuthContextType {
   currentUser: User | null;
   currentUserData: UserData | null;
   loading: boolean;
-  signup: (email: string, password: string, role: UserRole) => Promise<firebase.auth.UserCredential>;
-  login: (email: string, password: string) => Promise<firebase.auth.UserCredential>;
+  signup: (email: string, password: string, role: UserRole) => Promise<UserCredential>;
+  login: (email: string, password: string) => Promise<UserCredential>;
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   refetchUserData: () => Promise<void>;
@@ -155,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const loginWithGoogle = async () => {
+    // Access GoogleAuthProvider from the global firebase object
     const provider = new firebase.auth.GoogleAuthProvider();
     try {
         await auth.signInWithPopup(provider);
@@ -189,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let presenceCleanup: (() => void) | undefined;
 
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user: User | null) => {
         if (presenceCleanup) {
           presenceCleanup();
           presenceCleanup = undefined;
