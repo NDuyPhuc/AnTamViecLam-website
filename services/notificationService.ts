@@ -1,3 +1,4 @@
+
 import { db, serverTimestamp, arrayUnion } from './firebase';
 import { messaging } from './firebase';
 import { Notification as NotificationData, NotificationType, UserData } from '../types';
@@ -73,19 +74,30 @@ const saveMessagingDeviceToken = async (userId: string) => {
 export const createNotification = async (
     userId: string,
     type: NotificationType,
-    message: string,
-    link: string
+    message: string, // Keep message as fallback or for static text
+    link: string,
+    translationKey?: string,
+    translationParams?: Record<string, any>
 ): Promise<void> => {
     try {
         const notificationsCollection = db.collection('notifications');
-        await notificationsCollection.add({
+        const notificationData: any = {
             userId,
             type,
             message,
             link,
             isRead: false,
             createdAt: serverTimestamp(),
-        });
+        };
+
+        if (translationKey) {
+            notificationData.translationKey = translationKey;
+        }
+        if (translationParams) {
+            notificationData.translationParams = translationParams;
+        }
+
+        await notificationsCollection.add(notificationData);
     } catch (error) {
         console.error("Error creating notification:", error);
     }

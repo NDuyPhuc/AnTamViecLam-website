@@ -51,7 +51,7 @@ const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
 };
 
 const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, onNotificationClick, onMarkAllAsRead, onClose }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
@@ -77,24 +77,31 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, 
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                     {notifications.length > 0 ? (
-                        notifications.map(notification => (
-                            <div
-                                key={notification.id}
-                                onClick={() => onNotificationClick(notification)}
-                                className={`flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b ${!notification.isRead ? 'bg-indigo-50' : 'bg-white'}`}
-                            >
-                                <NotificationIcon type={notification.type} />
-                                <div className="flex-1">
-                                    <p className="text-sm text-gray-700">{notification.message}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        {new Date(notification.createdAt).toLocaleString('vi-VN')}
-                                    </p>
+                        notifications.map(notification => {
+                            // Check if dynamic translation is possible
+                            const displayText = (notification.translationKey) 
+                                ? t(notification.translationKey, notification.translationParams)
+                                : notification.message;
+
+                            return (
+                                <div
+                                    key={notification.id}
+                                    onClick={() => onNotificationClick(notification)}
+                                    className={`flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b ${!notification.isRead ? 'bg-indigo-50' : 'bg-white'}`}
+                                >
+                                    <NotificationIcon type={notification.type} />
+                                    <div className="flex-1">
+                                        <p className="text-sm text-gray-700">{displayText}</p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            {new Date(notification.createdAt).toLocaleString(i18n.language)}
+                                        </p>
+                                    </div>
+                                    {!notification.isRead && (
+                                        <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full mt-1 flex-shrink-0"></div>
+                                    )}
                                 </div>
-                                {!notification.isRead && (
-                                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full mt-1 flex-shrink-0"></div>
-                                )}
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <div className="p-10 text-center text-gray-500">
                             <p>{t('notifications.empty')}</p>

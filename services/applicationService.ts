@@ -26,8 +26,6 @@ export const applyForJob = async (
 
   try {
       // Check existence first
-      // Note: With the new Firestore Rules, this will return doc.exists = false if not found,
-      // instead of throwing "Insufficient Permissions".
       const docSnap = await applicationRef.get();
       if (docSnap.exists) {
         throw new Error('You have already applied for this job.');
@@ -64,15 +62,15 @@ export const applyForJob = async (
           console.warn("Warning: Could not increment applicant count. This does not affect the application.", countError);
       }
 
-      // Send notification to employer
-      // Using i18n.t directly. Since this runs on client side, it uses the current language.
-      // Ideally notifications should be language agnostic or stored with keys, but for now we translate on creation.
-      createNotification(
+      // Send notification to employer with Translation Keys
+      await createNotification(
         job.employerId,
         NotificationType.NEW_APPLICATION,
-        i18n.t('notifications.msg_new_app', { workerName: worker.fullName, jobTitle: job.title }),
-        `/profile`
-      ).catch(err => console.error("Failed to send notification", err));
+        i18n.t('notifications.msg_new_app', { workerName: worker.fullName, jobTitle: job.title }), // Fallback string
+        `/profile`,
+        'notifications.msg_new_app', // Translation Key
+        { workerName: worker.fullName, jobTitle: job.title } // Translation Params
+      );
 
   } catch (error: any) {
       console.error("Apply Job Error Details:", error);
@@ -90,8 +88,6 @@ export const checkIfApplied = async (jobId: string, workerId: string): Promise<b
       const docSnap = await applicationRef.get();
       return docSnap.exists;
   } catch (error) {
-      // If permission denied or other error, assume false to allow UI to show button
-      // (The actual apply action might fail if it's a real permission issue, but this unblocks the UI check)
       console.warn("Error checking application status:", error);
       return false;
   }
@@ -205,26 +201,39 @@ export const updateApplicationStatus = async (
   let notificationType = NotificationType.APPLICATION_ACCEPTED;
   let message = '';
   let link = '/profile';
+  let translationKey = '';
+  let translationParams = { jobTitle: application.jobTitle };
 
   switch (status) {
       case 'accepted':
-          message = i18n.t('notifications.msg_accepted', { jobTitle: application.jobTitle });
+          translationKey = 'notifications.msg_accepted';
+          message = i18n.t(translationKey, translationParams);
           break;
       case 'rejected':
           notificationType = NotificationType.APPLICATION_REJECTED;
-          message = i18n.t('notifications.msg_rejected', { jobTitle: application.jobTitle });
+          translationKey = 'notifications.msg_rejected';
+          message = i18n.t(translationKey, translationParams);
           break;
       case 'hired':
-          message = i18n.t('notifications.msg_hired', { jobTitle: application.jobTitle });
+          translationKey = 'notifications.msg_hired';
+          message = i18n.t(translationKey, translationParams);
           link = '/insurance';
           break;
       case 'terminated':
           notificationType = NotificationType.APPLICATION_REJECTED; 
-          message = i18n.t('notifications.msg_terminated', { jobTitle: application.jobTitle });
+          translationKey = 'notifications.msg_terminated';
+          message = i18n.t(translationKey, translationParams);
           break;
   }
   
-  await createNotification(application.workerId, notificationType, message, link);
+  await createNotification(
+      application.workerId, 
+      notificationType, 
+      message, 
+      link, 
+      translationKey, 
+      translationParams
+  );
 
   if (status === 'hired') {
       await addEmploymentLog(application.id, 'HIRED', 'Bắt đầu làm việc', 'Chào mừng nhân viên mới!');

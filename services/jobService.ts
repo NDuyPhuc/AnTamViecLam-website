@@ -163,7 +163,9 @@ const notifyMatchingWorkers = async (jobId: string, jobData: NewJobData) => {
             worker.uid,
             NotificationType.NEW_JOB_MATCH,
             i18n.t('notifications.msg_job_match', { location: jobProvince, jobTitle: jobData.title }),
-            `/jobs/${jobId}`
+            `/jobs/${jobId}`,
+            'notifications.msg_job_match', // Translation Key
+            { location: jobProvince, jobTitle: jobData.title } // Translation Params
           );
         }
       });

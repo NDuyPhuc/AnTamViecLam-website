@@ -1,5 +1,4 @@
 
-
 export enum View {
   Jobs = 'JOBS',
   Insurance = 'INSURANCE',
@@ -126,7 +125,9 @@ export interface Notification {
   id: string;
   userId: string; // The user who receives the notification
   type: NotificationType;
-  message: string;
+  message: string; // Fallback message
+  translationKey?: string; // Key for i18n
+  translationParams?: Record<string, any>; // Params for i18n
   link: string; // e.g., `/jobs/jobId` or `/profile`
   isRead: boolean;
   createdAt: string; // ISO String
