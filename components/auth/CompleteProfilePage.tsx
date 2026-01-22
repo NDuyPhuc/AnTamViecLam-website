@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db, serverTimestamp } from '../../services/firebase';
@@ -6,8 +7,10 @@ import { UserRole } from '../../types';
 import UserIcon from '../icons/UserIcon';
 import BriefcaseIcon from '../icons/BriefcaseIcon';
 import UserCircleIcon from '../icons/UserCircleIcon';
+import { useTranslation } from 'react-i18next';
 
 const CompleteProfilePage: React.FC = () => {
+  const { t } = useTranslation();
   const { currentUser, currentUserData, refetchUserData } = useAuth();
   
   // Detect if this is a brand new user (via Google) who hasn't selected a role yet
@@ -47,11 +50,11 @@ const CompleteProfilePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName) {
-        setError('Vui lòng nhập họ và tên của bạn.');
+        setError(t('auth.error_missing_name'));
         return;
     }
     if (!currentUser) {
-        setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        setError(t('common.error'));
         return;
     }
     
@@ -102,7 +105,7 @@ const CompleteProfilePage: React.FC = () => {
         if (err instanceof Error) {
             setError(err.message); // Display the specific error from the service
         } else {
-            setError('Đã có lỗi xảy ra khi cập nhật hồ sơ. Vui lòng thử lại.');
+            setError(t('common.error'));
         }
         setIsLoading(false);
     }
@@ -113,12 +116,12 @@ const CompleteProfilePage: React.FC = () => {
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 space-y-6 animate-fade-in-up">
         <div className="text-center">
             <h1 className="text-3xl font-bold text-gray-800">
-                {isNewUser ? 'Chào mừng bạn mới!' : 'Hoàn thiện hồ sơ'}
+                {isNewUser ? t('auth.complete_profile_title_new') : t('auth.complete_profile_title_update')}
             </h1>
             <p className="text-gray-600 mt-2">
                 {isNewUser 
-                    ? 'Vui lòng chọn vai trò và cập nhật thông tin để bắt đầu.' 
-                    : 'Vui lòng cập nhật thông tin để tiếp tục.'}
+                    ? t('auth.complete_profile_desc_new') 
+                    : t('auth.complete_profile_desc_update')}
             </p>
         </div>
         
@@ -127,7 +130,7 @@ const CompleteProfilePage: React.FC = () => {
             {/* Role Selection for New Users */}
             {isNewUser && (
                 <div className="space-y-3">
-                    <label className="block text-sm font-medium text-gray-700">Bạn muốn tham gia với tư cách là?</label>
+                    <label className="block text-sm font-medium text-gray-700">{t('auth.select_role')}</label>
                     <div className="grid grid-cols-2 gap-4">
                         <button
                             type="button"
@@ -139,7 +142,7 @@ const CompleteProfilePage: React.FC = () => {
                             }`}
                         >
                             <UserCircleIcon className="w-8 h-8 mb-2"/>
-                            <span className="font-bold text-sm">Người Lao Động</span>
+                            <span className="font-bold text-sm">{t('auth.role_worker')}</span>
                         </button>
                         <button
                             type="button"
@@ -151,7 +154,7 @@ const CompleteProfilePage: React.FC = () => {
                             }`}
                         >
                             <BriefcaseIcon className="w-8 h-8 mb-2"/>
-                            <span className="font-bold text-sm">Nhà Tuyển Dụng</span>
+                            <span className="font-bold text-sm">{t('auth.role_employer')}</span>
                         </button>
                     </div>
                 </div>
@@ -169,7 +172,7 @@ const CompleteProfilePage: React.FC = () => {
                     type="button" 
                     onClick={handleAvatarClick}
                     className="relative w-28 h-28 rounded-full group bg-gray-100 flex items-center justify-center cursor-pointer border-2 border-dashed border-gray-300 hover:border-indigo-500 transition-colors"
-                    aria-label="Thay đổi ảnh đại diện"
+                    aria-label={t('auth.change_avatar')}
                 >
                     {avatarPreview ? (
                         <img src={avatarPreview} alt="Xem trước" className="w-full h-full rounded-full object-cover"/>
@@ -183,7 +186,7 @@ const CompleteProfilePage: React.FC = () => {
                         </svg>
                     </div>
                 </button>
-                <p className="text-xs text-gray-500">Ảnh đại diện</p>
+                <p className="text-xs text-gray-500">{t('auth.avatar_label')}</p>
             </div>
 
             <div className="space-y-4">
@@ -192,7 +195,7 @@ const CompleteProfilePage: React.FC = () => {
                         type="text"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        placeholder="Họ và Tên"
+                        placeholder={t('profile.full_name')}
                         required
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                     />
@@ -202,7 +205,7 @@ const CompleteProfilePage: React.FC = () => {
                         type="tel"
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="Số điện thoại (tùy chọn)"
+                        placeholder={`${t('profile.phone')} (${t('post_job.negotiable') === 'Thỏa thuận' ? 'tùy chọn' : 'optional'})`} // Simple way to localize optional
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                     />
                 </div>
@@ -211,7 +214,7 @@ const CompleteProfilePage: React.FC = () => {
                         type="text"
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Địa chỉ (tùy chọn)"
+                        placeholder={`${t('profile.address')} (${t('post_job.negotiable') === 'Thỏa thuận' ? 'tùy chọn' : 'optional'})`}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
                     />
                 </div>
@@ -230,7 +233,7 @@ const CompleteProfilePage: React.FC = () => {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                  )}
-                {isLoading ? 'Đang xử lý...' : (isNewUser ? 'Tạo hồ sơ' : 'Cập nhật')}
+                {isLoading ? t('auth.processing') : (isNewUser ? t('auth.create_profile') : t('auth.update_profile'))}
             </button>
         </form>
       </div>

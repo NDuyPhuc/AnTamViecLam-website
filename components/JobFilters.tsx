@@ -1,4 +1,6 @@
+
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface JobFiltersProps {
   locations: string[];
@@ -19,13 +21,26 @@ const JobFilters: React.FC<JobFiltersProps> = ({
   onTypeChange,
   onReset,
 }) => {
+  const { t } = useTranslation();
+
+  // Helper to translate job type for display
+  const getJobTypeLabel = (type: string) => {
+      switch (type) {
+          case 'Thời vụ': return t('job.type_seasonal');
+          case 'Bán thời gian': return t('job.type_parttime');
+          case 'Linh hoạt': return t('job.type_flexible');
+          case 'Toàn thời gian': return t('job.type_fulltime');
+          default: return type;
+      }
+  };
+
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {/* Location Filter */}
         <div>
           <label htmlFor="location-filter" className="block text-sm font-medium text-gray-700 mb-1">
-            Địa điểm
+            {t('filters.location')}
           </label>
           <select
             id="location-filter"
@@ -33,7 +48,7 @@ const JobFilters: React.FC<JobFiltersProps> = ({
             onChange={(e) => onLocationChange(e.target.value)}
             className={`w-full p-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-300 ${!locationFilter ? 'text-gray-500' : 'text-gray-900 font-medium'}`}
           >
-            <option value="">Tất cả địa điểm</option>
+            <option value="">{t('filters.location_all')}</option>
             {locations.map((loc) => (
               <option key={loc} value={loc}>
                 {loc}
@@ -45,7 +60,7 @@ const JobFilters: React.FC<JobFiltersProps> = ({
         {/* Job Type Filter */}
         <div>
           <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">
-            Loại hình
+            {t('filters.type')}
           </label>
           <select
             id="type-filter"
@@ -53,10 +68,10 @@ const JobFilters: React.FC<JobFiltersProps> = ({
             onChange={(e) => onTypeChange(e.target.value)}
             className={`w-full p-2.5 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-300 ${!typeFilter ? 'text-gray-500' : 'text-gray-900 font-medium'}`}
           >
-            <option value="">Tất cả loại hình</option>
+            <option value="">{t('filters.type_all')}</option>
             {types.map((type) => (
               <option key={type} value={type}>
-                {type}
+                {getJobTypeLabel(type)}
               </option>
             ))}
           </select>
@@ -68,7 +83,7 @@ const JobFilters: React.FC<JobFiltersProps> = ({
             onClick={onReset}
             className="w-full bg-gray-100 text-gray-700 font-semibold py-2.5 px-4 rounded-lg hover:bg-gray-200 transition-colors duration-300 border border-gray-300"
           >
-            Xóa bộ lọc
+            {t('filters.reset')}
           </button>
         </div>
       </div>

@@ -1,0 +1,39 @@
+
+{
+  "app_name": "An Tâm Việc Làm",
+  "common": {
+    "loading": "Đang tải...",
+    "cancel": "Hủy",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "login": "Đăng nhập",
+    "logout": "Đăng xuất",
+    "register": "Đăng ký",
+    "or": "HOẶC"
+  },
+  "nav": {
+    "jobs": "Tìm Việc",
+    "insurance": "Bảo Hiểm",
+    "messaging": "Tin Nhắn",
+    "chatbot": "Hỏi Đáp",
+    "profile": "Hồ Sơ",
+    "ai_suggest": "Gợi ý AI",
+    "post_job": "Đăng tin",
+    "hello": "Chào"
+  },
+  "landing": {
+    "hero_title": "Nền tảng <1>An Sinh</1> và <3>Việc Làm</3> cho Lao Động Tự Do",
+    "hero_desc": "Tìm việc thời vụ linh hoạt, đóng góp BHXH dễ dàng, xây dựng một tương lai vững chắc và an tâm hơn.",
+    "cta_join": "Tham Gia Ngay",
+    "cta_learn_more": "Tìm hiểu thêm",
+    "features_title": "Tính năng nổi bật",
+    "how_it_works": "Hoạt động",
+    "why_us": "Vì sao chọn?",
+    "step_1_title": "Tạo Hồ Sơ Chuyên Nghiệp",
+    "step_1_desc": "Đăng ký tài khoản và hoàn thiện hồ sơ chỉ trong vài phút.",
+    "step_2_title": "Tìm Việc & Ứng Tuyển",
+    "step_2_desc": "Kết nối với hàng ngàn công việc thời vụ gần bạn.",
+    "step_3_title": "Nhận Lương & Tích Lũy",
+    "step_3_desc": "Nhận lương minh bạch và tích lũy an sinh qua Blockchain."
+  }
+}

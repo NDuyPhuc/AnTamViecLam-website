@@ -1,5 +1,6 @@
 
 import { ethers } from 'ethers';
+import i18n from '../i18n';
 
 // --- CẤU HÌNH DEMO ---
 // Đây là địa chỉ ví đại diện cho "Smart Contract Quỹ An Sinh" hoặc "Ví Hưu Trí".
@@ -31,7 +32,7 @@ export interface WalletState {
 export const connectWallet = async (): Promise<WalletState> => {
     // Kiểm tra xem trình duyệt có ví Web3 không
     if (!(window as any).ethereum) {
-        throw new Error("Vui lòng cài đặt MetaMask để sử dụng tính năng này!");
+        throw new Error(i18n.t('insurance.error_install_metamask'));
     }
 
     try {
@@ -50,7 +51,7 @@ export const connectWallet = async (): Promise<WalletState> => {
                     await provider.send("wallet_addEthereumChain", [AMOY_NETWORK_PARAMS]);
                 } catch (addError) {
                     console.error("User rejected adding network:", addError);
-                    throw new Error("Bạn cần thêm mạng Polygon Amoy để sử dụng tính năng này.");
+                    throw new Error(i18n.t('insurance.error_add_network'));
                 }
             } else {
                 console.error("Failed to switch network:", switchError);
@@ -100,7 +101,7 @@ export const getWalletBalance = async (address: string): Promise<string> => {
  * @param recipientAddress Địa chỉ người nhận. Nếu không có, mặc định gửi vào Quỹ An Sinh.
  */
 export const sendPayment = async (amountInEther: string, recipientAddress?: string): Promise<string> => {
-    if (!(window as any).ethereum) throw new Error("No crypto wallet found");
+    if (!(window as any).ethereum) throw new Error(i18n.t('insurance.error_no_wallet'));
 
     const provider = new ethers.BrowserProvider((window as any).ethereum);
     const signer = await provider.getSigner();

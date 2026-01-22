@@ -1,6 +1,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import MapPinIcon from './icons/MapPinIcon';
+import { useTranslation } from 'react-i18next';
 
 interface LocationPickerMapProps {
   initialCenter?: { lat: number; lng: number };
@@ -9,6 +10,7 @@ interface LocationPickerMapProps {
 }
 
 const LocationPickerMap: React.FC<LocationPickerMapProps> = ({ initialCenter, initialZoom, onLocationChange }) => {
+  const { t } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any | null>(null); // L.Map
 
@@ -76,7 +78,7 @@ const LocationPickerMap: React.FC<LocationPickerMapProps> = ({ initialCenter, in
             <MapPinIcon className="w-10 h-10 text-red-500 drop-shadow-lg" />
         </div>
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-sm text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-full shadow-md pointer-events-none">
-            Di chuyển bản đồ để chọn vị trí
+            {t('map.drag_to_pick')}
         </div>
     </div>
   );

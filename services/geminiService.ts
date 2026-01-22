@@ -1,6 +1,7 @@
 
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import { GoogleGenAI } from "@google/genai";
+import i18n from '../i18n';
 
 // --- CẤU HÌNH API URL ---
 // Sử dụng đường dẫn tuyệt đối để Mobile App gọi được Server Vercel
@@ -31,6 +32,7 @@ export const sendMessageToBot = async (
 ): Promise<string> => {
     console.group("🤖 [GeminiService] Start Chat");
 
+    const currentLang = i18n.language;
     const systemInstruction = `
         ${context.projectContext}
 
@@ -38,6 +40,7 @@ export const sendMessageToBot = async (
         - Công việc mẫu: ${JSON.stringify(context.jobs.slice(0, 3))}
         - Bảo hiểm: ${JSON.stringify(context.insuranceInfo)}
         
+        QUAN TRỌNG: Hãy trả lời bằng ngôn ngữ: "${currentLang}" (nếu là 'vi' thì tiếng Việt, 'en' là tiếng Anh, 'zh' là tiếng Trung).
         HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN.
     `;
 
@@ -100,7 +103,7 @@ export const sendMessageToBot = async (
         if (!CLIENT_SIDE_API_KEY) {
             console.error("❌ [Client SDK] Thiếu API_KEY trong biến môi trường.");
             console.groupEnd();
-            return "🤖 Hệ thống đang bảo trì kết nối (Missing Configuration). Vui lòng thử lại sau.";
+            return i18n.t('chat.error_maintenance');
         }
 
         try {
@@ -119,16 +122,16 @@ export const sendMessageToBot = async (
 
             console.log("✅ [Client SDK] Thành công!");
             console.groupEnd();
-            return result.text || "Xin lỗi, tôi không thể trả lời lúc này.";
+            return result.text || i18n.t('chat.error_no_content');
             
         } catch (clientError: any) {
             console.error("❌ [Critical] Cả 2 cách đều thất bại:", clientError);
             console.groupEnd();
             
             if (clientError.message?.includes("403") || clientError.toString().includes("PERMISSION_DENIED")) {
-                 return "🤖 Lỗi quyền truy cập API Key. Vui lòng kiểm tra cấu hình Key trên Google Cloud Console (bỏ giới hạn Android App nếu đang chạy Web/Vercel).";
+                 return i18n.t('chat.error_api_key');
             }
-            return "🤖 Tôi đang gặp chút khó khăn khi kết nối. Vui lòng thử lại sau ít phút.";
+            return i18n.t('chat.error_connection');
         }
     }
 };
@@ -169,6 +172,7 @@ export const analyzeJobMatches = async (
         history: userProfile.workHistory?.map(w => `${w.title} tại ${w.company}`),
     };
 
+    const currentLang = i18n.language;
     const prompt = `
         Bạn là chuyên gia tư vấn nghề nghiệp AI. Hãy phân tích mức độ phù hợp của các công việc sau cho người dùng này.
         
@@ -178,6 +182,8 @@ export const analyzeJobMatches = async (
 
         YÊU CẦU PHÂN TÍCH:
         Đánh giá từng công việc dựa trên khoảng cách, kỹ năng, mức lương và rủi ro.
+        
+        QUAN TRỌNG: Hãy trả lời nội dung phân tích (reason, pros, cons, environmentAnalysis) bằng ngôn ngữ: "${currentLang}" (nếu là 'vi' thì tiếng Việt, 'en' là tiếng Anh, 'zh' là tiếng Trung).
 
         OUTPUT JSON FORMAT (BẮT BUỘC, KHÔNG MARKDOWN):
         [

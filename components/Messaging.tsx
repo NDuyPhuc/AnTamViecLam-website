@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -19,6 +20,7 @@ import CheckIcon from './icons/CheckIcon';
 import CheckDoubleIcon from './icons/CheckDoubleIcon';
 import TrashIcon from './icons/TrashIcon';
 import { formatTimeAgo } from '../utils/formatters';
+import { useTranslation } from 'react-i18next';
 
 interface MessagingProps {
     initialSelectedConversationId: string | null;
@@ -71,6 +73,7 @@ const ConversationListItem: React.FC<{
 
 
 const Messaging: React.FC<MessagingProps> = ({ initialSelectedConversationId, clearInitialSelection }) => {
+    const { t } = useTranslation();
     const { currentUser, currentUserData } = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
@@ -149,12 +152,12 @@ const Messaging: React.FC<MessagingProps> = ({ initialSelectedConversationId, cl
     const handleDeleteMessage = async (message: Message) => {
         if (!currentUser || !activeConversation || message.senderId !== currentUser.uid) return;
 
-        if (window.confirm('Bạn có chắc muốn thu hồi tin nhắn này không?')) {
+        if (window.confirm(t('messaging.confirm_delete'))) {
             try {
-                await deleteMessage(activeConversation.id, message.id, currentUser.uid, message.senderId);
+                await deleteMessage(activeConversation.id, message.id, currentUser.uid, message.senderId, t('messaging.message_deleted'));
             } catch (error) {
                 console.error("Failed to delete message:", error);
-                alert("Đã có lỗi xảy ra khi thu hồi tin nhắn.");
+                alert(t('messaging.delete_error'));
             }
         }
     };
@@ -168,7 +171,7 @@ const Messaging: React.FC<MessagingProps> = ({ initialSelectedConversationId, cl
             {showConversationList && (
                 <div className={`w-full md:w-1/3 border-r border-gray-200 flex flex-col ${!activeConversation && isMobileView ? '' : 'hidden md:flex'}`}>
                     <div className="p-4 border-b border-gray-200">
-                        <h2 className="text-xl font-bold text-gray-800">Tin nhắn</h2>
+                        <h2 className="text-xl font-bold text-gray-800">{t('messaging.title')}</h2>
                     </div>
                     <div className="flex-grow overflow-y-auto">
                         {loadingConversations ? <Spinner /> : conversations.length > 0 ? (
@@ -183,7 +186,7 @@ const Messaging: React.FC<MessagingProps> = ({ initialSelectedConversationId, cl
                             ))
                         ) : (
                             <div className="p-6 text-center text-gray-500">
-                                <p>Chưa có cuộc trò chuyện nào.</p>
+                                <p>{t('messaging.no_conversations')}</p>
                             </div>
                         )}
                     </div>
@@ -247,7 +250,7 @@ const Messaging: React.FC<MessagingProps> = ({ initialSelectedConversationId, cl
                                         type="text"
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
-                                        placeholder="Nhập tin nhắn..."
+                                        placeholder={t('messaging.input_placeholder')}
                                         className="flex-1 p-3 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500"
                                         disabled={isSending}
                                     />
@@ -260,8 +263,8 @@ const Messaging: React.FC<MessagingProps> = ({ initialSelectedConversationId, cl
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 p-4">
                             <ChatBubbleLeftRightIcon className="w-16 h-16 text-gray-300 mb-4" />
-                            <h3 className="text-xl font-semibold">Chọn một cuộc trò chuyện</h3>
-                            <p>Bắt đầu liên lạc với nhà tuyển dụng hoặc người lao động tại đây.</p>
+                            <h3 className="text-xl font-semibold">{t('messaging.select_conversation')}</h3>
+                            <p>{t('messaging.start_chat_hint')}</p>
                         </div>
                     )}
                 </div>

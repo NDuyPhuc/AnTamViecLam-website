@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 import ShieldCheckIcon from '../icons/ShieldCheckIcon';
 import ArrowLeftIcon from '../icons/ArrowLeftIcon';
+import { useTranslation } from 'react-i18next';
 
 const GoogleIcon = () => (
     <svg className="w-5 h-5 mr-3" xmlns="http://www.w.w3.org/2000/svg" viewBox="0 0 48 48">
@@ -16,6 +17,7 @@ const GoogleIcon = () => (
 
 
 const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }) => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +34,7 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
     setLoading(true);
 
     if (!isLogin && password !== confirmPassword) {
-      setError('Mật khẩu không khớp.');
+      setError(t('auth.error_password_mismatch'));
       setLoading(false);
       return;
     }
@@ -47,22 +49,22 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
     } catch (err: any) {
       switch (err.code) {
         case 'auth/user-not-found':
-          setError('Không tìm thấy tài khoản với email này.');
+          setError(t('auth.error_user_not_found'));
           break;
         case 'auth/wrong-password':
-          setError('Sai mật khẩu. Vui lòng thử lại.');
+          setError(t('auth.error_wrong_password'));
           break;
         case 'auth/email-already-in-use':
-          setError('Email này đã được sử dụng.');
+          setError(t('auth.error_email_in_use'));
           break;
         case 'auth/weak-password':
-          setError('Mật khẩu phải có ít nhất 6 ký tự.');
+          setError(t('auth.error_weak_password'));
           break;
         case 'auth/popup-closed-by-user':
-          setError('Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại.');
+          setError('Bạn đã đóng cửa sổ đăng nhập. Vui lòng thử lại.'); // Fallback translation for complex error
           break;
         default:
-          setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+          setError(t('common.error'));
           break;
       }
     } finally {
@@ -97,7 +99,7 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
           className="absolute top-6 left-6 flex items-center text-sm font-semibold text-gray-600 hover:text-indigo-600 transition-colors group"
         >
           <ArrowLeftIcon className="w-5 h-5 mr-2 text-gray-500 group-hover:text-indigo-600" />
-          Quay lại trang chủ
+          {t('auth.back_home')}
         </button>
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl border border-gray-100 p-8 space-y-6">
         <div className="flex flex-col items-center">
@@ -106,8 +108,8 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
             alt="An Tâm Việc Làm Logo" 
             className="h-24 w-24 rounded-full object-cover mb-2 shadow-md" 
           />
-          <h1 className="mt-3 text-3xl font-bold text-gray-800 text-center">Chào mừng đến<br/>An Tâm Việc Làm</h1>
-          <p className="text-gray-600 mt-2">{isLogin ? 'Đăng nhập vào tài khoản của bạn' : 'Tạo tài khoản mới'}</p>
+          <h1 className="mt-3 text-3xl font-bold text-gray-800 text-center">{t('auth.welcome')}<br/>{t('app_name')}</h1>
+          <p className="text-gray-600 mt-2">{isLogin ? t('auth.login_subtitle') : t('auth.register_subtitle')}</p>
         </div>
         
         <div className="space-y-4">
@@ -122,11 +124,11 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        Đang chuyển hướng...
+                        {t('auth.redirecting')}
                     </>
                 ) : (
                     <>
-                        <GoogleIcon /> Đăng nhập với Google
+                        <GoogleIcon /> {t('auth.google_login')}
                     </>
                 )}
             </button>
@@ -134,7 +136,7 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
 
         <div className="relative flex py-2 items-center">
             <div className="flex-grow border-t border-gray-300"></div>
-            <span className="flex-shrink mx-4 text-gray-500 text-sm">HOẶC</span>
+            <span className="flex-shrink mx-4 text-gray-500 text-sm">{t('common.or')}</span>
             <div className="flex-grow border-t border-gray-300"></div>
         </div>
 
@@ -143,7 +145,7 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
+            placeholder={t('auth.email_placeholder')}
             required
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           />
@@ -151,7 +153,7 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Mật khẩu"
+            placeholder={t('auth.password_placeholder')}
             required
             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           />
@@ -161,20 +163,20 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Xác nhận mật khẩu"
+                placeholder={t('auth.confirm_password_placeholder')}
                 required
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
               />
               <div>
-                <span className="block text-sm font-medium text-gray-700 mb-2">Bạn là:</span>
+                <span className="block text-sm font-medium text-gray-700 mb-2">{t('auth.role_label')}</span>
                 <div className="flex gap-4">
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input type="radio" name="role" value={UserRole.Worker} checked={role === UserRole.Worker} onChange={() => setRole(UserRole.Worker)} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"/>
-                    <span className="text-gray-700">Người lao động</span>
+                    <span className="text-gray-700">{t('auth.role_worker')}</span>
                   </label>
                   <label className="flex items-center space-x-2 cursor-pointer">
                     <input type="radio" name="role" value={UserRole.Employer} checked={role === UserRole.Employer} onChange={() => setRole(UserRole.Employer)} className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"/>
-                    <span className="text-gray-700">Nhà tuyển dụng</span>
+                    <span className="text-gray-700">{t('auth.role_employer')}</span>
                   </label>
                 </div>
               </div>
@@ -188,14 +190,14 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
             disabled={loading || googleLoading}
             className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-400 transition-colors"
           >
-            {loading ? 'Đang xử lý...' : (isLogin ? 'Đăng nhập' : 'Đăng ký')}
+            {loading ? t('auth.processing') : (isLogin ? t('common.login') : t('common.register'))}
           </button>
         </form>
 
         <p className="text-center text-sm">
-          {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}
+          {isLogin ? t('auth.no_account') : t('auth.has_account')}
           <button onClick={() => { setIsLogin(!isLogin); setError(''); }} className="font-medium text-indigo-600 hover:text-indigo-500 ml-1">
-            {isLogin ? 'Đăng ký' : 'Đăng nhập'}
+            {isLogin ? t('common.register') : t('common.login')}
           </button>
         </p>
       </div>

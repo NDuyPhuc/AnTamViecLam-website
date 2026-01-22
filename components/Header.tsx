@@ -19,6 +19,8 @@ import PaperAirplaneIconSolid from './icons/PaperAirplaneIconSolid';
 import ChatBubbleIconSolid from './icons/ChatBubbleIconSolid';
 import UserCircleIconSolid from './icons/UserCircleIconSolid';
 import SparklesIconSolid from './icons/SparklesIconSolid';
+import LanguageSwitcher from './LanguageSwitcher'; // Import component mới
+import { useTranslation } from 'react-i18next'; // Import hook
 
 interface HeaderProps {
   activeView: View;
@@ -80,6 +82,8 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   
+  const { t } = useTranslation(); // Khởi tạo hook dịch
+
   const unreadNotificationCount = notifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
@@ -122,18 +126,18 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
 
 
   let navItems = [
-    { view: View.Jobs, label: 'Tìm Việc', icon: <BriefcaseIcon className="w-6 h-6" />, activeIcon: <BriefcaseIconSolid className="w-6 h-6" /> },
-    { view: View.Insurance, label: 'Bảo Hiểm', icon: <ShieldCheckIcon className="w-6 h-6" />, activeIcon: <ShieldCheckIconSolid className="w-6 h-6" /> },
-    { view: View.Messaging, label: 'Tin Nhắn', icon: <PaperAirplaneIcon className="w-6 h-6" />, activeIcon: <PaperAirplaneIconSolid className="w-6 h-6" />, hasUnread: unreadMessageCount > 0 },
-    { view: View.Chatbot, label: 'Hỏi Đáp', icon: <ChatBubbleIcon className="w-6 h-6" />, activeIcon: <ChatBubbleIconSolid className="w-6 h-6" /> },
-    { view: View.Profile, label: 'Hồ Sơ', icon: <UserCircleIcon className="w-6 h-6" />, activeIcon: <UserCircleIconSolid className="w-6 h-6" /> },
+    { view: View.Jobs, label: t('nav.jobs'), icon: <BriefcaseIcon className="w-6 h-6" />, activeIcon: <BriefcaseIconSolid className="w-6 h-6" /> },
+    { view: View.Insurance, label: t('nav.insurance'), icon: <ShieldCheckIcon className="w-6 h-6" />, activeIcon: <ShieldCheckIconSolid className="w-6 h-6" /> },
+    { view: View.Messaging, label: t('nav.messaging'), icon: <PaperAirplaneIcon className="w-6 h-6" />, activeIcon: <PaperAirplaneIconSolid className="w-6 h-6" />, hasUnread: unreadMessageCount > 0 },
+    { view: View.Chatbot, label: t('nav.chatbot'), icon: <ChatBubbleIcon className="w-6 h-6" />, activeIcon: <ChatBubbleIconSolid className="w-6 h-6" /> },
+    { view: View.Profile, label: t('nav.profile'), icon: <UserCircleIcon className="w-6 h-6" />, activeIcon: <UserCircleIconSolid className="w-6 h-6" /> },
   ];
 
   // Chỉ thêm mục Gợi ý AI cho Người lao động
   if (currentUserData?.userType === UserRole.Worker) {
       navItems.splice(1, 0, { 
           view: View.Recommendations, 
-          label: 'Gợi ý AI', 
+          label: t('nav.ai_suggest'), 
           icon: <SparklesIcon className="w-6 h-6" />, 
           activeIcon: <SparklesIconSolid className="w-6 h-6" /> 
       });
@@ -152,7 +156,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
                         alt="An Tâm Việc Làm Logo" 
                         className="h-10 w-10 rounded-full object-cover group-hover:opacity-90 transition-opacity" 
                       />
-                      <h1 className="ml-3 text-2xl font-bold text-gray-800">An Tâm Việc Làm</h1>
+                      <h1 className="ml-3 text-2xl font-bold text-gray-800">{t('app_name')}</h1>
                   </button>
                   <nav className="flex items-baseline space-x-2 lg:space-x-4">
                        {navItems.map(item => (
@@ -167,48 +171,53 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
                   </nav>
               </div>
 
-              {currentUser && currentUserData && (
-                  <div className="flex items-center space-x-4">
-                      {currentUserData.userType === UserRole.Employer && (
-                          <button 
-                            onClick={onPostJobClick}
-                            className="flex items-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                          >
-                              <PlusCircleIcon className="w-5 h-5 mr-2" />
-                              Đăng tin
-                          </button>
-                      )}
+              <div className="flex items-center space-x-4">
+                  {/* Language Switcher luôn hiển thị */}
+                  <LanguageSwitcher />
 
-                      <div className="relative">
-                          <button
-                              onClick={() => setIsNotificationsOpen(prev => !prev)}
-                              className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                              aria-label="Thông báo"
-                          >
-                              <BellIcon />
-                              {unreadNotificationCount > 0 && (
-                                  <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white"></span>
-                              )}
-                          </button>
-                      </div>
-
-                      <div className="flex items-center space-x-3">
-                          <span className="text-sm text-gray-600 text-right hidden lg:block">
-                            Chào, <span className="font-semibold">{currentUserData.fullName || currentUser.email}</span>
-                          </span>
-                          {currentUserData.profileImageUrl ? (
-                              <img src={currentUserData.profileImageUrl} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
-                          ) : (
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                 <UserCircleIcon className="w-6 h-6 text-gray-500" />
-                              </div>
+                  {currentUser && currentUserData && (
+                      <>
+                          {currentUserData.userType === UserRole.Employer && (
+                              <button 
+                                onClick={onPostJobClick}
+                                className="flex items-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                              >
+                                  <PlusCircleIcon className="w-5 h-5 mr-2" />
+                                  {t('nav.post_job')}
+                              </button>
                           )}
-                      </div>
-                      <button onClick={handleLogout} className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
-                          Đăng xuất
-                      </button>
-                  </div>
-              )}
+
+                          <div className="relative">
+                              <button
+                                  onClick={() => setIsNotificationsOpen(prev => !prev)}
+                                  className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                                  aria-label="Thông báo"
+                              >
+                                  <BellIcon />
+                                  {unreadNotificationCount > 0 && (
+                                      <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white"></span>
+                                  )}
+                              </button>
+                          </div>
+
+                          <div className="flex items-center space-x-3">
+                              <span className="text-sm text-gray-600 text-right hidden lg:block">
+                                {t('nav.hello')}, <span className="font-semibold">{currentUserData.fullName || currentUser.email}</span>
+                              </span>
+                              {currentUserData.profileImageUrl ? (
+                                  <img src={currentUserData.profileImageUrl} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
+                              ) : (
+                                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                     <UserCircleIcon className="w-6 h-6 text-gray-500" />
+                                  </div>
+                              )}
+                          </div>
+                          <button onClick={handleLogout} className="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
+                              {t('common.logout')}
+                          </button>
+                      </>
+                  )}
+              </div>
           </div>
         </div>
       </header>
@@ -232,13 +241,33 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
             </div>
        </div>
        
+       {/* Mobile Header Top (Since bottom is nav) - To show Language Switcher & Profile */}
+       <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur shadow-sm px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center">
+                 <img src="https://ik.imagekit.io/duyphuc/AN%20T%C3%82M%20VI%E1%BB%86CL%C3%80M.jpg" className="w-8 h-8 rounded-full mr-2"/>
+                 <h1 className="font-bold text-gray-800 text-sm">{t('app_name')}</h1>
+            </div>
+            <div className="flex items-center gap-3">
+                <LanguageSwitcher />
+                {currentUser && (
+                    <button
+                        onClick={() => setIsNotificationsOpen(prev => !prev)}
+                        className="relative p-1"
+                    >
+                        <BellIcon className="w-6 h-6 text-gray-600" />
+                        {unreadNotificationCount > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
+                    </button>
+                )}
+            </div>
+       </div>
+       
        {/* --- Mobile FAB for Posting Job --- */}
        {currentUser && currentUserData?.userType === UserRole.Employer && (
          <div className="md:hidden fixed bottom-20 right-4 z-50">
            <button
              onClick={onPostJobClick}
              className="bg-indigo-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-             aria-label="Đăng tin tuyển dụng mới"
+             aria-label={t('nav.post_job')}
            >
              <PlusCircleIcon className="w-8 h-8" />
            </button>

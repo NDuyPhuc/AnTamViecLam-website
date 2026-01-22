@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import type { Job } from '../types';
-import { formatPay } from '../utils/formatters';
+import { useTranslation } from 'react-i18next';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import { useAuth } from '../contexts/AuthContext';
 import { applyForJob, checkIfApplied } from '../services/applicationService';
@@ -17,6 +17,7 @@ interface JobDetailModalProps {
 }
 
 const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnMap }) => {
+  const { t } = useTranslation();
   const { currentUser, currentUserData } = useAuth();
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
@@ -40,12 +41,9 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
       }
     };
 
-    // Prevent body scroll when modal is open
     document.body.style.overflow = 'hidden';
-
     window.addEventListener('keydown', handleKeyDown);
 
-    // Check application status when modal opens
     const checkApplicationStatus = async () => {
         if (currentUser && currentUserData?.userType === 'WORKER') {
             const applied = await checkIfApplied(job.id, currentUser.uid);
@@ -56,14 +54,13 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      // Restore body scroll
       document.body.style.overflow = 'unset';
     };
   }, [onClose, job.id, currentUser, currentUserData]);
 
   const handleStartApply = () => {
       if (!currentUser || !currentUserData) {
-        setApplyError("Bạn cần đăng nhập để ứng tuyển.");
+        setApplyError("Bạn cần đăng nhập để ứng tuyển."); // Can extract to i18n
         return;
       }
       setShowApplyForm(true);
@@ -86,7 +83,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
         setShowApplyForm(false);
     } catch (error) {
         console.error("Application failed:", error);
-        setApplyError("Đã có lỗi xảy ra khi ứng tuyển. Vui lòng thử lại.");
+        setApplyError(t('common.error'));
     } finally {
         setIsApplying(false);
     }
@@ -94,29 +91,46 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
   const isEmployerViewingOwnJob = currentUserData?.uid === job.employerId;
 
+  // Helper for salary format
+  const getPayString = () => {
+      if (job.payRate === "Thỏa thuận") return t('job.salary_negotiable');
+      const unit = job.payType === 'THEO GIỜ' ? t('job.pay_hour') 
+                 : job.payType === 'THEO NGÀY' ? t('job.pay_day')
+                 : job.payType === 'THEO THÁNG' ? t('job.pay_month') : '';
+      return `${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(job.payRate as number)}${unit}`;
+  };
+
+  // Helper to translate job type
+  const getJobTypeLabel = (type: string | undefined) => {
+      if (!type) return '';
+      switch (type) {
+          case 'Thời vụ': return t('job.type_seasonal');
+          case 'Bán thời gian': return t('job.type_parttime');
+          case 'Linh hoạt': return t('job.type_flexible');
+          case 'Toàn thời gian': return t('job.type_fulltime');
+          default: return type;
+      }
+  };
+
   return (
     <div 
         className="fixed inset-0 z-[100] flex items-end md:items-center justify-center"
         role="dialog"
         aria-modal="true"
     >
-      {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
         onClick={onClose}
       ></div>
 
-      {/* Modal Container */}
       <div 
         className="bg-white w-full md:w-[90%] md:max-w-3xl h-[90vh] md:h-auto md:max-h-[85vh] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col relative z-10 animate-slide-up md:animate-fade-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-         {/* Mobile Drag Handle Visual */}
          <div className="md:hidden w-full flex justify-center pt-3 pb-1 bg-white cursor-pointer" onClick={onClose}>
              <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
          </div>
 
-         {/* Header - Sticky */}
          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-start bg-white flex-shrink-0">
             <div className="flex gap-4 overflow-hidden">
                 {job.employerProfileUrl ? (
@@ -131,11 +145,11 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                     <p className="text-gray-500 text-sm truncate mt-1">{job.employerName}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-md">
-                            {formatPay(job.payRate, job.payType)}
+                            {getPayString()}
                         </span>
                         <span className="text-gray-400 text-xs flex items-center">
                             <ClockIcon className="w-3 h-3 mr-1"/>
-                            {new Date(job.createdAt).toLocaleDateString('vi-VN')}
+                            {new Date(job.createdAt).toLocaleDateString()}
                         </span>
                     </div>
                 </div>
@@ -148,45 +162,35 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
             </button>
          </div>
 
-         {/* Scrollable Content */}
          <div className="flex-grow overflow-y-auto p-6 bg-white">
             
-            {/* Address */}
             <div className="flex items-start gap-3 mb-6 p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <MapPinIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                 <div>
-                    <p className="text-sm font-semibold text-gray-800">Địa điểm làm việc</p>
+                    <p className="text-sm font-semibold text-gray-800">{t('job.location')}</p>
                     <p className="text-sm text-gray-600">{job.addressString}</p>
                     <button 
                         onClick={onViewOnMap} 
                         className="text-xs text-indigo-600 font-semibold hover:underline mt-1"
                     >
-                        Xem trên bản đồ
+                        {t('job.view_map')}
                     </button>
                 </div>
             </div>
 
-            {/* Description */}
             <div className="mb-6">
-                <h3 className="text-lg font-bold text-gray-800 mb-3">Mô tả công việc</h3>
+                <h3 className="text-lg font-bold text-gray-800 mb-3">{t('job.description')}</h3>
                 <div className="text-gray-600 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
                     {job.description}
                 </div>
             </div>
 
-            {/* Tags */}
             <div className="flex flex-wrap gap-2 mb-8">
                  <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-medium border border-indigo-100">
-                    {job.jobType}
+                    {getJobTypeLabel(job.jobType)}
                  </span>
-                 {job.payType && (
-                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-medium border border-gray-200">
-                        Trả lương {job.payType.toLowerCase()}
-                    </span>
-                 )}
             </div>
 
-            {/* Application Form Section (Inline) */}
             {showApplyForm && !hasApplied && (
                 <div className="mb-6 bg-indigo-50 p-5 rounded-xl border border-indigo-100 animate-fade-in">
                     <h3 className="font-bold text-indigo-800 mb-4 flex items-center text-lg">
@@ -195,14 +199,13 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                     </h3>
                     <form onSubmit={handleConfirmApply} className="space-y-4">
                         <div>
-                            <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ <span className="text-red-500">*</span></label>
+                            <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">{t('profile.phone')} <span className="text-red-500">*</span></label>
                             <input 
                                 type="tel" 
                                 id="contactPhone"
                                 value={contactPhone}
                                 onChange={(e) => setContactPhone(e.target.value)}
                                 className="w-full p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                placeholder="Nhập số điện thoại..."
                                 required
                             />
                         </div>
@@ -214,7 +217,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                                 onChange={(e) => setIntroduction(e.target.value)}
                                 rows={3}
                                 className="w-full p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                                placeholder="Giới thiệu ngắn gọn về kinh nghiệm của bạn..."
                             ></textarea>
                         </div>
                         {applyError && <p className="text-red-500 text-sm bg-red-50 p-2 rounded border border-red-100">{applyError}</p>}
@@ -225,14 +227,14 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                                 onClick={() => setShowApplyForm(false)}
                                 className="px-4 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold flex-1"
                             >
-                                Hủy
+                                {t('common.cancel')}
                             </button>
                              <button 
                                 type="submit"
                                 disabled={isApplying}
                                 className="flex-[2] bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-400 flex items-center justify-center shadow-md"
                             >
-                                {isApplying ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'Gửi hồ sơ'}
+                                {isApplying ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : t('common.send')}
                             </button>
                         </div>
                     </form>
@@ -240,7 +242,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
             )}
          </div>
 
-         {/* Footer Buttons - Sticky Bottom */}
          {!showApplyForm && (
              <div className="p-4 bg-white border-t border-gray-100 flex gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex-shrink-0">
                  {currentUserData?.userType === 'WORKER' && !isEmployerViewingOwnJob && (
@@ -255,17 +256,17 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                     >
                         {hasApplied ? (
                             <>
-                                <span className="mr-2">✓</span> Đã ứng tuyển
+                                <span className="mr-2">✓</span> {t('job.applied')}
                             </>
                         ) : (
-                            'Ứng tuyển ngay'
+                            t('job.apply_now')
                         )}
                     </button>
                  )}
                  
                  {isEmployerViewingOwnJob && (
                      <div className="flex-1 bg-gray-100 text-gray-500 font-medium py-3 px-4 rounded-xl text-center text-sm flex items-center justify-center">
-                         Đây là bài đăng của bạn
+                         {t('job.employer_post')}
                      </div>
                  )}
 
@@ -273,7 +274,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                     onClick={onClose}
                     className="px-5 bg-white text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 border border-gray-200 transition-colors active:scale-95"
                  >
-                    Đóng
+                    {t('common.close')}
                 </button>
              </div>
          )}
@@ -286,7 +287,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
         .animate-slide-up {
             animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        /* Override fade-in for desktop to be simpler */
         @media (min-width: 768px) {
             .animate-slide-up {
                 animation: fade-in 0.2s ease-out forwards;

@@ -1,5 +1,7 @@
+
 import { db, serverTimestamp, increment } from './firebase';
 import type { UserData, Application, Conversation, Message } from '../types';
+import i18n from '../i18n';
 
 /**
  * Gets an existing conversation or creates a new one between two users.
@@ -34,7 +36,7 @@ export const getOrCreateConversation = async (application: Application): Promise
             id: conversationId,
             participants,
             participantInfo,
-            lastMessage: `Bắt đầu trò chuyện về công việc: ${application.jobTitle}`,
+            lastMessage: i18n.t('messaging.start_conversation', { jobTitle: application.jobTitle }),
             lastMessageTimestamp: serverTimestamp(),
             unreadCounts,
         });
@@ -181,13 +183,19 @@ export const markMessagesAsRead = async (conversationId: string, readByUserId: s
  * Deletes a message by marking it as deleted.
  * Only the sender can delete their own message.
  */
-export const deleteMessage = async (conversationId: string, messageId: string, currentUserId: string, messageSenderId: string): Promise<void> => {
+export const deleteMessage = async (
+    conversationId: string, 
+    messageId: string, 
+    currentUserId: string, 
+    messageSenderId: string, 
+    deletedText: string = 'Tin nhắn này đã được thu hồi.'
+): Promise<void> => {
     if (currentUserId !== messageSenderId) {
         throw new Error("You can only delete your own messages.");
     }
     const messageRef = db.collection('conversations').doc(conversationId).collection('messages').doc(messageId);
     await messageRef.update({
-        text: 'Tin nhắn này đã được thu hồi.',
+        text: deletedText,
         deleted: true,
     });
 };

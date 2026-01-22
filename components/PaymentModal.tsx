@@ -6,6 +6,7 @@ import ShieldCheckIcon from './icons/ShieldCheckIcon';
 import CubeTransparentIcon from './icons/CubeTransparentIcon';
 import UserIcon from './icons/UserIcon';
 import { sendPayment, formatAddress, WELFARE_FUND_ADDRESS } from '../services/blockchainService';
+import { useTranslation } from 'react-i18next';
 
 interface PaymentModalProps {
   onClose: () => void;
@@ -22,9 +23,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     recipientAddress,
     title
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'traditional' | 'crypto'>('crypto');
   const [amount, setAmount] = useState('');
-  // Use useEffect to update targetAddress if recipientAddress prop changes (e.g. auto-fill complete)
   const [targetAddress, setTargetAddress] = useState(recipientAddress || WELFARE_FUND_ADDRESS);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -35,43 +36,39 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       }
   }, [recipientAddress]);
 
-  const isSalaryPayment = recipientAddress !== undefined; // If recipientAddress prop was passed (even empty string), it is a salary flow
-  const displayTitle = title || (isSalaryPayment ? "Thanh toán lương" : "Nạp tiền vào quỹ");
+  const isSalaryPayment = recipientAddress !== undefined; 
+  const displayTitle = title || (isSalaryPayment ? t('payment.title_salary') : t('payment.title_deposit'));
   
   const officialLink = "https://dichvucong.baohiemxahoi.gov.vn/#/index?login=1&url=%2Fthanh-toan-bhxh-dien-tu%2Fngan-hang-lien-ket&queryUrl=";
 
   const handleCryptoPayment = async () => {
-      // Sanitize input: Replace comma with dot for international format
       const sanitizedAmount = amount.replace(',', '.');
 
       if (!sanitizedAmount || parseFloat(sanitizedAmount) <= 0 || isNaN(parseFloat(sanitizedAmount))) {
-          setError("Vui lòng nhập số lượng hợp lệ.");
+          setError(t('payment.error_amount'));
           return;
       }
       if (!targetAddress || targetAddress.length < 40) {
-          setError("Địa chỉ ví nhận không hợp lệ.");
+          setError(t('payment.error_address'));
           return;
       }
 
       setIsProcessing(true);
       setError('');
       try {
-          // Gọi hàm gửi tiền từ service với địa chỉ đích cụ thể từ input
           const txHash = await sendPayment(sanitizedAmount, targetAddress);
           if (onTransactionSuccess) {
               onTransactionSuccess(txHash, sanitizedAmount);
           }
       } catch (err: any) {
           console.error(err);
-          setError(err.message || "Giao dịch thất bại. Hãy đảm bảo bạn có đủ MATIC/POL trên mạng testnet.");
+          setError(err.message || t('common.error'));
       } finally {
           setIsProcessing(false);
       }
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      // Allow user to type comma, but we can visually or internally handle it. 
-      // Here we just set state, sanitization happens on submit.
       setAmount(e.target.value);
   }
 
@@ -91,7 +88,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-          aria-label="Đóng"
+          aria-label={t('common.close')}
         >
           <XIcon className="w-6 h-6" />
         </button>
@@ -99,20 +96,20 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         <div className="p-6">
             <h2 className="text-xl font-bold text-gray-800 text-center mb-6">{displayTitle}</h2>
             
-            {/* Tabs - Only show if it's NOT a salary payment */}
+            {/* Tabs */}
             {!isSalaryPayment && (
                 <div className="flex bg-gray-100 p-1 rounded-lg mb-6">
                     <button 
                         onClick={() => setActiveTab('crypto')}
                         className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'crypto' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        Blockchain (Testnet)
+                        {t('payment.tab_crypto')}
                     </button>
                     <button 
                         onClick={() => setActiveTab('traditional')}
                         className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all ${activeTab === 'traditional' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
                     >
-                        Cổng Dịch Vụ Công
+                        {t('payment.tab_traditional')}
                     </button>
                 </div>
             )}
@@ -129,42 +126,42 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     
                     {!walletConnected ? (
                         <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm">
-                            Vui lòng kết nối ví MetaMask ở màn hình chính trước khi thực hiện giao dịch.
+                            {t('payment.connect_wallet_hint')}
                         </div>
                     ) : (
                         <>
                             <p className="text-sm text-gray-600">
                                 {isSalaryPayment 
-                                    ? "Chuyển tiền lương trực tiếp qua Smart Contract."
-                                    : "Nạp tiền vào Smart Contract trên mạng Polygon Amoy."
+                                    ? t('payment.desc_salary')
+                                    : t('payment.desc_deposit')
                                 }
                             </p>
                             
                             <div className="text-left">
                                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
-                                    {isSalaryPayment ? 'Địa chỉ Ví Nhân Viên (Người nhận)' : 'Địa chỉ Smart Contract (Quỹ)'}
+                                    {isSalaryPayment ? t('payment.label_recipient') : t('payment.label_fund')}
                                 </label>
                                 <input 
                                     type="text" 
                                     value={targetAddress}
                                     onChange={(e) => setTargetAddress(e.target.value)}
                                     className="w-full p-2 border border-gray-300 rounded-lg text-xs font-mono text-gray-600 bg-gray-50 focus:ring-1 focus:ring-indigo-500 outline-none"
-                                    placeholder={isSalaryPayment ? "Hệ thống sẽ tự điền nếu NV đã liên kết ví..." : "0x..."}
+                                    placeholder={isSalaryPayment ? t('payment.hint_no_wallet') : "0x..."}
                                 />
                                 {isSalaryPayment && !targetAddress && (
                                     <p className="text-[10px] text-orange-500 mt-1 italic font-medium">
-                                        * Nhân viên này chưa liên kết ví. Vui lòng hỏi địa chỉ ví của họ và nhập thủ công.
+                                        * {t('payment.hint_no_wallet')}
                                     </p>
                                 )}
                                 {isSalaryPayment && targetAddress && (
                                      <p className="text-[10px] text-green-600 mt-1 italic font-medium flex items-center">
-                                        ✓ Đã tự động điền ví của nhân viên
+                                        ✓ {t('payment.hint_auto_fill')}
                                     </p>
                                 )}
                             </div>
 
                             <div className="text-left">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng (MATIC/POL)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('payment.label_amount')}</label>
                                 <input 
                                     type="text" 
                                     inputMode="decimal"
@@ -184,7 +181,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             >
                                 {isProcessing ? (
                                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                ) : 'Xác nhận giao dịch'}
+                                ) : t('payment.btn_confirm')}
                             </button>
                         </>
                     )}
@@ -195,7 +192,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         <ShieldCheckIcon className="w-8 h-8 text-gray-600" />
                     </div>
                     <p className="text-sm text-gray-600 mb-6">
-                        Chuyển hướng đến trang web chính thức của Bảo hiểm Xã hội Việt Nam.
+                        {t('payment.redirect_gov')}
                     </p>
                     <a
                         href={officialLink}
@@ -203,7 +200,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         rel="noopener noreferrer"
                         className="w-full inline-flex items-center justify-center bg-gray-800 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-900 transition-colors shadow-sm"
                     >
-                        Tiếp tục
+                        {t('payment.btn_continue')}
                         <ArrowTopRightOnSquareIcon className="w-5 h-5 ml-2" />
                     </a>
                 </div>

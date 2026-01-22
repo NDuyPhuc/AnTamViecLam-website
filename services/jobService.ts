@@ -1,7 +1,9 @@
+
 import { db, serverTimestamp } from './firebase';
 import type { Job, UserData, UserRole } from '../types';
 import { NotificationType } from '../types';
 import { createNotification } from './notificationService';
+import i18n from '../i18n';
 
 export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
   const jobsCollection = db.collection('jobs');
@@ -160,7 +162,7 @@ const notifyMatchingWorkers = async (jobId: string, jobData: NewJobData) => {
           createNotification(
             worker.uid,
             NotificationType.NEW_JOB_MATCH,
-            `Việc làm mới tại ${jobProvince}: "${jobData.title}"`,
+            i18n.t('notifications.msg_job_match', { location: jobProvince, jobTitle: jobData.title }),
             `/jobs/${jobId}`
           );
         }

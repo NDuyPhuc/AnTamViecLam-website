@@ -1,7 +1,9 @@
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
+import './i18n'; // Import cấu hình i18n
 
 // Logic đăng ký Service Worker đã được chuyển vào App.tsx
 

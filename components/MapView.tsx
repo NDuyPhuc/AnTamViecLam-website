@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import type { Job } from '../types';
 import { parseLocationString } from '../utils/formatters';
 import MyLocationIcon from './icons/MyLocationIcon';
+import { useTranslation } from 'react-i18next';
 
 interface MapViewProps {
   jobs: Job[];
@@ -13,20 +14,24 @@ interface MapViewProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
-const PopupContent: React.FC<{ job: Job; onJobSelect: (job: Job) => void }> = ({ job, onJobSelect }) => (
-    <div className="p-1 font-sans">
-        <h4 className="font-bold text-sm text-gray-800">{job.title}</h4>
-        <p className="text-xs text-gray-600 mb-1">{job.employerName}</p>
-        <button 
-            onClick={() => onJobSelect(job)} 
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
-        >
-            Xem chi tiết
-        </button>
-    </div>
-);
+const PopupContent: React.FC<{ job: Job; onJobSelect: (job: Job) => void }> = ({ job, onJobSelect }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="p-1 font-sans">
+            <h4 className="font-bold text-sm text-gray-800">{job.title}</h4>
+            <p className="text-xs text-gray-600 mb-1">{job.employerName}</p>
+            <button 
+                onClick={() => onJobSelect(job)} 
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
+                {t('map.view_details')}
+            </button>
+        </div>
+    );
+};
 
 const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFocusComplete, userLocation }) => {
+  const { t } = useTranslation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapDataRef = useRef<{
     map: any | null; // L.Map
@@ -186,11 +191,11 @@ const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFo
 
         const marker = L.marker([userLocation.lat, userLocation.lng], { icon: userLocationIcon })
             .addTo(map)
-            .bindTooltip("Vị trí của bạn");
+            .bindTooltip(t('map.your_location'));
 
         mapDataRef.current.userMarker = marker;
     }
-  }, [userLocation]);
+  }, [userLocation, t]);
 
 
   const handleCenterOnUser = () => {
@@ -207,8 +212,8 @@ const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFo
           <button
             onClick={handleCenterOnUser}
             className="absolute bottom-5 right-5 z-[1000] bg-white p-3 rounded-full shadow-lg hover:bg-gray-100 transition-colors duration-200"
-            aria-label="Về vị trí của tôi"
-            title="Về vị trí của tôi"
+            aria-label={t('map.your_location')}
+            title={t('map.your_location')}
           >
             <MyLocationIcon className="w-6 h-6 text-gray-700" />
           </button>

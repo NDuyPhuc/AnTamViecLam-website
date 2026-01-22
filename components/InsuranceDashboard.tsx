@@ -19,14 +19,15 @@ import UsersIcon from './icons/UsersIcon';
 import UserIcon from './icons/UserIcon';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import ClockIcon from './icons/ClockIcon';
-import TrashIcon from './icons/TrashIcon'; // Import TrashIcon
+import TrashIcon from './icons/TrashIcon'; 
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, Application } from '../types';
 import { connectWallet, formatAddress, WalletState, getWalletBalance, WELFARE_FUND_ADDRESS } from '../services/blockchainService';
 import { subscribeToApplicationsForEmployer, subscribeToApplicationsForWorker, addEmploymentLog } from '../services/applicationService';
-import { updateUserWallet, getUserProfile } from '../services/userService'; // Import getUserProfile
+import { updateUserWallet, getUserProfile } from '../services/userService';
 import Spinner from './Spinner';
 import EmployeeManagementModal from './EmployeeManagementModal';
+import { useTranslation, Trans } from 'react-i18next';
 
 // Local icon definition to avoid creating a new file
 const WalletIcon: React.FC<{ className?: string }> = ({ className = "w-6 h-6" }) => (
@@ -43,112 +44,106 @@ interface BlockchainTransaction {
     recipient?: string;
 }
 
-const additionalInsuranceProducts = [
-  { 
-    title: 'BH xe máy bắt buộc', 
-    description: 'Bảo vệ trách nhiệm dân sự của bạn khi tham gia giao thông.', 
-    link: 'https://motor-civil.globalcare.vn/293f4359&skip-password=1?token=2306244fxozgmotc', 
-    icon: <MotorcycleIcon className="w-7 h-7 text-gray-700" /> 
-  },
-  { 
-    title: 'BH ô tô bắt buộc', 
-    description: 'Yên tâm vững lái với bảo hiểm trách nhiệm dân sự cho ô tô.', 
-    link: 'https://oto-civil.globalcare.vn/293f4359?token=2306244fxozgmotc', 
-    icon: <CarIcon className="w-7 h-7 text-gray-700" /> 
-  },
-  { 
-    title: 'BH vật chất ô tô', 
-    description: 'Bảo vệ toàn diện cho xế yêu trước mọi rủi ro va chạm, hư hỏng.', 
-    link: 'https://phydam.globalcare.vn/293f4359?token=2306244fxozgmotc', 
-    icon: <CarIcon className="w-7 h-7 text-gray-700" /> 
-  },
-  { 
-    title: 'BH sức khỏe', 
-    description: 'Chăm sóc sức khỏe toàn diện cho bạn và gia đình.', 
-    link: 'https://globalcare.vn/products-hub?code=health&token=2306244fxozgmotc', 
-    icon: <HeartIcon className="w-7 h-7 text-red-500" /> 
-  },
-  { 
-    title: 'BH an ninh mạng', 
-    description: 'Bảo vệ bạn khỏi các rủi ro và tấn công trên không gian mạng.', 
-    link: 'https://globalcare.vn/bao-hiem-an-ninh-mang?token=2306244fxozgmotc', 
-    icon: <ShieldExclamationIcon className="w-7 h-7 text-blue-600" /> 
-  },
-  { 
-    title: 'BH toàn diện hộ kinh doanh', 
-    description: 'An tâm kinh doanh với giải pháp bảo vệ tài sản và hoạt động.', 
-    link: 'https://globalcare.vn/bao-hiem-toan-dien-ho-kinh-doanh-ca-the?token=2306244fxozgmotc', 
-    icon: <BuildingStorefrontIcon className="w-7 h-7 text-yellow-600" /> 
-  },
-  { 
-    title: 'BH cứu hộ xe máy 24/7', 
-    description: 'Hỗ trợ kịp thời mọi lúc, mọi nơi khi xe bạn gặp sự cố.', 
-    link: 'https://globalcare.vn/dich-vu-cuu-ho-xe-may?token=2306244fxozgmotc', 
-    icon: <MotorcycleIcon className="w-7 h-7 text-gray-700" /> 
-  },
-  { 
-    title: 'BH bệnh hiểm nghèo', 
-    description: 'Nguồn tài chính vững chắc giúp bạn vượt qua bệnh tật.', 
-    link: 'https://critical-disease.globalcare.vn/b45306c2?token=2306244fxozgmotc', 
-    icon: <HeartIcon className="w-7 h-7 text-red-500" /> 
-  },
-  { 
-    title: 'BH VIB care', 
-    description: 'Gói chăm sóc sức khỏe cao cấp với nhiều quyền lợi vượt trội.', 
-    link: 'https://vbi-care.globalcare.vn/293f4359?token=2306244fxozgmotc', 
-    icon: <HeartIcon className="w-7 h-7 text-red-500" /> 
-  },
-  { 
-    title: 'BH nhà tư nhân', 
-    description: 'Bảo vệ tổ ấm của bạn trước những rủi ro cháy, nổ, thiên tai.', 
-    link: 'https://private-home.globalcare.vn/293f4359?token=2306244fxozgmotc', 
-    icon: <HomeIcon className="w-7 h-7 text-green-600" /> 
-  },
-  { 
-    title: 'BH tai nạn Tomato', 
-    description: 'Gói bảo hiểm tai nạn cá nhân linh hoạt, chi phí thấp.', 
-    link: 'https://tomato.globalcare.vn/3bb76e94?token=2306244fxozgmotc', 
-    icon: <ShieldCheckIcon className="w-7 h-7 text-indigo-600" /> 
-  },
-  { 
-    title: 'BH Home Care', 
-    description: 'Bảo vệ toàn diện cho ngôi nhà và tài sản bên trong.', 
-    link: 'https://private-home.globalcare.vn/3bb76e94?token=2306244fxozgmotc', 
-    icon: <HomeIcon className="w-7 h-7 text-green-600" /> 
-  },
-  { 
-    title: 'BH tai nạn cá nhân', 
-    description: 'An tâm trước mọi rủi ro không lường trước trong cuộc sống.', 
-    link: 'https://personal-accident.globalcare.vn/293f4359?token=2306244fxozgmotc', 
-    icon: <ShieldCheckIcon className="w-7 h-7 text-indigo-600" /> 
-  }
-];
-
-
 const InsuranceDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { currentUser, currentUserData, refetchUserData } = useAuth();
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [wallet, setWallet] = useState<WalletState>({ address: null, balance: null, chainId: null, isConnected: false });
   const [isConnecting, setIsConnecting] = useState(false);
   const [latestHash, setLatestHash] = useState<string | null>(MOCK_INSURANCE_DATA.latestTxHash);
   
-  // Transaction History State
   const [transactions, setTransactions] = useState<BlockchainTransaction[]>([]);
-
-  // Payment Flow State
   const [paymentRecipient, setPaymentRecipient] = useState<string | undefined>(undefined);
   const [paymentTitle, setPaymentTitle] = useState<string | undefined>(undefined);
   const [pendingEmployeePayment, setPendingEmployeePayment] = useState<Application | null>(null);
 
-  // Employee Management State
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Application | null>(null);
   
-  // Filter toggle for Employer
   const [employeeViewMode, setEmployeeViewMode] = useState<'active' | 'terminated'>('active');
 
-  // Filter valid hired employees based on view mode
+  const additionalInsuranceProducts = [
+    { 
+      title: t('insurance_products.motor_civil.title'), 
+      description: t('insurance_products.motor_civil.desc'), 
+      link: 'https://motor-civil.globalcare.vn/293f4359&skip-password=1?token=2306244fxozgmotc', 
+      icon: <MotorcycleIcon className="w-7 h-7 text-gray-700" /> 
+    },
+    { 
+        title: t('insurance_products.auto_civil.title'), 
+        description: t('insurance_products.auto_civil.desc'), 
+        link: 'https://oto-civil.globalcare.vn/293f4359?token=2306244fxozgmotc', 
+        icon: <CarIcon className="w-7 h-7 text-gray-700" /> 
+    },
+    { 
+        title: t('insurance_products.auto_material.title'), 
+        description: t('insurance_products.auto_material.desc'), 
+        link: 'https://phydam.globalcare.vn/293f4359?token=2306244fxozgmotc', 
+        icon: <CarIcon className="w-7 h-7 text-gray-700" /> 
+    },
+    { 
+        title: t('insurance_products.health.title'), 
+        description: t('insurance_products.health.desc'), 
+        link: 'https://globalcare.vn/products-hub?code=health&token=2306244fxozgmotc', 
+        icon: <HeartIcon className="w-7 h-7 text-red-500" /> 
+    },
+    { 
+        title: t('insurance_products.cyber.title'), 
+        description: t('insurance_products.cyber.desc'), 
+        link: 'https://globalcare.vn/bao-hiem-an-ninh-mang?token=2306244fxozgmotc', 
+        icon: <ShieldExclamationIcon className="w-7 h-7 text-blue-600" /> 
+    },
+    { 
+        title: t('insurance_products.business.title'), 
+        description: t('insurance_products.business.desc'), 
+        link: 'https://globalcare.vn/bao-hiem-toan-dien-ho-kinh-doanh-ca-the?token=2306244fxozgmotc', 
+        icon: <BuildingStorefrontIcon className="w-7 h-7 text-yellow-600" /> 
+    },
+    { 
+        title: t('insurance_products.motor_rescue.title'), 
+        description: t('insurance_products.motor_rescue.desc'), 
+        link: 'https://globalcare.vn/dich-vu-cuu-ho-xe-may?token=2306244fxozgmotc', 
+        icon: <MotorcycleIcon className="w-7 h-7 text-gray-700" /> 
+    },
+    { 
+        title: t('insurance_products.critical_disease.title'), 
+        description: t('insurance_products.critical_disease.desc'), 
+        link: 'https://critical-disease.globalcare.vn/b45306c2?token=2306244fxozgmotc', 
+        icon: <HeartIcon className="w-7 h-7 text-red-500" /> 
+    },
+    { 
+        title: t('insurance_products.vib_care.title'), 
+        description: t('insurance_products.vib_care.desc'), 
+        link: 'https://vbi-care.globalcare.vn/293f4359?token=2306244fxozgmotc', 
+        icon: <HeartIcon className="w-7 h-7 text-red-500" /> 
+    },
+    { 
+        title: t('insurance_products.private_home.title'), 
+        description: t('insurance_products.private_home.desc'), 
+        link: 'https://private-home.globalcare.vn/293f4359?token=2306244fxozgmotc', 
+        icon: <HomeIcon className="w-7 h-7 text-green-600" /> 
+    },
+    { 
+        title: t('insurance_products.tomato.title'), 
+        description: t('insurance_products.tomato.desc'), 
+        link: 'https://tomato.globalcare.vn/3bb76e94?token=2306244fxozgmotc', 
+        icon: <ShieldCheckIcon className="w-7 h-7 text-indigo-600" /> 
+    },
+    { 
+        title: t('insurance_products.home_care.title'), 
+        description: t('insurance_products.home_care.desc'), 
+        link: 'https://private-home.globalcare.vn/3bb76e94?token=2306244fxozgmotc', 
+        icon: <HomeIcon className="w-7 h-7 text-green-600" /> 
+    },
+    { 
+        title: t('insurance_products.personal_accident.title'), 
+        description: t('insurance_products.personal_accident.desc'), 
+        link: 'https://personal-accident.globalcare.vn/293f4359?token=2306244fxozgmotc', 
+        icon: <ShieldCheckIcon className="w-7 h-7 text-indigo-600" /> 
+    }
+  ];
+
   const displayedEmployees = useMemo(() => {
       if (currentUserData?.userType === UserRole.Employer) {
           if (employeeViewMode === 'active') {
@@ -157,11 +152,9 @@ const InsuranceDashboard: React.FC = () => {
               return applications.filter(app => app.status === 'terminated');
           }
       }
-      // For workers, show both hired and terminated (as history)
       return applications.filter(app => app.status === 'hired' || app.status === 'terminated');
   }, [applications, currentUserData, employeeViewMode]);
 
-  // Load Saved Wallet & Balance on Mount
   useEffect(() => {
       const loadSavedWallet = async () => {
           if (currentUserData?.walletAddress) {
@@ -170,7 +163,7 @@ const InsuranceDashboard: React.FC = () => {
                   setWallet({
                       address: currentUserData.walletAddress,
                       balance: balance,
-                      chainId: '80002', // Amoy ID
+                      chainId: '80002', 
                       isConnected: true
                   });
               } catch (e) {
@@ -207,21 +200,19 @@ const InsuranceDashboard: React.FC = () => {
       try {
           const walletData = await connectWallet();
           setWallet(walletData);
-          
-          // Save wallet to Firestore if connected successfully
           if (walletData.address && currentUser) {
               await updateUserWallet(currentUser.uid, walletData.address);
-              await refetchUserData(); // Refresh context
+              await refetchUserData(); 
           }
       } catch (error: any) {
-          alert(error.message || "Lỗi kết nối ví");
+          alert(error.message || t('common.error'));
       } finally {
           setIsConnecting(false);
       }
   };
 
   const handleDisconnectWallet = async () => {
-      if (window.confirm("Bạn có chắc chắn muốn hủy liên kết ví này không?")) {
+      if (window.confirm(t('common.confirm'))) {
           if (currentUser) {
               await updateUserWallet(currentUser.uid, null);
               await refetchUserData();
@@ -233,9 +224,8 @@ const InsuranceDashboard: React.FC = () => {
   const handleTransactionSuccess = async (hash: string, amount: string) => {
       setLatestHash(hash);
       setIsPaymentModalOpen(false);
-      alert(`Giao dịch thành công! Hash: ${hash}`);
+      alert(`${t('payment.success')} Hash: ${hash}`);
       
-      // Update local transaction history (Optimistic UI)
       const newTx: BlockchainTransaction = {
           hash: hash,
           amount: amount,
@@ -245,39 +235,34 @@ const InsuranceDashboard: React.FC = () => {
       };
       setTransactions(prev => [newTx, ...prev]);
 
-      // If this was a salary payment, record it in the employee logs
       if (pendingEmployeePayment && paymentRecipient) {
           try {
               const amountVal = parseFloat(amount);
-              // Log Salary Payment
               await addEmploymentLog(
                   pendingEmployeePayment.id, 
                   'PAYMENT', 
-                  'Thanh toán lương (Blockchain)', 
-                  `Đã chuyển ${amount} POL qua Smart Contract. Hash: ${formatAddress(hash)}`,
-                  amountVal // Note: This stores only the numeric value, unit is implied
+                  t('payment.title_salary') + ' (Blockchain)', 
+                  `Hash: ${formatAddress(hash)}`,
+                  amountVal 
               );
               
-              // Automatically deduct insurance (10%)
               const insuranceAmount = amountVal * 0.1;
               await addEmploymentLog(
                   pendingEmployeePayment.id,
                   'PAYMENT',
-                  'Trích đóng BHXH (Tự động)',
-                  `Hệ thống tự động trích 10% (${insuranceAmount.toFixed(4)} POL) vào quỹ an sinh.`,
+                  'BHXH (Auto)',
+                  `10% (${insuranceAmount.toFixed(4)} POL)`,
                   insuranceAmount
               );
 
           } catch (e) {
               console.error("Failed to log payment:", e);
           }
-          // Reset pending state
           setPendingEmployeePayment(null);
           setPaymentRecipient(undefined);
           setPaymentTitle(undefined);
       }
       
-      // Auto-refresh wallet balance
       if (wallet.address) {
           try {
             const newBalance = await getWalletBalance(wallet.address);
@@ -289,7 +274,6 @@ const InsuranceDashboard: React.FC = () => {
   };
 
   const initiateSalaryPayment = async (employee: Application, amount: number) => {
-      // 1. Fetch worker profile to get wallet
       let walletAddr = "";
       try {
           const workerProfile = await getUserProfile(employee.workerId);
@@ -300,33 +284,31 @@ const InsuranceDashboard: React.FC = () => {
           console.error("Failed to fetch worker profile for wallet", error);
       }
 
-      // If no wallet is found, walletAddr will be empty string, encouraging user to ask/fill.
       setPaymentRecipient(walletAddr);
-      setPaymentTitle(`Thanh toán lương cho ${employee.workerName}`);
+      setPaymentTitle(t('employee_mgmt.pay_salary') + `: ${employee.workerName}`);
       setPendingEmployeePayment(employee);
       setIsPaymentModalOpen(true);
   };
 
   const handleOpenDepositModal = () => {
-      setPaymentRecipient(undefined); // Undefined means deposit to fund
-      setPaymentTitle("Nạp tiền vào quỹ (Blockchain)");
+      setPaymentRecipient(undefined); 
+      setPaymentTitle(t('insurance.deposit_fund'));
       setPendingEmployeePayment(null);
       setIsPaymentModalOpen(true);
   };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
-  // --- GIAO DIỆN NGƯỜI LAO ĐỘNG (WORKER) ---
+  // --- WORKER VIEW ---
   const renderWorkerView = () => (
     <div className="space-y-8">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
              <div>
                  <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <CubeTransparentIcon className="w-7 h-7 text-indigo-600" />
-                    Sổ Hưu Trí Blockchain
+                    {t('insurance.pension_book')}
                 </h3>
-                <p className="text-gray-500 text-sm mt-1">An tâm tích lũy cho tương lai.</p>
+                <p className="text-gray-500 text-sm mt-1">{t('insurance.pension_desc')}</p>
              </div>
             {!wallet.isConnected ? (
                 <button 
@@ -335,7 +317,7 @@ const InsuranceDashboard: React.FC = () => {
                     className="flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors shadow-lg"
                 >
                     <WalletIcon className="w-4 h-4"/>
-                    {isConnecting ? 'Đang kết nối...' : 'Kết nối Ví'}
+                    {isConnecting ? t('insurance.connecting') : t('insurance.connect_wallet')}
                 </button>
             ) : (
                 <div className="flex items-center gap-3">
@@ -346,7 +328,7 @@ const InsuranceDashboard: React.FC = () => {
                     <button 
                         onClick={handleDisconnectWallet}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Đổi ví / Hủy liên kết"
+                        title={t('insurance.disconnect')}
                     >
                         <TrashIcon className="w-5 h-5" />
                     </button>
@@ -354,9 +336,7 @@ const InsuranceDashboard: React.FC = () => {
             )}
         </div>
         
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* Blockchain Pension Book */}
              <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 rounded-2xl shadow-xl text-white relative overflow-hidden group hover:scale-[1.01] transition-transform duration-300">
                 <div className="relative z-10">
                     <div className="flex items-center justify-between mb-8">
@@ -367,7 +347,7 @@ const InsuranceDashboard: React.FC = () => {
                         <img src="https://cryptologos.cc/logos/polygon-matic-logo.png" alt="Polygon" className="w-8 h-8 opacity-90 filter brightness-200" />
                     </div>
                     
-                    <p className="text-indigo-200 font-medium mb-1">Tổng tài sản tích lũy</p>
+                    <p className="text-indigo-200 font-medium mb-1">{t('insurance.total_assets')}</p>
                     <p className="text-4xl sm:text-5xl font-extrabold tracking-tight drop-shadow-sm">
                         {wallet.isConnected && wallet.balance 
                             ? `${parseFloat(wallet.balance).toFixed(4)} POL` 
@@ -377,9 +357,9 @@ const InsuranceDashboard: React.FC = () => {
                     
                     <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-end">
                         <div className="text-xs">
-                             <span className="text-indigo-300 block mb-1">Hash giao dịch mới nhất</span>
-                             <span className="text-white font-mono flex items-center gap-1 cursor-pointer hover:underline opacity-90 hover:opacity-100" title="Xem trên Blockchain Explorer">
-                                {latestHash ? formatAddress(latestHash) : "Chưa có"}
+                             <span className="text-indigo-300 block mb-1">{t('insurance.latest_tx')}</span>
+                             <span className="text-white font-mono flex items-center gap-1 cursor-pointer hover:underline opacity-90 hover:opacity-100" title="View on Explorer">
+                                {latestHash ? formatAddress(latestHash) : t('insurance.none')}
                                 <ArrowTopRightOnSquareIcon className="w-3 h-3" />
                              </span>
                         </div>
@@ -387,21 +367,19 @@ const InsuranceDashboard: React.FC = () => {
                            onClick={handleOpenDepositModal}
                            className="bg-white text-indigo-700 hover:bg-indigo-50 font-bold py-2 px-4 rounded-lg text-xs shadow-md transition-colors"
                         >
-                          + Nạp thêm
+                          + {t('insurance.deposit_more')}
                         </button>
                     </div>
                 </div>
-                {/* Decoration Circles */}
                 <div className="absolute top-0 right-0 -mr-16 -mt-16 w-56 h-56 bg-white opacity-10 rounded-full blur-3xl group-hover:opacity-15 transition-opacity"></div>
                 <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-40 h-40 bg-blue-400 opacity-20 rounded-full blur-2xl"></div>
              </div>
 
-             {/* Soulbound Token / Reputation Score */}
              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden">
                   <div className="flex items-center justify-between mb-6 z-10">
                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                            <TrophyIcon className="w-6 h-6 text-yellow-500" />
-                           Uy tín nghề nghiệp
+                           {t('insurance.reputation')}
                        </h3>
                        <span className="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-1 rounded">SBT Token</span>
                   </div>
@@ -412,23 +390,23 @@ const InsuranceDashboard: React.FC = () => {
                       </div>
                       <div className="mt-3 flex items-center gap-1.5 text-sm text-green-700 font-bold bg-green-100 px-4 py-1.5 rounded-full">
                           <CheckBadgeIcon className="w-4 h-4" />
-                          Rất uy tín
+                          {t('insurance.very_reputable')}
                       </div>
                   </div>
                   <div className="mt-auto pt-4 border-t border-gray-100 z-10 text-center">
                       <p className="text-xs text-gray-500">
-                          Điểm số được lưu trữ vĩnh viễn trên Blockchain.
+                          {t('insurance.stored_on_chain')}
                       </p>
                   </div>
                   <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none"></div>
              </div>
         </div>
 
-        {/* --- CURRENT JOBS SECTION (GRID VIEW) --- */}
+        {/* CURRENT JOBS */}
         <div>
             <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <BriefcaseIcon className="w-6 h-6 text-indigo-600" />
-                Công việc hiện tại & Lịch sử
+                {t('insurance.current_jobs')}
             </h3>
             
             {isLoadingEmployees ? (
@@ -453,18 +431,18 @@ const InsuranceDashboard: React.FC = () => {
                                 </div>
                                 {job.status === 'terminated' ? (
                                     <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
-                                        Đã nghỉ
+                                        {t('employee_mgmt.terminated')}
                                     </span>
                                 ) : (
                                     <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide">
-                                        Chính thức
+                                        {t('employee_mgmt.official')}
                                     </span>
                                 )}
                             </div>
                             
                             <div className="my-3 space-y-2">
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-gray-500">Điểm đánh giá:</span>
+                                    <span className="text-gray-500">{t('insurance.table_score')}:</span>
                                     <span className="font-bold text-indigo-600">{job.performanceScore || 50}/100</span>
                                 </div>
                                 <div className="w-full bg-gray-100 rounded-full h-1.5">
@@ -476,16 +454,16 @@ const InsuranceDashboard: React.FC = () => {
                             </div>
                             
                             <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                                <span>Bắt đầu: {new Date(job.applicationDate).toLocaleDateString('vi-VN')}</span>
+                                <span>{t('insurance.started_at')}: {new Date(job.applicationDate).toLocaleDateString()}</span>
                                 {job.status === 'terminated' ? (
                                     <span className="text-red-600 font-medium flex items-center gap-1">
                                         <ShieldExclamationIcon className="w-3 h-3" />
-                                        Đã kết thúc
+                                        {t('employee_mgmt.terminated')}
                                     </span>
                                 ) : (
                                     <span className="text-green-600 font-medium flex items-center gap-1">
                                         <CheckBadgeIcon className="w-3 h-3" />
-                                        Đang làm việc
+                                        {t('insurance.filter_active')}
                                     </span>
                                 )}
                             </div>
@@ -495,23 +473,23 @@ const InsuranceDashboard: React.FC = () => {
             ) : (
                 <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500">
                     <BriefcaseIcon className="w-10 h-10 mx-auto text-gray-400 mb-2" />
-                    <p>Bạn chưa có công việc chính thức nào.</p>
+                    <p>{t('insurance.no_jobs')}</p>
                 </div>
             )}
         </div>
     </div>
   );
 
-  // --- GIAO DIỆN NHÀ TUYỂN DỤNG (EMPLOYER) ---
+  // --- EMPLOYER VIEW ---
   const renderEmployerView = () => (
     <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
              <div>
                  <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <HeartIcon className="w-7 h-7 text-red-500" />
-                    Trách Nhiệm Xã Hội (CSR)
+                    {t('insurance.csr_title')}
                 </h3>
-                 <p className="text-gray-500 text-sm mt-1">Xây dựng thương hiệu doanh nghiệp vì cộng đồng.</p>
+                 <p className="text-gray-500 text-sm mt-1">{t('insurance.csr_desc')}</p>
              </div>
              {!wallet.isConnected ? (
                 <button 
@@ -520,7 +498,7 @@ const InsuranceDashboard: React.FC = () => {
                     className="flex items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors shadow-lg"
                 >
                     <WalletIcon className="w-4 h-4"/>
-                    {isConnecting ? 'Đang kết nối...' : 'Kết nối Ví Quỹ'}
+                    {isConnecting ? t('insurance.connecting') : t('insurance.connect_fund_wallet')}
                 </button>
             ) : (
                 <div className="flex items-center gap-3">
@@ -531,7 +509,7 @@ const InsuranceDashboard: React.FC = () => {
                     <button 
                         onClick={handleDisconnectWallet}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Đổi ví / Hủy liên kết"
+                        title={t('insurance.disconnect')}
                     >
                         <TrashIcon className="w-5 h-5" />
                     </button>
@@ -540,12 +518,11 @@ const InsuranceDashboard: React.FC = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* CSR Badge Card */}
              <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-6 rounded-2xl shadow-sm border border-orange-100 relative overflow-hidden">
                   <div className="flex items-start justify-between relative z-10">
                       <div>
-                          <p className="text-orange-800 font-bold uppercase text-xs tracking-wider mb-1">Doanh nghiệp vì cộng đồng</p>
-                          <h3 className="text-2xl font-bold text-gray-800">Huy Hiệu An Sinh</h3>
+                          <p className="text-orange-800 font-bold uppercase text-xs tracking-wider mb-1">{t('insurance.badge_subtitle')}</p>
+                          <h3 className="text-2xl font-bold text-gray-800">{t('insurance.badge_title')}</h3>
                       </div>
                       <div className="bg-white p-2 rounded-full shadow-sm">
                           <CheckBadgeIcon className="w-8 h-8 text-yellow-500" />
@@ -554,17 +531,16 @@ const InsuranceDashboard: React.FC = () => {
                   
                   <div className="mt-6 flex items-end gap-2 relative z-10">
                        <span className="text-5xl font-extrabold text-orange-600">{displayedEmployees.length > 0 ? displayedEmployees.length : MOCK_INSURANCE_DATA.workersSupportedThisMonth}</span>
-                       <span className="text-gray-600 font-medium mb-1">lao động</span>
+                       <span className="text-gray-600 font-medium mb-1">{t('insurance.workers_supported')}</span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1 relative z-10">đã được bạn hỗ trợ đóng BHXH trong tháng này.</p>
+                  <p className="text-sm text-gray-500 mt-1 relative z-10">{t('insurance.workers_supported_suffix')}</p>
                   
                   <div className="mt-6 w-full bg-orange-200 rounded-full h-2 relative z-10">
                       <div className="bg-orange-500 h-2 rounded-full" style={{ width: '75%' }}></div>
                   </div>
-                  <p className="text-xs text-orange-700 mt-2 font-medium relative z-10">Top 5% Doanh nghiệp uy tín trên nền tảng.</p>
+                  <p className="text-xs text-orange-700 mt-2 font-medium relative z-10">{t('insurance.top_employer')}</p>
              </div>
 
-             {/* Welfare Fund Card */}
              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col relative overflow-hidden group">
                   <div className="flex items-center justify-between mb-4">
                        <div className="flex items-center gap-3">
@@ -572,9 +548,9 @@ const InsuranceDashboard: React.FC = () => {
                                <SparklesIcon className="w-6 h-6 text-indigo-600" />
                            </div>
                            <div>
-                               <h3 className="font-bold text-gray-800">Quỹ Thưởng An Sinh</h3>
+                               <h3 className="font-bold text-gray-800">{t('insurance.welfare_fund')}</h3>
                                <p className="text-xs text-gray-500">
-                                   {wallet.isConnected ? 'Số dư On-chain' : 'Số dư khả dụng'}
+                                   {wallet.isConnected ? t('insurance.balance_onchain') : t('insurance.balance_available')}
                                </p>
                            </div>
                        </div>
@@ -588,7 +564,7 @@ const InsuranceDashboard: React.FC = () => {
                             }
                        </p>
                        <p className="text-sm text-gray-500 mt-1">
-                           Smart Contract sẽ tự động trích thưởng cho nhân viên từ ví này.
+                           {t('insurance.smart_contract_hint')}
                        </p>
                   </div>
 
@@ -597,27 +573,26 @@ const InsuranceDashboard: React.FC = () => {
                          onClick={handleOpenDepositModal}
                          className="w-full py-2 bg-indigo-50 text-indigo-700 font-bold rounded-lg hover:bg-indigo-100 transition-colors"
                       >
-                          + Nạp tiền vào quỹ (Blockchain)
+                          + {t('insurance.deposit_fund')}
                       </button>
                   </div>
              </div>
         </div>
 
-        {/* Transaction History Table */}
         {wallet.isConnected && transactions.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex items-center gap-2">
                     <ClockIcon className="w-5 h-5 text-gray-500" />
-                    Lịch sử giao dịch Blockchain (Phiên này)
+                    {t('insurance.tx_history')}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-100 text-gray-500 uppercase font-bold text-xs">
                             <tr>
-                                <th className="px-4 py-3">Loại</th>
-                                <th className="px-4 py-3">Số lượng</th>
-                                <th className="px-4 py-3">Hash</th>
-                                <th className="px-4 py-3">Thời gian</th>
+                                <th className="px-4 py-3">{t('insurance.tx_type')}</th>
+                                <th className="px-4 py-3">{t('insurance.tx_amount')}</th>
+                                <th className="px-4 py-3">{t('insurance.tx_hash')}</th>
+                                <th className="px-4 py-3">{t('insurance.tx_time')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -625,9 +600,9 @@ const InsuranceDashboard: React.FC = () => {
                                 <tr key={idx} className="hover:bg-gray-50">
                                     <td className="px-4 py-3">
                                         {tx.type === 'deposit' ? (
-                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">Nạp Quỹ</span>
+                                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-bold">{t('insurance.tx_deposit')}</span>
                                         ) : (
-                                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-bold">Trả Lương</span>
+                                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded font-bold">{t('insurance.tx_salary')}</span>
                                         )}
                                     </td>
                                     <td className="px-4 py-3 font-mono font-medium text-gray-900">
@@ -655,26 +630,25 @@ const InsuranceDashboard: React.FC = () => {
             </div>
         )}
 
-        {/* Benefits Info */}
         <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 flex gap-4">
              <InformationCircleIcon className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
              <div>
-                 <h4 className="font-bold text-blue-900">Lợi ích của Quỹ An Sinh</h4>
+                 <h4 className="font-bold text-blue-900">{t('insurance.benefits_title')}</h4>
                  <p className="text-sm text-blue-800 mt-1 leading-relaxed">
-                     Các tin tuyển dụng từ doanh nghiệp có quỹ thưởng (Huy hiệu CSR) sẽ được <strong>AI ưu tiên hiển thị</strong> lên đầu trang tìm kiếm và tăng 40% tỷ lệ ứng tuyển.
+                     <Trans i18nKey="insurance.benefits_desc">
+                        Các tin tuyển dụng... <strong>AI ưu tiên...</strong> ...
+                     </Trans>
                  </p>
              </div>
         </div>
 
-        {/* --- EMPLOYEE MANAGEMENT SECTION --- */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
                 <div className="flex items-center gap-4">
                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                         <UsersIcon className="w-6 h-6 text-indigo-600" />
-                        Nhân sự
+                        {t('insurance.staff')}
                     </h3>
-                    {/* Toggle Buttons */}
                     <div className="flex bg-gray-200 p-1 rounded-lg">
                         <button
                             onClick={() => setEmployeeViewMode('active')}
@@ -682,7 +656,7 @@ const InsuranceDashboard: React.FC = () => {
                                 employeeViewMode === 'active' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            Đang làm việc
+                            {t('insurance.filter_active')}
                         </button>
                         <button
                             onClick={() => setEmployeeViewMode('terminated')}
@@ -690,12 +664,12 @@ const InsuranceDashboard: React.FC = () => {
                                 employeeViewMode === 'terminated' ? 'bg-white text-red-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                             }`}
                         >
-                            Lịch sử / Đã nghỉ
+                            {t('insurance.filter_history')}
                         </button>
                     </div>
                 </div>
                 <span className={`text-xs font-bold px-3 py-1 rounded-full ${employeeViewMode === 'active' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'}`}>
-                    {displayedEmployees.length} {employeeViewMode === 'active' ? 'nhân viên' : 'hồ sơ'}
+                    {displayedEmployees.length} {employeeViewMode === 'active' ? t('insurance.table_employee') : t('insurance.filter_history')}
                 </span>
             </div>
             
@@ -706,10 +680,10 @@ const InsuranceDashboard: React.FC = () => {
                     <table className="w-full text-left">
                         <thead className="bg-gray-50 border-b">
                             <tr>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Nhân viên</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Công việc</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Điểm tín nhiệm</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Quản lý</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('insurance.table_employee')}</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('insurance.table_job')}</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">{t('insurance.table_score')}</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">{t('insurance.table_manage')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -732,7 +706,7 @@ const InsuranceDashboard: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-medium text-gray-900">{emp.jobTitle}</div>
-                                        <div className="text-xs text-gray-400">Từ {new Date(emp.applicationDate).toLocaleDateString('vi-VN')}</div>
+                                        <div className="text-xs text-gray-400">{t('insurance.started_at')} {new Date(emp.applicationDate).toLocaleDateString()}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-center">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -748,7 +722,7 @@ const InsuranceDashboard: React.FC = () => {
                                             onClick={(e) => { e.stopPropagation(); setSelectedEmployee(emp); }}
                                             className="text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition-colors opacity-90 group-hover:opacity-100"
                                         >
-                                            Chi tiết / Trả lương
+                                            {t('insurance.manage_btn')}
                                         </button>
                                     </td>
                                 </tr>
@@ -760,11 +734,11 @@ const InsuranceDashboard: React.FC = () => {
                         <UsersIcon className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                         <p className="font-medium">
                             {employeeViewMode === 'active' 
-                                ? 'Chưa có nhân viên chính thức nào.' 
-                                : 'Chưa có lịch sử nhân viên nghỉ việc.'}
+                                ? t('insurance.no_staff_active') 
+                                : t('insurance.no_staff_history')}
                         </p>
                         {employeeViewMode === 'active' && (
-                            <p className="text-sm mt-1 text-gray-400">Hãy xác nhận tuyển dụng trong phần Hồ Sơ &rarr; Ứng viên.</p>
+                            <p className="text-sm mt-1 text-gray-400">{t('insurance.check_applicants')}</p>
                         )}
                     </div>
                 )}
@@ -777,16 +751,14 @@ const InsuranceDashboard: React.FC = () => {
     <>
       <div className="space-y-12 animate-fade-in">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Trung tâm An Sinh</h2>
-          <p className="text-lg text-gray-600">Hệ sinh thái bảo vệ tương lai cho người lao động tự do.</p>
+          <h2 className="text-3xl font-bold text-gray-800 mb-2">{t('insurance.title')}</h2>
+          <p className="text-lg text-gray-600">{t('insurance.subtitle')}</p>
         </div>
 
-        {/* Conditional Rendering based on Role */}
         {currentUserData?.userType === UserRole.Employer ? renderEmployerView() : renderWorkerView()}
         
-        {/* Additional Insurance Section - Common for both */}
         <div className="space-y-6 pt-6 border-t border-gray-200">
-            <h3 className="text-2xl font-bold text-gray-800">Sản phẩm Bảo hiểm Bổ sung</h3>
+            <h3 className="text-2xl font-bold text-gray-800">{t('insurance.supplementary_products')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 {additionalInsuranceProducts.map((product) => (
                   <a 
@@ -810,7 +782,6 @@ const InsuranceDashboard: React.FC = () => {
         </div>
       </div>
       
-      {/* Modals */}
       {isPaymentModalOpen && (
           <PaymentModal 
             onClose={() => setIsPaymentModalOpen(false)} 
@@ -826,8 +797,8 @@ const InsuranceDashboard: React.FC = () => {
             employee={selectedEmployee}
             onClose={() => setSelectedEmployee(null)}
             onPay={(amount) => {
-                setSelectedEmployee(null); // Close management modal
-                initiateSalaryPayment(selectedEmployee, amount); // Open payment flow
+                setSelectedEmployee(null); 
+                initiateSalaryPayment(selectedEmployee, amount); 
             }}
           />
       )}

@@ -26,35 +26,40 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
 import TrashIcon from './components/icons/TrashIcon';
+import { useTranslation } from 'react-i18next';
 
 type JobViewMode = 'list' | 'map';
 
-const ViewToggle: React.FC<{ activeMode: JobViewMode; setMode: (mode: JobViewMode) => void }> = ({ activeMode, setMode }) => (
-    <div className="flex items-center bg-gray-200 rounded-lg p-1">
-        <button
-            onClick={() => setMode('list')}
-            className={`flex items-center justify-center w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                activeMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-indigo-600'
-            }`}
-            aria-pressed={activeMode === 'list'}
-        >
-            <ListIcon className="w-4 h-4 mr-2" />
-            Danh sách
-        </button>
-        <button
-            onClick={() => setMode('map')}
-            className={`flex items-center justify-center w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                activeMode === 'map' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-indigo-600'
-            }`}
-            aria-pressed={activeMode === 'map'}
-        >
-            <MapIcon className="w-4 h-4 mr-2" />
-            Bản đồ
-        </button>
-    </div>
-);
+const ViewToggle: React.FC<{ activeMode: JobViewMode; setMode: (mode: JobViewMode) => void }> = ({ activeMode, setMode }) => {
+    const { t } = useTranslation();
+    return (
+        <div className="flex items-center bg-gray-200 rounded-lg p-1">
+            <button
+                onClick={() => setMode('list')}
+                className={`flex items-center justify-center w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                    activeMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-indigo-600'
+                }`}
+                aria-pressed={activeMode === 'list'}
+            >
+                <ListIcon className="w-4 h-4 mr-2" />
+                {t('map.list_view')}
+            </button>
+            <button
+                onClick={() => setMode('map')}
+                className={`flex items-center justify-center w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                    activeMode === 'map' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-indigo-600'
+                }`}
+                aria-pressed={activeMode === 'map'}
+            >
+                <MapIcon className="w-4 h-4 mr-2" />
+                {t('map.map_view')}
+            </button>
+        </div>
+    );
+};
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const { currentUser, currentUserData, loading } = useAuth();
   const [activeView, setActiveView] = useState<View>(View.Jobs);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -76,6 +81,11 @@ const App: React.FC = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   
+  // Update document title when language changes
+  useEffect(() => {
+      document.title = t('app_name');
+  }, [t]);
+
   // --- HYBRID LOCATION LOGIC (Strict Separation) ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
@@ -323,7 +333,7 @@ const App: React.FC = () => {
         handleNavigateToConversation(conversationId);
       } catch (error) {
           console.error("Failed to start conversation:", error);
-          alert("Không thể bắt đầu cuộc trò chuyện.");
+          alert(t('common.error'));
       }
   };
 
@@ -349,6 +359,8 @@ const App: React.FC = () => {
         }
     } else if (link === '/profile') {
         setActiveView(View.Profile);
+    } else if (link === '/insurance') {
+        setActiveView(View.Insurance);
     }
   };
 
@@ -405,7 +417,7 @@ const App: React.FC = () => {
                         return (
                         <div className="space-y-6">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <h2 className="text-3xl font-bold text-gray-800">Tìm kiếm việc làm</h2>
+                            <h2 className="text-3xl font-bold text-gray-800">{t('app.search_jobs')}</h2>
                             <ViewToggle activeMode={jobViewMode} setMode={setJobViewMode} />
                             </div>
                             
@@ -424,7 +436,7 @@ const App: React.FC = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
                                             <MapIcon className="w-5 h-5 text-red-600" />
-                                            <p className="font-bold">Cần quyền truy cập vị trí</p>
+                                            <p className="font-bold">{t('map.location_permission_required')}</p>
                                         </div>
                                         <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
                                     </div>
@@ -433,7 +445,7 @@ const App: React.FC = () => {
                                             onClick={handleHardReset}
                                             className="bg-red-100 hover:bg-red-200 text-red-800 font-semibold py-2 px-3 rounded-lg transition-colors text-sm whitespace-nowrap"
                                         >
-                                            Sửa lỗi kết nối
+                                            {t('map.fix_connection')}
                                         </button>
                                         <button 
                                             onClick={() => {
@@ -445,10 +457,10 @@ const App: React.FC = () => {
                                             {isLocating ? (
                                                 <>
                                                     <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                    Đang thử lại...
+                                                    {t('map.retry_loading')}
                                                 </>
                                             ) : (
-                                                'Thử lại ngay'
+                                                t('map.retry')
                                             )}
                                         </button>
                                     </div>
@@ -457,8 +469,8 @@ const App: React.FC = () => {
 
                             {jobViewMode === 'list' && (
                             <div className="space-y-4">
-                                <h3 className="text-2xl font-bold text-gray-800 pt-4">Việc làm khả dụng</h3>
-                                {jobsLoading ? <Spinner message="Đang tải công việc..."/> : filteredJobs.length > 0 ? (
+                                <h3 className="text-2xl font-bold text-gray-800 pt-4">{t('app.available_jobs')}</h3>
+                                {jobsLoading ? <Spinner message={t('common.loading')}/> : filteredJobs.length > 0 ? (
                                     filteredJobs.map((job) => (
                                     <JobCard 
                                         key={job.id} 
@@ -469,7 +481,7 @@ const App: React.FC = () => {
                                     ))
                                 ) : (
                                     <div className="text-center py-16 px-4 bg-gray-50 rounded-lg">
-                                        <p className="text-gray-600">Không tìm thấy công việc nào phù hợp với bộ lọc của bạn.</p>
+                                        <p className="text-gray-600">{t('filters.no_jobs')}</p>
                                     </div>
                                 )}
                             </div>
@@ -477,7 +489,7 @@ const App: React.FC = () => {
 
                             {jobViewMode === 'map' && (
                                 <div>
-                                    <h3 className="text-2xl font-bold text-gray-800 pt-4 mb-4">Vị trí công việc</h3>
+                                    <h3 className="text-2xl font-bold text-gray-800 pt-4 mb-4">{t('app.job_locations')}</h3>
                                     {jobsLoading ? <Spinner /> : (
                                       <MapView 
                                           jobs={filteredJobs} 
@@ -533,7 +545,7 @@ const App: React.FC = () => {
   };
   
   if (loading) {
-    return <Spinner fullScreen message="Đang tải ứng dụng..." />;
+    return <Spinner fullScreen message={t('common.loading')} />;
   }
   
   if (!currentUser) {

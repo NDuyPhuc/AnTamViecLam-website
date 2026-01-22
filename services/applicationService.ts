@@ -3,6 +3,7 @@ import { db, serverTimestamp, increment } from './firebase';
 import type { Job, UserData, Application, EmploymentLog, LogType } from '../types';
 import { createNotification } from './notificationService';
 import { NotificationType } from '../types';
+import i18n from '../i18n'; // Import i18n instance
 
 /**
  * Allows a worker to apply for a job.
@@ -64,10 +65,12 @@ export const applyForJob = async (
       }
 
       // Send notification to employer
+      // Using i18n.t directly. Since this runs on client side, it uses the current language.
+      // Ideally notifications should be language agnostic or stored with keys, but for now we translate on creation.
       createNotification(
         job.employerId,
         NotificationType.NEW_APPLICATION,
-        `${worker.fullName} vừa ứng tuyển vào công việc: "${job.title}"`,
+        i18n.t('notifications.msg_new_app', { workerName: worker.fullName, jobTitle: job.title }),
         `/profile`
       ).catch(err => console.error("Failed to send notification", err));
 
@@ -205,19 +208,19 @@ export const updateApplicationStatus = async (
 
   switch (status) {
       case 'accepted':
-          message = `Chúc mừng! Hồ sơ của bạn cho công việc "${application.jobTitle}" đã được duyệt sơ bộ. Nhà tuyển dụng sẽ liên hệ sớm.`;
+          message = i18n.t('notifications.msg_accepted', { jobTitle: application.jobTitle });
           break;
       case 'rejected':
           notificationType = NotificationType.APPLICATION_REJECTED;
-          message = `Rất tiếc, đơn ứng tuyển của bạn cho công việc "${application.jobTitle}" chưa phù hợp lúc này.`;
+          message = i18n.t('notifications.msg_rejected', { jobTitle: application.jobTitle });
           break;
       case 'hired':
-          message = `TUYỆT VỜI! Bạn đã được tuyển dụng chính thức cho công việc "${application.jobTitle}". Kiểm tra sổ BHXH ngay!`;
+          message = i18n.t('notifications.msg_hired', { jobTitle: application.jobTitle });
           link = '/insurance';
           break;
       case 'terminated':
           notificationType = NotificationType.APPLICATION_REJECTED; 
-          message = `Hợp đồng công việc "${application.jobTitle}" đã kết thúc.`;
+          message = i18n.t('notifications.msg_terminated', { jobTitle: application.jobTitle });
           break;
   }
   

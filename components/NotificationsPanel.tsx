@@ -1,9 +1,11 @@
+
 import React from 'react';
 import { Notification, NotificationType } from '../types';
 import BriefcaseIcon from './icons/BriefcaseIcon';
 import UserIcon from './icons/UserIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import XCircleIcon from './icons/XCircleIcon';
+import { useTranslation } from 'react-i18next';
 
 interface NotificationsPanelProps {
     notifications: Notification[];
@@ -49,6 +51,7 @@ const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
 };
 
 const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, onNotificationClick, onMarkAllAsRead, onClose }) => {
+    const { t } = useTranslation();
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
@@ -62,13 +65,13 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, 
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-4 flex items-center justify-between border-b">
-                    <h3 className="font-bold text-gray-800">Thông báo</h3>
+                    <h3 className="font-bold text-gray-800">{t('notifications.title')}</h3>
                     {unreadCount > 0 && (
                         <button
                             onClick={onMarkAllAsRead}
                             className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors"
                         >
-                            Đánh dấu tất cả là đã đọc
+                            {t('notifications.mark_all_read')}
                         </button>
                     )}
                 </div>
@@ -94,7 +97,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, 
                         ))
                     ) : (
                         <div className="p-10 text-center text-gray-500">
-                            <p>Bạn không có thông báo nào.</p>
+                            <p>{t('notifications.empty')}</p>
                         </div>
                     )}
                 </div>

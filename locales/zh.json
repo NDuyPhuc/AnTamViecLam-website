@@ -1,0 +1,39 @@
+
+{
+  "app_name": "安心工作",
+  "common": {
+    "loading": "加载中...",
+    "cancel": "取消",
+    "close": "关闭",
+    "confirm": "确认",
+    "login": "登录",
+    "logout": "登出",
+    "register": "注册",
+    "or": "或"
+  },
+  "nav": {
+    "jobs": "找工作",
+    "insurance": "保险",
+    "messaging": "消息",
+    "chatbot": "问答助手",
+    "profile": "个人资料",
+    "ai_suggest": "AI 推荐",
+    "post_job": "发布职位",
+    "hello": "你好"
+  },
+  "landing": {
+    "hero_title": "自由职业者的 <1>社保</1> 与 <3>就业平台</3>",
+    "hero_desc": "寻找灵活的临时工作，轻松缴纳社会保险，共建安稳未来。",
+    "cta_join": "立即加入",
+    "cta_learn_more": "了解更多",
+    "features_title": "功能特点",
+    "how_it_works": "如何运作",
+    "why_us": "为何选择我们",
+    "step_1_title": "创建专业档案",
+    "step_1_desc": "几分钟内注册并完善您的个人资料。",
+    "step_2_title": "搜索与申请",
+    "step_2_desc": "连接您附近的数千个临时工作机会。",
+    "step_3_title": "获得报酬与储蓄",
+    "step_3_desc": "通过区块链获得透明支付并积累社保。"
+  }
+}

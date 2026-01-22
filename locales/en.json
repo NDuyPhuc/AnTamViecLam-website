@@ -1,0 +1,39 @@
+
+{
+  "app_name": "Peace of Mind Jobs",
+  "common": {
+    "loading": "Loading...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "or": "OR"
+  },
+  "nav": {
+    "jobs": "Find Jobs",
+    "insurance": "Insurance",
+    "messaging": "Messages",
+    "chatbot": "Q&A Bot",
+    "profile": "Profile",
+    "ai_suggest": "AI Match",
+    "post_job": "Post Job",
+    "hello": "Hi"
+  },
+  "landing": {
+    "hero_title": "<1>Social Security</1> & <3>Job Platform</3> for Freelancers",
+    "hero_desc": "Find flexible seasonal jobs, easily contribute to social insurance, and build a secure future.",
+    "cta_join": "Join Now",
+    "cta_learn_more": "Learn More",
+    "features_title": "Features",
+    "how_it_works": "How it works",
+    "why_us": "Why choose us?",
+    "step_1_title": "Create Professional Profile",
+    "step_1_desc": "Sign up and complete your profile in minutes.",
+    "step_2_title": "Find & Apply",
+    "step_2_desc": "Connect with thousands of seasonal jobs near you.",
+    "step_3_title": "Get Paid & Save",
+    "step_3_desc": "Receive transparent payments and accumulate security via Blockchain."
+  }
+}

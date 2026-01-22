@@ -9,6 +9,7 @@ import BotIcon from './icons/BotIcon';
 import TrashIcon from './icons/TrashIcon';
 import { MOCK_INSURANCE_DATA, PROJECT_CONTEXT } from '../constants';
 import { parse } from 'marked';
+import { useTranslation } from 'react-i18next';
 
 const MarkdownRenderer: React.FC<{ content: string }> = ({ content }) => {
     const [html, setHtml] = useState('');
@@ -56,6 +57,7 @@ interface ChatbotProps {
 }
 
 const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -65,10 +67,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
   // Lời chào mặc định
   const defaultGreeting: ChatMessage = { 
       author: MessageAuthor.Bot, 
-      text: 'Xin chào! Tôi có thể giúp gì cho bạn về công việc hoặc chính sách bảo hiểm xã hội?' 
+      text: t('chat.greeting') 
   };
 
-  // Subscribe to Firestore history
   useEffect(() => {
       if (!currentUser) return;
 
@@ -81,7 +82,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
       });
 
       return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser]); // Note: t is a function so it won't trigger effect, but greeting updates on re-render if cleared
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,7 +101,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
     setIsLoading(true);
 
     try {
-      // 1. Lưu tin nhắn User vào Firestore
       await saveAiChatMessage(currentUser.uid, userMessage);
 
       const appContext = {
@@ -109,21 +109,15 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
         projectContext: PROJECT_CONTEXT,
       };
       
-      // 2. Gọi AI (Gửi kèm lịch sử hiện tại để AI nhớ ngữ cảnh)
-      // Lưu ý: messages lúc này chưa có tin nhắn mới nhất do async của Firestore, 
-      // nên ta tạo mảng tempHistory để gửi đi.
       const tempHistory = [...messages, userMessage];
-      
       const botResponseText = await sendMessageToBot(userInput, tempHistory, appContext);
       
-      // 3. Lưu tin nhắn Bot vào Firestore
       const botMessage: ChatMessage = { author: MessageAuthor.Bot, text: botResponseText };
       await saveAiChatMessage(currentUser.uid, botMessage);
 
     } catch (error) {
       console.error("Chat error:", error);
-      const errorMessage: ChatMessage = { author: MessageAuthor.Bot, text: 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.' };
-      // Không lưu tin nhắn lỗi vào DB để tránh rác, chỉ hiện tạm thời hoặc lưu nếu cần
+      const errorMessage: ChatMessage = { author: MessageAuthor.Bot, text: t('chat.error') };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
@@ -132,7 +126,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
 
   const handleClearHistory = async () => {
       if (!currentUser) return;
-      if (window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử trò chuyện không?")) {
+      if (window.confirm(t('common.confirm'))) {
           await clearAiChatHistory(currentUser.uid);
           setMessages([defaultGreeting]);
       }
@@ -140,7 +134,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
 
   return (
     <div className="flex flex-col h-full bg-gray-50 rounded-lg shadow-md overflow-hidden relative">
-        {/* Inline Styles for Markdown Content */}
         <style>{`
             .markdown-content ul {
                 list-style-type: disc;
@@ -167,7 +160,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
             }
             .markdown-content strong {
                 font-weight: 700;
-                color: #111827; /* gray-900 */
+                color: #111827; 
             }
             .markdown-content em {
                 font-style: italic;
@@ -176,29 +169,28 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
                 font-weight: 700;
                 margin-top: 1em;
                 margin-bottom: 0.5em;
-                color: #1f2937; /* gray-800 */
-                font-size: 1em; /* Keep text size consistent but bold */
+                color: #1f2937;
+                font-size: 1em;
             }
             .markdown-content a {
-                color: #2563eb; /* blue-600 */
+                color: #2563eb; 
                 text-decoration: underline;
             }
         `}</style>
 
-        {/* Header nhỏ cho Chatbot */}
         <div className="px-4 py-3 bg-white border-b flex justify-between items-center shadow-sm z-10">
             <div className="flex items-center gap-2">
                 <span className="relative flex h-3 w-3">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                 </span>
-                <span className="text-sm font-semibold text-gray-700">Trợ lý AI An Tâm</span>
+                <span className="text-sm font-semibold text-gray-700">{t('chat.assistant_name')}</span>
             </div>
             {messages.length > 1 && (
                 <button 
                     onClick={handleClearHistory}
                     className="text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-gray-100"
-                    title="Xóa lịch sử trò chuyện"
+                    title={t('chat.clear_history')}
                 >
                     <TrashIcon className="w-5 h-5" />
                 </button>
@@ -229,7 +221,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ allJobs }) => {
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Hỏi về việc làm, bảo hiểm..."
+                    placeholder={t('chat.placeholder')}
                     className="flex-1 p-3 px-4 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-300 shadow-sm"
                     disabled={isLoading}
                 />

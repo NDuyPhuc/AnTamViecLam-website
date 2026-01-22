@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import type { UserData, Application } from '../types';
 import { getUserProfile } from '../services/userService';
@@ -14,12 +12,13 @@ import IdentificationIcon from './icons/IdentificationIcon';
 import LightBulbIcon from './icons/LightBulbIcon';
 import DocumentTextIcon from './icons/DocumentTextIcon';
 import ChatBubbleLeftRightIcon from './icons/ChatBubbleLeftRightIcon';
+import { useTranslation } from 'react-i18next';
 
 interface PublicProfileModalProps {
   userId: string;
   application?: Application;
   onClose: () => void;
-  onStartChat?: () => void; // Optional: only available if employer has received an application
+  onStartChat?: () => void;
 }
 
 const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode; className?: string }> = ({ icon, title, children, className = "" }) => (
@@ -34,6 +33,7 @@ const Section: React.FC<{ icon: React.ReactNode; title: string; children: React.
 
 
 const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, application, onClose, onStartChat }) => {
+    const { t } = useTranslation();
     const [profile, setProfile] = useState<UserData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -47,7 +47,6 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                 const userProfile = await getUserProfile(userId);
                 if (userProfile) {
                     setProfile(userProfile);
-                    // Auto-show PDF preview if it's a PDF
                     if (userProfile.cvUrl && userProfile.cvUrl.toLowerCase().endsWith('.pdf')) {
                         setShowPdfPreview(true);
                     }
@@ -56,7 +55,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                 }
             } catch (err) {
                 console.error(err);
-                setError('Đã xảy ra lỗi khi tải hồ sơ.');
+                setError(t('common.error'));
             } finally {
                 setLoading(false);
             }
@@ -78,7 +77,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                 style={{ animationDuration: '0.3s' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                {loading && <Spinner message="Đang tải hồ sơ..." />}
+                {loading && <Spinner message={t('common.loading')} />}
                 {error && <div className="p-8 text-center text-red-500">{error}</div>}
                 
                 {!loading && profile && (
@@ -101,13 +100,9 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                                             </div>
                                         )}
                                         
-                                        {/* Contact Info Logic:
-                                            - If Viewing Application: Show Application's Contact Phone (most relevant)
-                                            - Else: Show Profile Phone (if authorized/available)
-                                        */}
                                         {(application?.contactPhoneNumber || profile.phoneNumber) && (
                                             <p className="text-sm text-gray-600 mt-1">
-                                                SĐT: <span className="font-medium">{application?.contactPhoneNumber || profile.phoneNumber}</span>
+                                                {t('public_profile.contact_info')}: <span className="font-medium">{application?.contactPhoneNumber || profile.phoneNumber}</span>
                                             </p>
                                         )}
                                          {profile.email && (
@@ -120,7 +115,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                                 <button
                                     onClick={onClose}
                                     className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-                                    aria-label="Đóng"
+                                    aria-label={t('common.close')}
                                 >
                                     <XIcon className="w-6 h-6" />
                                 </button>
@@ -132,7 +127,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                                         className="flex items-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                                     >
                                         <PaperAirplaneIcon className="w-5 h-5 mr-2"/>
-                                        Nhắn tin
+                                        {t('public_profile.message')}
                                     </button>
                                 </div>
                             )}
@@ -141,17 +136,16 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                         {/* Body */}
                         <div className="flex-grow p-6 sm:p-8 overflow-y-auto space-y-8">
                              
-                             {/* APPLICATION CONTEXT SECTION - Displays specific intro for this job application */}
                              {application && (application.introduction) && (
                                 <Section 
                                     icon={<ChatBubbleLeftRightIcon className="w-6 h-6 text-indigo-600"/>} 
-                                    title="Thông tin ứng tuyển"
+                                    title={t('public_profile.application_info')}
                                     className="bg-indigo-50 p-4 rounded-xl border border-indigo-100"
                                 >
                                     <div className="space-y-2">
                                         {application.introduction && (
                                             <div>
-                                                <p className="text-xs font-bold text-indigo-800 uppercase mb-1">Lời nhắn từ ứng viên</p>
+                                                <p className="text-xs font-bold text-indigo-800 uppercase mb-1">{t('public_profile.candidate_note')}</p>
                                                 <p className="text-gray-700 italic">"{application.introduction}"</p>
                                             </div>
                                         )}
@@ -162,7 +156,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
 
                              {/* CV Section */}
                              {profile.cvUrl && (
-                                <Section icon={<DocumentTextIcon className="w-6 h-6"/>} title="Hồ sơ năng lực (CV)">
+                                <Section icon={<DocumentTextIcon className="w-6 h-6"/>} title={t('public_profile.cv_title')}>
                                     <div className="flex flex-col gap-3">
                                         <div className="flex items-center gap-3">
                                              <a 
@@ -172,28 +166,27 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                                                 className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
                                             >
                                                 <DocumentTextIcon className="w-5 h-5 mr-2" />
-                                                <span className="font-medium">Tải xuống / Mở trong tab mới</span>
+                                                <span className="font-medium">{t('public_profile.download_open')}</span>
                                             </a>
                                             {profile.cvUrl.toLowerCase().endsWith('.pdf') && (
                                                  <button
                                                     onClick={() => setShowPdfPreview(!showPdfPreview)}
                                                     className="text-sm text-gray-500 underline hover:text-indigo-600"
                                                  >
-                                                     {showPdfPreview ? 'Ẩn xem trước' : 'Xem trước nhanh'}
+                                                     {showPdfPreview ? t('public_profile.hide_preview') : t('public_profile.quick_preview')}
                                                  </button>
                                             )}
                                         </div>
 
                                         {showPdfPreview && profile.cvUrl && (
                                             <div className="w-full h-[500px] border rounded-lg overflow-hidden bg-gray-100 mt-2 relative group">
-                                                 {/* Using Cloudinary PDF raw link in iframe works in most browsers */}
                                                 <iframe 
                                                     src={profile.cvUrl} 
                                                     className="w-full h-full" 
                                                     title="CV Preview"
                                                 />
                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-gray-50 opacity-0 group-hover:opacity-0 transition-opacity">
-                                                    <p className="text-gray-500">Đang tải bản xem trước...</p>
+                                                    <p className="text-gray-500">{t('public_profile.loading_preview')}</p>
                                                 </div>
                                             </div>
                                         )}
@@ -202,13 +195,13 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                             )}
 
                             {profile.bio && (
-                                <Section icon={<IdentificationIcon className="w-6 h-6"/>} title="Giới thiệu">
+                                <Section icon={<IdentificationIcon className="w-6 h-6"/>} title={t('public_profile.intro')}>
                                     <p className="text-gray-600 whitespace-pre-wrap">{profile.bio}</p>
                                 </Section>
                             )}
 
                              {profile.skills && profile.skills.length > 0 && (
-                                <Section icon={<LightBulbIcon className="w-6 h-6"/>} title="Kỹ năng">
+                                <Section icon={<LightBulbIcon className="w-6 h-6"/>} title={t('public_profile.skills')}>
                                     <div className="flex flex-wrap gap-2">
                                         {profile.skills.map(skill => (
                                             <span key={skill} className="bg-indigo-100 text-indigo-800 text-sm font-medium px-3 py-1.5 rounded-full">
@@ -220,7 +213,7 @@ const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ userId, applica
                             )}
                             
                             {profile.workHistory && profile.workHistory.length > 0 && (
-                                <Section icon={<BriefcaseIcon className="w-6 h-6"/>} title="Lịch sử làm việc">
+                                <Section icon={<BriefcaseIcon className="w-6 h-6"/>} title={t('public_profile.work_history')}>
                                      <div className="space-y-4">
                                         {profile.workHistory.map((work, index) => (
                                             <div key={index} className="p-4 bg-white rounded-lg border">
