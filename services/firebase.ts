@@ -1,16 +1,12 @@
 
-// Use side-effect imports for CDN compat scripts (which don't provide default exports)
-import 'firebase/compat/app';
-import 'firebase/compat/auth';
-import 'firebase/compat/database';
-import 'firebase/compat/firestore';
-import 'firebase/compat/messaging';
-
-// Access the global firebase namespace populated by the scripts
+// Access the global firebase namespace populated by the scripts in index.html
 const firebase = (window as any).firebase;
 
-if (typeof firebase === 'undefined') {
-  console.error("Firebase SDK not loaded. Check your internet connection or CDN configuration.");
+if (!firebase) {
+  console.error("Firebase SDK not loaded. Ensure Firebase scripts are included in index.html");
+  // Throwing error here might crash the app entirely, better to log and let the UI handle empty states if possible,
+  // but since Auth is critical, we'll alert.
+  throw new Error("Lỗi kết nối: Không thể tải thư viện Firebase. Vui lòng kiểm tra kết nối mạng và tải lại trang.");
 }
 
 // Your web app's Firebase configuration
@@ -27,14 +23,14 @@ const firebaseConfig = {
 
 // Initialize Firebase using the compat SDK
 // Use firebase.apps.length check to prevent re-initialization error
-const app = firebase && !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase?.app();
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
-export const auth = firebase?.auth();
-export const db = firebase?.firestore();
-export const messaging = firebase?.messaging();
-export const rtdb = firebase?.database();
+export const auth = firebase.auth();
+export const db = firebase.firestore();
+export const messaging = firebase.messaging();
+export const rtdb = firebase.database();
 
 // Export compat firestore helpers
-export const serverTimestamp = firebase?.firestore.FieldValue.serverTimestamp;
-export const arrayUnion = firebase?.firestore.FieldValue.arrayUnion;
-export const increment = firebase?.firestore.FieldValue.increment;
+export const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
+export const arrayUnion = firebase.firestore.FieldValue.arrayUnion;
+export const increment = firebase.firestore.FieldValue.increment;
