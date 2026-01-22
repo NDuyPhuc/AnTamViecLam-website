@@ -82,9 +82,10 @@ export interface UserData {
 
   // KYC Fields - Admin Sync
   kycStatus?: KycStatus;
-  kycImages?: string[]; // Array of image URLs [front, back, portrait]
+  kycImages?: string[]; // Array of image URLs [front, back, portrait] OR [license, id_front, portrait] for employer
   kycRejectReason?: string;
   kycSubmittedAt?: string;
+  taxCode?: string; // Mã số thuế (Cho nhà tuyển dụng)
   
   // Security Fields - Admin Sync
   isDisabled?: boolean; // Nếu true => Ban user

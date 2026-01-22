@@ -40,6 +40,7 @@ export const getUserProfile = async (userId: string): Promise<UserData | null> =
         kycImages: data.kycImages || [],
         kycRejectReason: data.kycRejectReason || '',
         kycSubmittedAt: kycSubmittedAt,
+        taxCode: data.taxCode || undefined, // Include Tax Code
       };
       return userProfile as UserData;
     } else {
@@ -72,16 +73,23 @@ export const updateUserWallet = async (userId: string, walletAddress: string | n
  * Submits a KYC request for a user.
  * @param userId The UID of the user.
  * @param images Array of 3 image URLs [front, back, portrait]
+ * @param taxCode Optional Tax Code for employers
  */
-export const submitKycRequest = async (userId: string, images: string[]): Promise<void> => {
+export const submitKycRequest = async (userId: string, images: string[], taxCode?: string): Promise<void> => {
     try {
-        await db.collection('users').doc(userId).update({
+        const updateData: any = {
             kycStatus: 'pending',
             kycImages: images,
             kycSubmittedAt: serverTimestamp(),
             // IMPORTANT: Reset reject reason to clear error UI and indicate new submission
             kycRejectReason: null 
-        });
+        };
+
+        if (taxCode) {
+            updateData.taxCode = taxCode;
+        }
+
+        await db.collection('users').doc(userId).update(updateData);
     } catch (error) {
         console.error("Error submitting KYC:", error);
         throw error;

@@ -1,12 +1,14 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { uploadFile } from '../services/cloudinaryService';
 import { submitKycRequest } from '../services/userService';
 import { useAuth } from '../contexts/AuthContext';
+import { UserRole } from '../types';
 import XIcon from './icons/XIcon';
 import CheckCircleIcon from './icons/CheckCircleIcon';
 import IdentificationIcon from './icons/IdentificationIcon';
+import BriefcaseIcon from './icons/BriefcaseIcon';
 import { useTranslation } from 'react-i18next';
 
 interface KycModalProps {
@@ -16,34 +18,67 @@ interface KycModalProps {
 
 const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
     const { t } = useTranslation();
-    const { currentUser } = useAuth();
-    const [step, setStep] = useState(1); // 1: Info, 2: Upload Front, 3: Upload Back, 4: Upload Portrait, 5: Submit
-    const [images, setImages] = useState<string[]>(['', '', '']); // [front, back, portrait]
+    const { currentUser, currentUserData } = useAuth();
+    const [step, setStep] = useState(1); // 1: Info, 2, 3, 4: Uploads, 5: Submit
+    const [images, setImages] = useState<string[]>(['', '', '']); // 
+    // Worker: [front, back, portrait]
+    // Employer: [license, id_front, portrait]
+    
+    const [taxCode, setTaxCode] = useState('');
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const steps = [
-        { 
-            title: t('kyc.step_1_title'), 
-            desc: t('kyc.step_1_desc'),
-            icon: <IdentificationIcon className="w-16 h-16 text-indigo-500" />
-        },
-        { 
-            title: t('kyc.step_2_title'), 
-            desc: t('kyc.step_2_desc'), 
-            index: 0 
-        },
-        { 
-            title: t('kyc.step_3_title'), 
-            desc: t('kyc.step_3_desc'), 
-            index: 1 
-        },
-        { 
-            title: t('kyc.step_4_title'), 
-            desc: t('kyc.step_4_desc'), 
-            index: 2 
+    const isEmployer = currentUserData?.userType === UserRole.Employer;
+
+    const steps = useMemo(() => {
+        if (isEmployer) {
+            return [
+                { 
+                    title: t('kyc.emp_step_1_title'), 
+                    desc: t('kyc.emp_step_1_desc'),
+                    icon: <BriefcaseIcon className="w-16 h-16 text-indigo-500" />
+                },
+                { 
+                    title: t('kyc.step_license_title'), 
+                    desc: t('kyc.step_license_desc'), 
+                    index: 0 
+                },
+                { 
+                    title: t('kyc.step_emp_id_title'), 
+                    desc: t('kyc.step_emp_id_desc'), 
+                    index: 1 
+                },
+                { 
+                    title: t('kyc.step_4_title'), 
+                    desc: t('kyc.step_4_desc'), 
+                    index: 2 
+                }
+            ];
         }
-    ];
+        // Worker Default
+        return [
+            { 
+                title: t('kyc.step_1_title'), 
+                desc: t('kyc.step_1_desc'),
+                icon: <IdentificationIcon className="w-16 h-16 text-indigo-500" />
+            },
+            { 
+                title: t('kyc.step_2_title'), 
+                desc: t('kyc.step_2_desc'), 
+                index: 0 
+            },
+            { 
+                title: t('kyc.step_3_title'), 
+                desc: t('kyc.step_3_desc'), 
+                index: 1 
+            },
+            { 
+                title: t('kyc.step_4_title'), 
+                desc: t('kyc.step_4_desc'), 
+                index: 2 
+            }
+        ];
+    }, [isEmployer, t]);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -52,22 +87,19 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
             try {
                 const url = await uploadFile(file);
                 const newImages = [...images];
-                // Step 2 maps to index 0, Step 3 -> 1, Step 4 -> 2
                 const imageIndex = step - 2; 
                 newImages[imageIndex] = url;
                 setImages(newImages);
-                // Auto advance after upload
+                
                 if (step < 4) {
                     setStep(step + 1);
                 } else {
-                    // Reached end of uploads
                     setStep(5);
                 }
             } catch (error) {
                 alert(t('common.error'));
             } finally {
                 setUploading(false);
-                // Reset value to allow re-uploading same file if needed
                 if (fileInputRef.current) fileInputRef.current.value = '';
             }
         }
@@ -75,11 +107,16 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
 
     const handleSubmit = async () => {
         if (!currentUser) return;
+        
+        if (isEmployer && !taxCode.trim()) {
+            alert(t('kyc.error_tax_code'));
+            return;
+        }
+
         setUploading(true);
         try {
-            await submitKycRequest(currentUser.uid, images);
+            await submitKycRequest(currentUser.uid, images, isEmployer ? taxCode : undefined);
             onSuccess();
-            // Don't close immediately here, onSuccess usually triggers refetch/alert
         } catch (error) {
             console.error(error);
             alert(t('common.error'));
@@ -102,7 +139,9 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
                 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
-                    <h2 className="text-lg font-bold text-gray-800">{t('kyc.title')}</h2>
+                    <h2 className="text-lg font-bold text-gray-800">
+                        {isEmployer ? t('kyc.title_employer') : t('kyc.title')}
+                    </h2>
                     <button 
                         onClick={onClose} 
                         className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
@@ -143,6 +182,7 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
                                     <li>{t('kyc.note_1')}</li>
                                     <li>{t('kyc.note_2')}</li>
                                     <li>{t('kyc.note_3')}</li>
+                                    {isEmployer && <li>{t('kyc.note_4_emp')}</li>}
                                 </ul>
                             </div>
 
@@ -191,7 +231,7 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
                                     className="hidden"
                                     onChange={handleFileChange}
                                     ref={fileInputRef}
-                                    capture="environment" // Prefer rear camera on mobile
+                                    capture={isEmployer && step === 2 ? undefined : "environment"} // Don't force camera for Business License (file upload likely)
                                 />
                                 
                                 {uploading && (
@@ -214,7 +254,7 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
                     )}
 
                     {step === 5 && (
-                        <div className="space-y-8 text-center">
+                        <div className="space-y-6 text-center">
                             <div>
                                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-600 mb-4 animate-[bounce_1s_infinite]">
                                     <CheckCircleIcon className="w-10 h-10" />
@@ -223,12 +263,31 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
                                 <p className="text-gray-500 text-sm mt-2">{t('kyc.completed_desc')}</p>
                             </div>
 
+                            {isEmployer && (
+                                <div className="text-left bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <label htmlFor="taxCode" className="block text-sm font-bold text-gray-700 mb-1">
+                                        {t('kyc.label_tax_code')} <span className="text-red-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        id="taxCode"
+                                        value={taxCode}
+                                        onChange={(e) => setTaxCode(e.target.value)}
+                                        placeholder={t('kyc.placeholder_tax_code')}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-mono"
+                                    />
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-3 gap-3">
                                 {images.map((img, i) => (
                                     <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
                                         <img src={img} className="w-full h-full object-cover" alt={`KYC ${i}`} />
                                         <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] py-1">
-                                            {i === 0 ? t('kyc.label_front') : i === 1 ? t('kyc.label_back') : t('kyc.label_portrait')}
+                                            {isEmployer 
+                                                ? (i === 0 ? t('kyc.label_license') : i === 1 ? t('kyc.label_front_id') : t('kyc.label_portrait'))
+                                                : (i === 0 ? t('kyc.label_front') : i === 1 ? t('kyc.label_back') : t('kyc.label_portrait'))
+                                            }
                                         </div>
                                     </div>
                                 ))}
@@ -256,7 +315,6 @@ const KycModal: React.FC<KycModalProps> = ({ onClose, onSuccess }) => {
         </div>
     );
 
-    // Using createPortal to attach the modal to the body, avoiding z-index issues with parent components
     return createPortal(modalContent, document.body);
 };
 
