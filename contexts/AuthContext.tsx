@@ -35,26 +35,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUserData, setCurrentUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserData = async (user: User) => {
-    if (!user) {
-        setCurrentUserData(null);
-        return;
-    };
-    const userDocRef = db.collection('users').doc(user.uid);
-    const docSnap = await userDocRef.get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
+  // Helper để format dữ liệu từ Firestore snapshot
+  const formatUserData = (doc: any): UserData | null => {
+      if (!doc.exists) return null;
+      const data = doc.data();
       
-      // SECURITY: Check if user is banned
-      if (data?.isDisabled === true) {
-          throw new Error("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ Admin.");
-      }
-
-      // Convert timestamp to ISO string to prevent serialization issues
       const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
       const kycSubmittedAt = data?.kycSubmittedAt?.toDate ? data.kycSubmittedAt.toDate().toISOString() : undefined;
       
-      const userData: UserData = {
+      return {
           uid: data?.uid,
           email: data?.email,
           userType: data?.userType,
@@ -71,14 +60,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           cvName: data?.cvName || null,
           walletAddress: data?.walletAddress || null,
           
-          // KYC Fields
+          // CSR & Wallet
+          csrScore: data?.csrScore,
+          welfareFundBalance: data?.welfareFundBalance,
+          pensionBookBalance: data?.pensionBookBalance,
+
+          // KYC Fields - Quan trọng cho Realtime Update
           kycStatus: data?.kycStatus || 'none',
           kycImages: data?.kycImages || [],
           kycRejectReason: data?.kycRejectReason || '',
           kycSubmittedAt: kycSubmittedAt,
+          taxCode: data?.taxCode,
+          
           isDisabled: data?.isDisabled || false,
-      };
-      setCurrentUserData(userData as UserData);
+      } as UserData;
+  };
+
+  const fetchUserData = async (user: User) => {
+    if (!user) {
+        setCurrentUserData(null);
+        return;
+    };
+    const userDocRef = db.collection('users').doc(user.uid);
+    const docSnap = await userDocRef.get();
+    
+    const userData = formatUserData(docSnap);
+    
+    if (userData) {
+      if (userData.isDisabled) {
+          throw new Error("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ Admin.");
+      }
+      setCurrentUserData(userData);
     } else {
       console.log("No such user document!");
       setCurrentUserData(null);
@@ -90,7 +102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             await fetchUserData(currentUser);
         } catch (e) {
-            // If fetch fail (e.g. banned), logout
             await logout();
         }
     }
@@ -167,19 +178,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // --- REAL-TIME BAN MONITORING ---
+  // --- REAL-TIME USER DATA MONITORING (Including KYC & Ban) ---
   useEffect(() => {
       let unsubscribeUserDoc: () => void;
 
       if (currentUser) {
           const userRef = db.collection('users').doc(currentUser.uid);
           unsubscribeUserDoc = userRef.onSnapshot((doc) => {
-              const data = doc.data();
-              if (data && data.isDisabled === true) {
-                  console.warn("User has been disabled by Admin. Logging out.");
-                  alert("Tài khoản của bạn đã bị khóa bởi Quản trị viên.");
-                  logout();
+              const userData = formatUserData(doc);
+              
+              if (userData) {
+                  // Check ban status
+                  if (userData.isDisabled) {
+                      console.warn("User has been disabled by Admin. Logging out.");
+                      alert("Tài khoản của bạn đã bị khóa bởi Quản trị viên.");
+                      logout();
+                      return;
+                  }
+                  
+                  // Update state with fresh data (KYC status updates, etc.)
+                  // So sánh JSON stringify để tránh re-render không cần thiết nếu data giống hệt
+                  setCurrentUserData(prev => {
+                      if (JSON.stringify(prev) !== JSON.stringify(userData)) {
+                          return userData;
+                      }
+                      return prev;
+                  });
               }
+          }, (error) => {
+              console.error("Error listening to user data:", error);
           });
       }
 

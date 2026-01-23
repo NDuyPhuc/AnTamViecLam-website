@@ -1,5 +1,5 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import Header from './components/Header';
 import JobCard from './components/JobCard';
 import InsuranceDashboard from './components/InsuranceDashboard';
@@ -10,6 +10,8 @@ import JobFilters from './components/JobFilters';
 import MapView from './components/MapView';
 import ListIcon from './components/icons/ListIcon';
 import MapIcon from './components/icons/MapIcon';
+import ArrowLeftIcon from './components/icons/ArrowLeftIcon';
+import ArrowRightIcon from './components/icons/ArrowRightIcon';
 import ProfilePage from './components/ProfilePage';
 import PostJobModal from './components/PostJobModal';
 import { View, Job, Application } from './types';
@@ -25,10 +27,11 @@ import AdvancedJobRecommendations from './components/AdvancedJobRecommendations'
 import { Geolocation } from '@capacitor/geolocation';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import TrashIcon from './components/icons/TrashIcon';
 import { useTranslation } from 'react-i18next';
 
 type JobViewMode = 'list' | 'map';
+
+const ITEMS_PER_PAGE = 10; // Cập nhật số lượng việc làm lên 10/trang theo yêu cầu
 
 const ViewToggle: React.FC<{ activeMode: JobViewMode; setMode: (mode: JobViewMode) => void }> = ({ activeMode, setMode }) => {
     const { t } = useTranslation();
@@ -76,6 +79,8 @@ const App: React.FC = () => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
 
   // State for filters
   const [locationFilter, setLocationFilter] = useState('');
@@ -229,7 +234,6 @@ const App: React.FC = () => {
              navigator.serviceWorker.register(swUrl)
                 .then((registration) => console.log('SW registered:', registration.scope))
                 .catch((error) => {
-                    // Fix: Suppress known environment-specific errors (Origin mismatch, Invalid state, 404)
                     const msg = error.message || '';
                     if (
                         msg.includes('invalid state') || 
@@ -244,7 +248,6 @@ const App: React.FC = () => {
                 });
         };
 
-        // Avoid "document is in an invalid state" by checking visibility and load state
         if (document.visibilityState !== 'visible' || document.readyState === 'loading') {
              window.addEventListener('load', registerSW);
         } else {
@@ -254,7 +257,6 @@ const App: React.FC = () => {
 
     // Initial Location Fetch & Fetch when currentUser changes
     if (currentUser) {
-        // Clear previous error to force a fresh attempt UI state
         setLocationError(null);
         getUserLocation();
     }
@@ -288,6 +290,11 @@ const App: React.FC = () => {
         }
     };
   }, [getUserLocation, currentUser]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+      setCurrentPage(1);
+  }, [locationFilter, typeFilter]);
 
   const handleHardReset = async () => {
     if (window.confirm("Thao tác này sẽ xóa bộ nhớ đệm và tải lại trang để khắc phục lỗi. Bạn có muốn tiếp tục?")) {
@@ -364,6 +371,11 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePageChange = (page: number) => {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
 
   const { uniqueLocations, uniqueTypes, filteredJobs } = useMemo(() => {
     const openJobs = allJobs.filter(job => job.status === 'OPEN');
@@ -406,6 +418,13 @@ const App: React.FC = () => {
       filteredJobs: jobs
     };
   }, [allJobs, locationFilter, typeFilter, userLocation]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredJobs.length / ITEMS_PER_PAGE);
+  const currentJobs = filteredJobs.slice(
+      (currentPage - 1) * ITEMS_PER_PAGE,
+      currentPage * ITEMS_PER_PAGE
+  );
 
   const renderContent = () => {
     const contentKey = activeView;
@@ -468,17 +487,61 @@ const App: React.FC = () => {
                             )}
 
                             {jobViewMode === 'list' && (
-                            <div className="space-y-4">
+                            <div className="space-y-4 pb-20">
                                 <h3 className="text-2xl font-bold text-gray-800 pt-4">{t('app.available_jobs')}</h3>
                                 {jobsLoading ? <Spinner message={t('common.loading')}/> : filteredJobs.length > 0 ? (
-                                    filteredJobs.map((job) => (
-                                    <JobCard 
-                                        key={job.id} 
-                                        job={job} 
-                                        onClick={() => handleSelectJobForDetail(job)} 
-                                        applicantCount={job.applicantCount || 0}
-                                    />
-                                    ))
+                                    <>
+                                        {currentJobs.map((job) => (
+                                            <JobCard 
+                                                key={job.id} 
+                                                job={job} 
+                                                onClick={() => handleSelectJobForDetail(job)} 
+                                                applicantCount={job.applicantCount || 0}
+                                            />
+                                        ))}
+                                        
+                                        {/* Pagination Controls - FLOATING FIXED BOTTOM VIA PORTAL */}
+                                        {totalPages > 1 && createPortal(
+                                            <div className="fixed bottom-[88px] md:bottom-10 left-0 right-0 flex justify-center pointer-events-none z-40">
+                                                <div className="bg-white/95 backdrop-blur-md shadow-2xl border border-gray-200/50 rounded-full p-1.5 flex items-center space-x-1 pointer-events-auto transform transition-all animate-fade-in-up">
+                                                    <button
+                                                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                                                        disabled={currentPage === 1}
+                                                        className="w-10 h-10 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                                        title={t('common.prev_page')}
+                                                    >
+                                                        <ArrowLeftIcon className="w-5 h-5" />
+                                                    </button>
+                                                    
+                                                    <div className="flex space-x-1 px-1 overflow-x-auto max-w-[200px] sm:max-w-none scrollbar-hide">
+                                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                                                            <button
+                                                                key={page}
+                                                                onClick={() => handlePageChange(page)}
+                                                                className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full text-sm font-bold transition-all ${
+                                                                    currentPage === page
+                                                                        ? 'bg-indigo-600 text-white shadow-md'
+                                                                        : 'bg-transparent text-gray-600 hover:bg-gray-100'
+                                                                }`}
+                                                            >
+                                                                {page}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+
+                                                    <button
+                                                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                                                        disabled={currentPage === totalPages}
+                                                        className="w-10 h-10 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 hover:text-indigo-600 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+                                                        title={t('common.next_page')}
+                                                    >
+                                                        <ArrowRightIcon className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                            </div>,
+                                            document.body
+                                        )}
+                                    </>
                                 ) : (
                                     <div className="text-center py-16 px-4 bg-gray-50 rounded-lg">
                                         <p className="text-gray-600">{t('filters.no_jobs')}</p>

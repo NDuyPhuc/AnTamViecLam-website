@@ -18,7 +18,9 @@ export default {
     "search": "Tìm kiếm",
     "error": "Đã xảy ra lỗi",
     "success": "Thành công",
-    "contact": "Liên hệ"
+    "contact": "Liên hệ",
+    "prev_page": "Trang trước",
+    "next_page": "Trang sau"
   },
   "nav": {
     "jobs": "Tìm Việc",
@@ -128,6 +130,11 @@ export default {
     "your_location": "Vị trí của bạn",
     "list_view": "Danh sách",
     "map_view": "Bản đồ",
+    "travel_time": "Thời gian",
+    "distance": "Khoảng cách",
+    "open_google_maps": "Chỉ đường (Google Maps)",
+    "nav_to": "Đến nơi làm việc",
+    "close_route": "Xóa lộ trình",
     "location_permission_required": "Cần quyền truy cập vị trí",
     "fix_connection": "Sửa lỗi kết nối",
     "retry": "Thử lại ngay",

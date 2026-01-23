@@ -65,6 +65,15 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
   return distance;
 };
 
+export const formatDuration = (seconds: number): string => {
+    if (seconds < 60) return `${Math.round(seconds)} giây`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} phút`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours} giờ ${remainingMinutes > 0 ? `${remainingMinutes} phút` : ''}`;
+};
+
 export const formatTimeAgo = (dateString: string, context: 'post' | 'presence' = 'post'): string => {
   const now = new Date();
   const past = new Date(dateString);

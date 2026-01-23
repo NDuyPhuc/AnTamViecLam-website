@@ -885,7 +885,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
             onClose={() => setShowKycModal(false)}
             onSuccess={() => {
                 setShowKycModal(false);
-                refetchUserData();
                 alert(t('profile.kyc_success_alert'));
             }}
           />

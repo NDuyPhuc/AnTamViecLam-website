@@ -9,6 +9,7 @@ import PaperAirplaneIcon from './icons/PaperAirplaneIcon';
 import MapPinIcon from './icons/MapPinIcon';
 import XIcon from './icons/XIcon';
 import ClockIcon from './icons/ClockIcon';
+import ArrowTopRightOnSquareIcon from './icons/ArrowTopRightOnSquareIcon';
 
 interface JobDetailModalProps {
   job: Job;
@@ -91,7 +92,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
   const isEmployerViewingOwnJob = currentUserData?.uid === job.employerId;
 
-  // Helper for salary format
   const getPayString = () => {
       if (job.payRate === "Thỏa thuận") return t('job.salary_negotiable');
       const unit = job.payType === 'THEO GIỜ' ? t('job.pay_hour') 
@@ -100,7 +100,6 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
       return `${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(job.payRate as number)}${unit}`;
   };
 
-  // Helper to translate job type
   const getJobTypeLabel = (type: string | undefined) => {
       if (!type) return '';
       const key = type === 'Thời vụ' ? 'type_seasonal' :
@@ -162,16 +161,17 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
 
          <div className="flex-grow overflow-y-auto p-6 bg-white">
             
-            <div className="flex items-start gap-3 mb-6 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <MapPinIcon className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
-                    <p className="text-sm font-semibold text-gray-800">{t('job.location')}</p>
-                    <p className="text-sm text-gray-600">{job.addressString}</p>
+            <div className="flex items-start gap-3 mb-6 p-4 bg-indigo-50 rounded-xl border border-indigo-100 relative group hover:border-indigo-300 transition-colors">
+                <MapPinIcon className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-grow">
+                    <p className="text-sm font-bold text-gray-800">{t('job.location')}</p>
+                    <p className="text-sm text-gray-600 mt-1 leading-snug">{job.addressString}</p>
                     <button 
                         onClick={onViewOnMap} 
-                        className="text-xs text-indigo-600 font-semibold hover:underline mt-1"
+                        className="mt-3 flex items-center gap-2 text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95"
                     >
-                        {t('job.view_map')}
+                        <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                        {t('map.nav_to')}
                     </button>
                 </div>
             </div>
@@ -184,7 +184,7 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
             </div>
 
             <div className="flex flex-wrap gap-2 mb-8">
-                 <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-medium border border-indigo-100">
+                 <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border border-gray-200">
                     {getJobTypeLabel(job.jobType)}
                  </span>
             </div>

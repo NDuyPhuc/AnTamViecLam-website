@@ -18,7 +18,9 @@ export default {
     "search": "Search",
     "error": "An error occurred",
     "success": "Success",
-    "contact": "Contact"
+    "contact": "Contact",
+    "prev_page": "Prev",
+    "next_page": "Next"
   },
   "nav": {
     "jobs": "Find Jobs",
@@ -128,6 +130,11 @@ export default {
     "your_location": "Your Location",
     "list_view": "List",
     "map_view": "Map",
+    "travel_time": "Travel Time",
+    "distance": "Distance",
+    "open_google_maps": "Get Directions (Google Maps)",
+    "nav_to": "Navigate to job",
+    "close_route": "Clear Route",
     "location_permission_required": "Location Access Required",
     "fix_connection": "Fix Connection",
     "retry": "Try Again",
