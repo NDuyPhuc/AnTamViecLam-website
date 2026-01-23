@@ -19,8 +19,8 @@ import PaperAirplaneIconSolid from './icons/PaperAirplaneIconSolid';
 import ChatBubbleIconSolid from './icons/ChatBubbleIconSolid';
 import UserCircleIconSolid from './icons/UserCircleIconSolid';
 import SparklesIconSolid from './icons/SparklesIconSolid';
-import LanguageSwitcher from './LanguageSwitcher'; // Import component mới
-import { useTranslation } from 'react-i18next'; // Import hook
+import LanguageSwitcher from './LanguageSwitcher'; 
+import { useTranslation } from 'react-i18next'; 
 
 interface HeaderProps {
   activeView: View;
@@ -41,7 +41,7 @@ const MobileNavItem: React.FC<{
         <button
             onClick={onClick}
             className={`relative flex flex-col items-center justify-center space-y-1 w-full p-2 rounded-lg transition-colors duration-200 ${
-                isActive ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:bg-gray-100'
+                isActive ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500 hover:text-gray-100'
             }`}
         >
             {isActive ? activeIcon : icon}
@@ -81,8 +81,9 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [showKycAlert, setShowKycAlert] = useState(false); // State hiển thị modal cảnh báo KYC
   
-  const { t } = useTranslation(); // Khởi tạo hook dịch
+  const { t } = useTranslation(); 
 
   const unreadNotificationCount = notifications.filter(n => !n.isRead).length;
 
@@ -124,6 +125,17 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
     }
   };
 
+  // Hàm kiểm tra KYC trước khi cho phép đăng tin
+  const handlePostJobCheck = () => {
+      // Yêu cầu bảo mật: Chỉ trạng thái 'verified' mới được đăng tin
+      if (currentUserData?.kycStatus !== 'verified') {
+          // Thay vì alert(), bật modal cảnh báo
+          setShowKycAlert(true);
+          return;
+      }
+      onPostJobClick();
+  };
+
 
   let navItems = [
     { view: View.Jobs, label: t('nav.jobs'), icon: <BriefcaseIcon className="w-6 h-6" />, activeIcon: <BriefcaseIconSolid className="w-6 h-6" /> },
@@ -133,7 +145,6 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
     { view: View.Profile, label: t('nav.profile'), icon: <UserCircleIcon className="w-6 h-6" />, activeIcon: <UserCircleIconSolid className="w-6 h-6" /> },
   ];
 
-  // Chỉ thêm mục Gợi ý AI cho Người lao động
   if (currentUserData?.userType === UserRole.Worker) {
       navItems.splice(1, 0, { 
           view: View.Recommendations, 
@@ -172,14 +183,13 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
               </div>
 
               <div className="flex items-center space-x-4">
-                  {/* Language Switcher luôn hiển thị */}
                   <LanguageSwitcher />
 
                   {currentUser && currentUserData && (
                       <>
                           {currentUserData.userType === UserRole.Employer && (
                               <button 
-                                onClick={onPostJobClick}
+                                onClick={handlePostJobCheck}
                                 className="flex items-center bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                               >
                                   <PlusCircleIcon className="w-5 h-5 mr-2" />
@@ -241,7 +251,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
             </div>
        </div>
        
-       {/* Mobile Header Top (Since bottom is nav) - To show Language Switcher & Profile */}
+       {/* Mobile Header Top */}
        <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur shadow-sm px-4 py-3 flex justify-between items-center">
             <div className="flex items-center">
                  <img src="https://ik.imagekit.io/duyphuc/AN%20T%C3%82M%20VI%E1%BB%86CL%C3%80M.jpg" className="w-8 h-8 rounded-full mr-2"/>
@@ -265,7 +275,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
        {currentUser && currentUserData?.userType === UserRole.Employer && (
          <div className="md:hidden fixed bottom-20 right-4 z-50">
            <button
-             onClick={onPostJobClick}
+             onClick={handlePostJobCheck}
              className="bg-indigo-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:bg-indigo-700 transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
              aria-label={t('nav.post_job')}
            >
@@ -281,6 +291,40 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
                onMarkAllAsRead={handleMarkAllAsRead}
                onClose={() => setIsNotificationsOpen(false)}
            />
+       )}
+
+       {/* --- KYC Requirement Modal --- */}
+       {showKycAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-fade-in">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowKycAlert(false)}></div>
+           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full relative z-10 animate-fade-in-up transform transition-all scale-100">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce-slow">
+                  <ShieldCheckIcon className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-bold text-center text-gray-900 mb-2">{t('kyc.title')}</h3>
+              <p className="text-center text-gray-600 text-sm mb-6 leading-relaxed px-2">
+                  {t('post_job.kyc_required_alert')}
+              </p>
+              <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => {
+                        setShowKycAlert(false);
+                        setActiveView(View.Profile);
+                    }}
+                    className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    {t('profile.kyc_resubmit').replace('Gửi lại', 'Đến')} 
+                    <span className="text-lg">→</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowKycAlert(false)}
+                    className="w-full py-3 bg-white text-gray-500 font-semibold rounded-xl hover:bg-gray-50 transition-colors border border-gray-200"
+                  >
+                    {t('common.close')}
+                  </button>
+              </div>
+           </div>
+        </div>
        )}
     </>
   );

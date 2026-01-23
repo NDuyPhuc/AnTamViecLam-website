@@ -219,7 +219,8 @@ export default {
     "type_hour": "Hourly",
     "type_month": "Monthly",
     "placeholder_address": "Ex: 123 ABC Street...",
-    "error_location_required": "Please pin a location on the map."
+    "error_location_required": "Please pin a location on the map.",
+    "kyc_required_alert": "You must successfully verify your identity (KYC) to post jobs. Please check your profile status."
   },
   "profile": {
     "title": "Your Profile",

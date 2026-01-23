@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Header from './components/Header';
@@ -90,6 +91,13 @@ const App: React.FC = () => {
   useEffect(() => {
       document.title = t('app_name');
   }, [t]);
+
+  // Bảo mật: Tự động đóng modal đăng tin nếu user mất trạng thái verified (realtime)
+  useEffect(() => {
+      if (isPostJobModalOpen && currentUserData?.kycStatus !== 'verified') {
+          setIsPostJobModalOpen(false);
+      }
+  }, [currentUserData, isPostJobModalOpen]);
 
   // --- HYBRID LOCATION LOGIC (Strict Separation) ---
   const getUserLocation = useCallback(async () => {

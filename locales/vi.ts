@@ -214,7 +214,8 @@ export default {
     "type_hour": "Theo giờ",
     "type_month": "Theo tháng",
     "placeholder_address": "VD: 123 Đường ABC...",
-    "error_location_required": "Vui lòng ghim vị trí trên bản đồ."
+    "error_location_required": "Vui lòng ghim vị trí trên bản đồ.",
+    "kyc_required_alert": "Bạn phải xác minh danh tính thành công thì mới được đăng tin tuyển dụng. Vui lòng kiểm tra trạng thái hồ sơ của bạn."
   },
   "profile": {
     "title": "Hồ sơ của bạn",

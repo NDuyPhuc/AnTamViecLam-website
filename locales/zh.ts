@@ -205,7 +205,8 @@ export default {
     "type_hour": "按小时",
     "type_month": "按月",
     "placeholder_address": "例如：ABC路123号...",
-    "error_location_required": "请在地图上标记位置。"
+    "error_location_required": "请在地图上标记位置。",
+    "kyc_required_alert": "您必须成功验证身份 (KYC) 才能发布职位。请检查您的个人资料状态。"
   },
   "profile": {
     "title": "您的个人资料",
