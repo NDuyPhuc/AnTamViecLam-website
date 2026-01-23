@@ -92,6 +92,7 @@ export default {
     "error_password_mismatch": "Mật khẩu không khớp.",
     "error_user_not_found": "Không tìm thấy tài khoản với email này.",
     "error_wrong_password": "Sai mật khẩu. Vui lòng thử lại.",
+    "error_invalid_credential": "Email hoặc mật khẩu không chính xác.",
     "error_email_in_use": "Email này đã được sử dụng.",
     "error_weak_password": "Mật khẩu phải có ít nhất 6 ký tự.",
     "error_missing_name": "Vui lòng nhập họ và tên của bạn.",
@@ -101,7 +102,8 @@ export default {
     "error_invalid_cv_type": "Vui lòng chỉ tải lên file PDF hoặc Word.",
     "error_file_too_large": "File quá lớn. Vui lòng chọn file nhỏ hơn 5MB.",
     "error_login_required": "Bạn cần đăng nhập để ứng tuyển.",
-    "error_missing_phone": "Vui lòng nhập số điện thoại liên hệ."
+    "error_missing_phone": "Vui lòng nhập số điện thoại liên hệ.",
+    "error_too_many_requests": "Quá nhiều lần đăng nhập sai. Vui lòng thử lại sau ít phút."
   },
   "messaging": {
     "title": "Tin nhắn",
@@ -130,11 +132,6 @@ export default {
     "your_location": "Vị trí của bạn",
     "list_view": "Danh sách",
     "map_view": "Bản đồ",
-    "travel_time": "Thời gian",
-    "distance": "Khoảng cách",
-    "open_google_maps": "Chỉ đường (Google Maps)",
-    "nav_to": "Đến nơi làm việc",
-    "close_route": "Xóa lộ trình",
     "location_permission_required": "Cần quyền truy cập vị trí",
     "fix_connection": "Sửa lỗi kết nối",
     "retry": "Thử lại ngay",
@@ -413,8 +410,7 @@ export default {
     "confirm_adjustment_desc": "Bạn đang <1>{{action}}</1> <3>{{value}} điểm</3> cho nhân viên.",
     "action_bonus": "thưởng",
     "action_penalty": "phạt",
-    "enter_reason": "Nhập lý do cụ thể (Bắt buộc)...",
-    "error_terminate": "Không thể chấm dứt hợp đồng."
+    "enter_reason": "Nhập lý do cụ thể (Bắt buộc)..."
   },
   "ai_rec": {
     "title": "Gợi ý Việc làm Thông minh",

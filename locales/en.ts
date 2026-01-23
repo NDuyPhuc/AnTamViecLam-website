@@ -92,6 +92,7 @@ export default {
     "error_password_mismatch": "Passwords do not match.",
     "error_user_not_found": "Account not found with this email.",
     "error_wrong_password": "Wrong password. Please try again.",
+    "error_invalid_credential": "Incorrect email or password.",
     "error_email_in_use": "This email is already in use.",
     "error_weak_password": "Password must be at least 6 characters.",
     "error_missing_name": "Please enter your full name.",
@@ -101,7 +102,8 @@ export default {
     "error_invalid_cv_type": "Please upload PDF or Word documents only.",
     "error_file_too_large": "File is too large. Please choose a file smaller than 5MB.",
     "error_login_required": "You need to login to apply.",
-    "error_missing_phone": "Please enter a contact phone number."
+    "error_missing_phone": "Please enter a contact phone number.",
+    "error_too_many_requests": "Too many unsuccessful attempts. Please try again later."
   },
   "messaging": {
     "title": "Messages",

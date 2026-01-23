@@ -99,7 +99,9 @@ export default {
     "error_invalid_cv_type": "请仅上传 PDF 或 Word 文档。",
     "error_file_too_large": "文件太大。请选择小于 5MB 的文件。",
     "error_login_required": "您需要登录才能申请。",
-    "error_missing_phone": "请输入联系电话。"
+    "error_missing_phone": "请输入联系电话。",
+    "error_invalid_credential": "电子邮件或密码不正确。",
+    "error_too_many_requests": "尝试次数过多，请稍后再试。"
   },
   "messaging": {
     "title": "消息",
@@ -399,8 +401,7 @@ export default {
     "confirm_adjustment_desc": "您即将对员工进行 <1>{{action}}</1> <3>{{value}} 分</3>。",
     "action_bonus": "奖励",
     "action_penalty": "惩罚",
-    "enter_reason": "输入具体原因 (必填)...",
-    "error_terminate": "无法终止合同。"
+    "enter_reason": "输入具体原因 (必填)..."
   },
   "ai_rec": {
     "title": "智能职位推荐",

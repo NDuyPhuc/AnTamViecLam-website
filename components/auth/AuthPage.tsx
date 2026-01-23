@@ -55,12 +55,18 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
       }
       // On successful login/signup, the App component will automatically re-render
     } catch (err: any) {
+      console.log("Auth Error Code:", err.code); // Debug log để xem mã lỗi chính xác
       switch (err.code) {
         case 'auth/user-not-found':
           setError(t('auth.error_user_not_found'));
           break;
         case 'auth/wrong-password':
           setError(t('auth.error_wrong_password'));
+          break;
+        case 'auth/invalid-credential':
+        case 'auth/invalid-login-credentials':
+          // Firebase mới gộp lỗi sai pass/sai email thành invalid-credential
+          setError(t('auth.error_invalid_credential'));
           break;
         case 'auth/email-already-in-use':
           setError(t('auth.error_email_in_use'));
@@ -71,8 +77,11 @@ const AuthPage: React.FC<{ onBackToLanding: () => void }> = ({ onBackToLanding }
         case 'auth/popup-closed-by-user':
           setError(t('auth.error_popup_closed')); 
           break;
+        case 'auth/too-many-requests':
+          setError(t('auth.error_too_many_requests'));
+          break;
         default:
-          setError(t('common.error'));
+          setError(`${t('common.error')} (${err.code})`);
           break;
       }
     } finally {
