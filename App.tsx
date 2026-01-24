@@ -101,82 +101,75 @@ const App: React.FC = () => {
       }
   }, [currentUserData, isPostJobModalOpen]);
 
-  // --- HYBRID LOCATION LOGIC (Strict Separation) ---
+  // --- HYBRID LOCATION LOGIC (Strict Separation & Robust Fallback) ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
     setLocationError(null); 
     
-    // Explicitly determine platform at runtime
     const isNative = Capacitor.isNativePlatform();
 
     try {
         console.log(`Starting location check... (Platform: ${isNative ? 'Native' : 'Web'})`);
         
         if (isNative) {
-            // ============================================
-            // LOGIC CHO MOBILE APP (NATIVE ANDROID/IOS)
-            // ============================================
-            
-            // 1. Kiểm tra quyền
+            // NATIVE LOGIC
             const permissions = await Geolocation.checkPermissions();
             if (permissions.location !== 'granted') {
-                console.log("Requesting Native Permissions...");
                 const request = await Geolocation.requestPermissions();
                 if (request.location !== 'granted') {
                     throw { code: 1, message: t('map.error_permission_denied_native') };
                 }
             }
-
-            // 2. Lấy vị trí
             const position = await Geolocation.getCurrentPosition({
                 enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0
             });
-            
-            console.log('Native Location found:', position.coords);
             setUserLocation({
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
             });
 
         } else {
-            // ============================================
-            // LOGIC CHO WEB BROWSER (DIRECT NAVIGATOR)
-            // ============================================
-            
+            // WEB BROWSER LOGIC (Robust Implementation)
             if (!navigator.geolocation) {
                 throw new Error(t('map.error_browser_support'));
             }
 
-            // Wrap getCurrentPosition in a Promise for clean async/await usage
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                const optionsHighAcc = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };
-                const optionsLowAcc = { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 };
+            // Helper to wrap geolocation in Promise
+            const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+                });
+            };
 
-                // Try High Accuracy First
-                navigator.geolocation.getCurrentPosition(
-                    resolve,
-                    (errorHigh) => {
-                        // CRITICAL: If Permission Denied (Code 1), fail immediately.
-                        if (errorHigh.code === 1) {
-                            return reject(errorHigh);
-                        }
+            let position: GeolocationPosition;
 
-                        // If Timeout or Unavailable, fallback to Low Accuracy
-                        console.warn("High accuracy GPS failed, trying low accuracy...", errorHigh.message);
-                        
-                        navigator.geolocation.getCurrentPosition(
-                            resolve,
-                            reject, // If this fails too, reject the promise
-                            optionsLowAcc
-                        );
-                    },
-                    optionsHighAcc
-                );
-            });
+            try {
+                // Try 1: High Accuracy (GPS), Timeout increased to 12s
+                // Warning: mobile browsers often throttle this if screen is dim or tab is background
+                position = await getPosition({ 
+                    enableHighAccuracy: true, 
+                    timeout: 12000, 
+                    maximumAge: 0 
+                });
+                console.log("Got High Accuracy Position");
+            } catch (err: any) {
+                console.warn("High Accuracy Location failed, trying fallback...", err.message);
+                
+                // If permission denied, stop immediately
+                if (err.code === 1) throw err;
 
-            console.log('Web Location found:', position.coords);
+                // Try 2: Low Accuracy (Wifi/IP) + Accept Cached Position (Infinity)
+                // This is crucial for fixing "Vercel hosted" issues where GPS is flaky
+                position = await getPosition({ 
+                    enableHighAccuracy: false, 
+                    timeout: 15000, 
+                    maximumAge: Infinity 
+                });
+                console.log("Got Low Accuracy/Cached Position");
+            }
+
             setUserLocation({
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
@@ -188,7 +181,6 @@ const App: React.FC = () => {
         
         let msg = t('map.error_generic');
         
-        // Handle standard Geolocation error codes
         if (e.code === 1) { 
              if (isNative) {
                  msg = t('map.error_permission_denied_native');
@@ -199,9 +191,9 @@ const App: React.FC = () => {
         else if (e.code === 2) msg = t('map.error_gps_off'); 
         else if (e.code === 3) msg = t('map.error_timeout'); 
         else if (e.message) msg = e.message;
-        else if (typeof e === 'object') msg = `${t('map.error_generic')}: ${JSON.stringify(e)}`;
 
         setUserLocation(prev => {
+            // Only set error if we don't have a previous location
             if (!prev) setLocationError(msg);
             return prev;
         });
@@ -223,8 +215,6 @@ const App: React.FC = () => {
                     if (permissionStatus.state === 'granted') {
                         setLocationError(null);
                         getUserLocation();
-                    } else if (permissionStatus.state === 'prompt') {
-                        setLocationError(null);
                     }
                 };
                 permissionStatus.onchange = handlePermissionChange;
@@ -239,25 +229,9 @@ const App: React.FC = () => {
     // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
         const swUrl = `/sw.js`;
-        
         const registerSW = () => {
-             navigator.serviceWorker.register(swUrl)
-                .then((registration) => console.log('SW registered:', registration.scope))
-                .catch((error) => {
-                    const msg = error.message || '';
-                    if (
-                        msg.includes('invalid state') || 
-                        msg.includes('does not match the current origin') ||
-                        msg.includes('The origin of the provided scriptURL') ||
-                        msg.includes('404')
-                    ) {
-                        console.warn('Service Worker registration skipped (environment limitation):', msg);
-                    } else {
-                        console.error('SW registration failed:', error);
-                    }
-                });
+             navigator.serviceWorker.register(swUrl).catch(() => {});
         };
-
         if (document.visibilityState !== 'visible' || document.readyState === 'loading') {
              window.addEventListener('load', registerSW);
         } else {
@@ -265,7 +239,7 @@ const App: React.FC = () => {
         }
     }
 
-    // Initial Location Fetch & Fetch when currentUser changes
+    // Initial Location Fetch
     if (currentUser) {
         setLocationError(null);
         getUserLocation();
@@ -278,11 +252,12 @@ const App: React.FC = () => {
             appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
                 if (isActive) {
                     console.log('App resumed, re-checking location...');
+                    // Chỉ gọi lại nếu chưa có location hoặc đang bị lỗi
                     getUserLocation();
                 }
             });
         } catch (err) {
-            console.warn('App State Listener failed to register:', err);
+            console.warn('App State Listener failed:', err);
         }
     };
     setupAppListener();
