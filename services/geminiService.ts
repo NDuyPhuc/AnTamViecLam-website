@@ -1,10 +1,13 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import i18n from '../i18n';
 
 // Initialize the Google GenAI SDK directly on the client.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY per guidelines.
+// We fallback to the provided key if process.env.API_KEY is not configured in the build environment.
+const apiKey = process.env.API_KEY || "AIzaSyCB_MqUl4A1k8SNTkrf5vwmmBtvCpSi5IM";
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 /**
  * Gửi tin nhắn đến chatbot sử dụng Gemini SDK.
