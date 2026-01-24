@@ -30,7 +30,8 @@ export default {
     "profile": "Hồ Sơ",
     "ai_suggest": "Gợi ý AI",
     "post_job": "Đăng Tin",
-    "hello": "Chào"
+    "hello": "Chào",
+    "ai_images": "Tạo ảnh AI"
   },
   "landing": {
     "hero_title": "Nền tảng <1>An Sinh</1> và <3>Việc Làm</3> cho Lao Động Tự Do",
@@ -503,5 +504,14 @@ export default {
     "retry": "Làm lại",
     "sending": "Đang gửi...",
     "submit": "Gửi xét duyệt"
+  },
+  "ai_studio": {
+    "title": "AI Studio - Tạo Ảnh",
+    "desc": "Tạo ảnh hồ sơ chuyên nghiệp hoặc ảnh portfolio chỉ bằng mô tả văn bản.",
+    "prompt_label": "Mô tả ảnh bạn muốn tạo",
+    "prompt_placeholder": "Ví dụ: Một thợ xây dựng đang đội mũ bảo hộ, phong cách chân thực, ánh sáng tự nhiên...",
+    "generate_btn": "Tạo ảnh ngay",
+    "generating": "Đang vẽ...",
+    "placeholder": "Ảnh tạo ra sẽ xuất hiện ở đây"
   }
 }

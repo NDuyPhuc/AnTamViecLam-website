@@ -1,14 +1,12 @@
 
 export default async function handler(req, res) {
-  // --- CẤU HÌNH SERVER SIDE (VERCEL) ---
-  const SERVER_API_KEY = 
-    process.env.VITE_GEMINI_API_KEY || 
-    process.env.GEMINI_API_KEY || 
-    process.env.VITE_API_KEY || 
-    process.env.VITE_GOOGLE_API_KEY;
-  // -------------------------------------
+  // --- CẤU HÌNH GOOGLE API ---
+  // Lấy Key từ biến môi trường Vercel (đã tạo ở Bước 1)
+  const API_KEY = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY;
+  // Sử dụng Gemini 1.5 Flash cho tốc độ nhanh và rẻ, hoặc 2.0 Flash Experimental
+  const MODEL_NAME = "gemini-1.5-flash"; 
 
-  // 1. CORS: Cho phép tất cả
+  // 1. CORS Setup
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,POST");
@@ -26,70 +24,57 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  if (!API_KEY) {
+    return res.status(500).json({ error: "Server Error: Missing GOOGLE_API_KEY in Environment Variables." });
+  }
+
   try {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { prompt } = body;
 
-    if (!SERVER_API_KEY) {
-      console.error("[API/Analyze] ERROR: Missing API Key.");
-      return res.status(500).json({ 
-        error: "Server Error: Missing API Key. Check Vercel Settings." 
-      });
-    }
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${API_KEY}`;
 
-    // 2. Chọn Model: Sử dụng gemini-2.0-flash-exp
-    const MODEL_NAME = "gemini-2.0-flash-exp";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${SERVER_API_KEY}`;
-
-    const payload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        response_mime_type: "application/json",
-      }
-    };
+    console.log(`[API/Analyze] Calling Google Gemini (${MODEL_NAME})...`);
 
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        contents: [{ 
+            role: "user", 
+            parts: [{ text: prompt }] 
+        }],
+        generationConfig: {
+            temperature: 0.1, // Nhiệt độ thấp để ra JSON chuẩn
+            responseMimeType: "application/json" // Ép kiểu trả về JSON (chỉ hỗ trợ trên Gemini 1.5+)
+        }
+      }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      console.error("[API/Analyze] Google API Error:", JSON.stringify(data, null, 2));
-      
-      // Fallback
-      if (response.status === 404 || response.status === 400) {
-          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${SERVER_API_KEY}`;
-          const fallbackResponse = await fetch(fallbackUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-          });
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackResponse.ok) {
-               const text = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text;
-               const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-               return res.status(200).json(JSON.parse(cleanText));
-          }
-      }
-
-      return res.status(response.status).json({
-        error: data.error?.message || "Google API Error",
-        details: data.error
-      });
+        const errorText = await response.text();
+        console.error("[API/Analyze] Google Error:", response.status, errorText);
+        return res.status(response.status).json({ 
+            error: "Google API Error", 
+            details: errorText 
+        });
     }
 
+    const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+        return res.status(500).json({ error: "No content returned from Google Gemini" });
+    }
     
+    // Parse JSON kết quả
     try {
+        // Mặc dù đã set responseMimeType, đôi khi vẫn cần clean markdown
         const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const jsonResult = JSON.parse(cleanText);
         res.status(200).json(jsonResult);
     } catch (parseError) {
-        console.error("Invalid JSON from model:", text);
+        console.error("Invalid JSON from Gemini:", text);
         res.status(500).json({ error: "AI Response is not valid JSON", raw: text });
     }
 

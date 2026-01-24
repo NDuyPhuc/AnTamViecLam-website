@@ -30,7 +30,8 @@ export default {
     "profile": "Profile",
     "ai_suggest": "AI Match",
     "post_job": "Post Job",
-    "hello": "Hi"
+    "hello": "Hi",
+    "ai_images": "AI Studio"
   },
   "landing": {
     "hero_title": "<1>Social Security</1> & <3>Job Platform</3> for Freelancers",
@@ -176,7 +177,10 @@ export default {
     "view_map": "View on map",
     "employer_post": "This is your post",
     "detail_modal_title": "Job Details",
-    "error_not_found": "This job no longer exists."
+    "error_not_found": "This job no longer exists.",
+    "urgent": "Urgent",
+    "deadline": "Deadline:",
+    "expired": "Expired"
   },
   "filters": {
     "location": "Location",
@@ -211,7 +215,10 @@ export default {
     "placeholder_address": "Ex: 123 ABC Street...",
     "error_location_required": "Please pin a location on the map.",
     "kyc_required_alert": "You must successfully verify your identity (KYC) to post jobs. Please check your profile status.",
-    "go_to_profile": "Verify Now"
+    "go_to_profile": "Verify Now",
+    "deadline_label": "Application Deadline",
+    "urgency_label": "Urgency Status",
+    "is_urgent": "Urgent Hiring (Highlighted)"
   },
   "profile": {
     "title": "Your Profile",
@@ -489,5 +496,14 @@ export default {
     "retry": "Redo",
     "sending": "Sending...",
     "submit": "Submit for Review"
+  },
+  "ai_studio": {
+    "title": "AI Studio - Image Generator",
+    "desc": "Create professional profile photos or portfolio images using just a text description.",
+    "prompt_label": "Describe the image you want",
+    "prompt_placeholder": "E.g., A construction worker wearing a safety helmet, realistic style, natural lighting...",
+    "generate_btn": "Generate Image",
+    "generating": "Painting...",
+    "placeholder": "Generated image will appear here"
   }
 }

@@ -28,7 +28,8 @@ export default {
     "profile": "个人资料",
     "ai_suggest": "AI 推荐",
     "post_job": "发布职位",
-    "hello": "你好"
+    "hello": "你好",
+    "ai_images": "AI 绘图"
   },
   "landing": {
     "hero_title": "自由职业者的 <1>社保</1> 与 <3>就业平台</3>",
@@ -484,5 +485,14 @@ export default {
     "retry": "重做",
     "sending": "发送中...",
     "submit": "提交审核"
+  },
+  "ai_studio": {
+    "title": "AI 工作室 - 图像生成",
+    "desc": "仅需文本描述，即可创建专业的个人资料照片或作品集图像。",
+    "prompt_label": "描述您想要生成的图像",
+    "prompt_placeholder": "例如：一位戴着安全帽的建筑工人，写实风格，自然光线...",
+    "generate_btn": "立即生成",
+    "generating": "绘制中...",
+    "placeholder": "生成的图像将显示在这里"
   }
 }

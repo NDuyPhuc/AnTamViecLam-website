@@ -9,6 +9,7 @@ import UserCircleIcon from './icons/UserCircleIcon';
 import PlusCircleIcon from './icons/PlusCircleIcon';
 import BellIcon from './icons/BellIcon';
 import SparklesIcon from './icons/SparklesIcon';
+import PhotoIcon from './icons/PhotoIcon'; // Import
 import NotificationsPanel from './NotificationsPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { subscribeToNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '../services/notificationService';
@@ -19,6 +20,7 @@ import PaperAirplaneIconSolid from './icons/PaperAirplaneIconSolid';
 import ChatBubbleIconSolid from './icons/ChatBubbleIconSolid';
 import UserCircleIconSolid from './icons/UserCircleIconSolid';
 import SparklesIconSolid from './icons/SparklesIconSolid';
+import PhotoIconSolid from './icons/PhotoIconSolid'; // Import
 import LanguageSwitcher from './LanguageSwitcher'; 
 import { useTranslation } from 'react-i18next'; 
 
@@ -150,10 +152,12 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
     { view: View.Insurance, label: t('nav.insurance'), icon: <ShieldCheckIcon className="w-5 h-5" />, activeIcon: <ShieldCheckIconSolid className="w-5 h-5" /> },
     { view: View.Messaging, label: t('nav.messaging'), icon: <PaperAirplaneIcon className="w-5 h-5" />, activeIcon: <PaperAirplaneIconSolid className="w-5 h-5" />, hasUnread: unreadMessageCount > 0 },
     { view: View.Chatbot, label: t('nav.chatbot'), icon: <ChatBubbleIcon className="w-5 h-5" />, activeIcon: <ChatBubbleIconSolid className="w-5 h-5" /> },
+    { view: View.AIImages, label: t('nav.ai_images'), icon: <PhotoIcon className="w-5 h-5" />, activeIcon: <PhotoIconSolid className="w-5 h-5" /> },
     { view: View.Profile, label: t('nav.profile'), icon: <UserCircleIcon className="w-5 h-5" />, activeIcon: <UserCircleIconSolid className="w-5 h-5" /> },
   ];
 
   if (currentUserData?.userType === UserRole.Worker) {
+      // Insert Recommendations after Insurance
       navItems.splice(1, 0, { 
           view: View.Recommendations, 
           label: t('nav.ai_suggest'), 

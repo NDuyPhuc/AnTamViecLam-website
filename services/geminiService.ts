@@ -1,13 +1,13 @@
 
+import { GoogleGenAI, Type } from "@google/genai";
 import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import i18n from '../i18n';
 
-// --- CẤU HÌNH API URL ---
-const CHAT_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
-const ANALYZE_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/analyze";
+// Initialize the Google GenAI SDK directly on the client.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * Gửi tin nhắn đến chatbot.
+ * Gửi tin nhắn đến chatbot sử dụng Gemini SDK.
  */
 export const sendMessageToBot = async (
     message: string, 
@@ -28,67 +28,46 @@ export const sendMessageToBot = async (
         HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN.
     `;
 
-    const historyToSend = history.filter((msg, index) => true);
-
-    const formattedHistory = historyToSend.map(msg => ({
+    // Convert history to Gemini format
+    // Filter history to last 10 turns to save tokens
+    const historyToSend = history.slice(-10);
+    
+    // Construct the full prompt history for generateContent
+    // Note: 'user' role is usually mapped to 'user', and bot to 'model'.
+    const contents = historyToSend.map(msg => ({
         role: msg.author === MessageAuthor.User ? 'user' : 'model',
         parts: [{ text: msg.text }]
     }));
 
-    // Hàm helper: Timeout request
-    const fetchWithTimeout = (url: string, options: any, duration: number) => {
-        return Promise.race([
-            fetch(url, options),
-            new Promise<Response>((_, reject) => 
-                setTimeout(() => reject(new Error(`Request timed out after ${duration}ms`)), duration)
-            )
-        ]);
-    };
+    // Add current message
+    contents.push({
+        role: 'user',
+        parts: [{ text: message }]
+    });
 
     try {
-        console.log(`👉 [Step 1] Thử gọi Server Chat: ${CHAT_API_URL}`);
+        console.log(`👉 [Step 1] Calling Gemini SDK directly`);
         
-        const response = await fetchWithTimeout(CHAT_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: message,
-                history: formattedHistory,
-                systemInstruction: systemInstruction
-            })
-        }, 20000); // 20s timeout
-        
-        const contentType = response.headers.get("content-type");
-        if (response.ok && contentType && contentType.includes("application/json")) {
-            const data = await response.json();
-            if (data.text) {
-                console.log("✅ [Backend Vercel] Thành công!");
-                console.groupEnd();
-                return data.text;
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: contents,
+            config: {
+                systemInstruction: systemInstruction,
             }
+        });
+
+        if (response.text) {
+            console.log("✅ [Gemini Response] Thành công!");
+            console.groupEnd();
+            return response.text;
         }
         
-        let errorDetails = `Status: ${response.status}`;
-        try {
-            const errorData = await response.json();
-            if (errorData.error) errorDetails = errorData.error;
-            console.error("Backend Error Data:", errorData);
-        } catch(e) {}
+        throw new Error("Empty response from AI");
 
-        // Hiển thị lỗi rõ ràng cho người dùng nếu thiếu Key
-        if (errorDetails.includes("Missing API Key")) {
-            return "⚠️ Lỗi Server: Chưa cấu hình API Key trên Vercel. Vui lòng vào Settings -> Environment Variables để thêm VITE_GEMINI_API_KEY.";
-        }
-
-        throw new Error(errorDetails);
-
-    } catch (backendError: any) {
-        console.error("❌ [Backend Failed]", backendError);
+    } catch (error: any) {
+        console.error("❌ [Gemini Failed]", error);
         console.groupEnd();
-        if (backendError.message?.includes("Missing API Key")) {
-             return "⚠️ Lỗi: Server thiếu API Key. Vui lòng kiểm tra cấu hình Vercel.";
-        }
-        return `${i18n.t('chat.error_connection')} (${backendError.message})`;
+        return `${i18n.t('chat.error_connection')} (${error.message})`;
     }
 };
 
@@ -111,6 +90,7 @@ export const analyzeJobMatches = async (
     
     console.group("🔮 [GeminiService] Start Analyze Jobs");
 
+    // Giảm tải dữ liệu gửi đi
     const simplifiedJobs = nearbyJobs.map(j => ({
         id: j.id,
         title: j.title,
@@ -123,68 +103,99 @@ export const analyzeJobMatches = async (
 
     const userSummary = {
         name: userProfile.fullName,
-        bio: userProfile.bio,
+        bio: userProfile.bio?.substring(0, 300),
         skills: userProfile.skills,
-        history: userProfile.workHistory?.map(w => `${w.title} tại ${w.company}`),
+        history: userProfile.workHistory?.map(w => `${w.title} at ${w.company}`),
     };
 
     const currentLang = i18n.language;
+    
     const prompt = `
-        Bạn là chuyên gia tư vấn nghề nghiệp AI. Hãy phân tích mức độ phù hợp của các công việc sau cho người dùng này.
-        
-        NGƯỜI DÙNG: ${JSON.stringify(userSummary)}
-        
-        DANH SÁCH CÔNG VIỆC: ${JSON.stringify(simplifiedJobs)}
+    Role: Career Advisor AI.
+    Language: "${currentLang}" (Vietnamese if 'vi').
+    
+    User Profile: ${JSON.stringify(userSummary)}
+    Available Jobs: ${JSON.stringify(simplifiedJobs)}
 
-        YÊU CẦU PHÂN TÍCH:
-        Đánh giá từng công việc dựa trên khoảng cách, kỹ năng, mức lương và rủi ro.
-        
-        QUAN TRỌNG: Hãy trả lời nội dung phân tích (reason, pros, cons, environmentAnalysis) bằng ngôn ngữ: "${currentLang}" (nếu là 'vi' thì tiếng Việt, 'en' là tiếng Anh, 'zh' là tiếng Trung).
-
-        OUTPUT JSON FORMAT (BẮT BUỘC, KHÔNG MARKDOWN):
-        [
-            {
-                "jobId": "id_của_job",
-                "matchScore": 85, 
-                "reason": "Lý do phù hợp",
-                "pros": ["Điểm mạnh 1"],
-                "cons": ["Rủi ro"],
-                "environmentAnalysis": "Môi trường"
-            }
-        ]
+    Task: Analyze the fit for each job. Return a JSON array.
     `;
 
     try {
-         console.log(`👉 [Step 1] Thử gọi Server Analyze: ${ANALYZE_API_URL}`);
+         console.log(`👉 [Step 1] Calling Gemini SDK for Analysis`);
          
-         const response = await fetch(ANALYZE_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: prompt })
+         const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            jobId: { type: Type.STRING },
+                            matchScore: { type: Type.INTEGER, description: "Score from 0 to 100" },
+                            reason: { type: Type.STRING },
+                            pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                            environmentAnalysis: { type: Type.STRING }
+                        },
+                        required: ["jobId", "matchScore", "reason", "pros", "cons", "environmentAnalysis"],
+                    },
+                },
+            },
          });
 
-         const contentType = response.headers.get("content-type");
-         if (response.ok && contentType && contentType.includes("application/json")) {
-             const data = await response.json();
-             console.log("✅ [Backend Analyze] Thành công!", data.length, "items");
-             console.groupEnd();
-             return (data as JobRecommendation[]).sort((a, b) => b.matchScore - a.matchScore);
+         const text = response.text;
+         if (text) {
+             const data = JSON.parse(text);
+             if (Array.isArray(data)) {
+                 console.log("✅ [Gemini Analyze] Thành công!", data.length, "items");
+                 console.groupEnd();
+                 return (data as JobRecommendation[]).sort((a, b) => b.matchScore - a.matchScore);
+             }
          }
          
-         let errorMsg = `Status ${response.status}`;
-         try {
-             const errData = await response.json();
-             if (errData.error) errorMsg = errData.error;
-         } catch(e) {}
-
-         throw new Error(errorMsg);
+         throw new Error(`Analyze Request Failed: Empty or invalid JSON`);
 
     } catch (serverError: any) {
         console.error("❌ [Backend Analyze Failed]", serverError);
         console.groupEnd();
-        if (serverError.message?.includes("Missing API Key")) {
-            alert("Lỗi Server: Chưa cấu hình API Key trên Vercel. Vui lòng kiểm tra Settings -> Environment Variables.");
-        }
         return [];
+    }
+};
+
+// --- NEW FEATURE: IMAGE GENERATION ---
+
+export const generateImage = async (prompt: string): Promise<string | null> => {
+    console.group("🎨 [GeminiService] Generate Image");
+    try {
+        console.log(`👉 Calling Gemini 2.5 Flash Image with prompt: "${prompt}"`);
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: prompt }] },
+            config: {
+                imageConfig: { aspectRatio: "1:1" }
+            }
+        });
+
+        // Iterate through parts to find the image
+        if (response.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData) {
+                    console.log("✅ [Gemini Image] Success!");
+                    console.groupEnd();
+                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                }
+            }
+        }
+        
+        console.warn("⚠️ No image data found in response");
+        console.groupEnd();
+        return null;
+    } catch (error: any) {
+        console.error("❌ [Gemini Image Failed]", error);
+        console.groupEnd();
+        throw error;
     }
 };

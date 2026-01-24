@@ -6,6 +6,7 @@ export enum View {
   Chatbot = 'CHATBOT',
   Profile = 'PROFILE',
   Recommendations = 'RECOMMENDATIONS',
+  AIImages = 'AI_IMAGES',
 }
 
 export interface Job {
