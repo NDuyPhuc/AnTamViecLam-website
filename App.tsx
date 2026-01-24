@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Header from './components/Header';
@@ -100,7 +101,7 @@ const App: React.FC = () => {
       }
   }, [currentUserData, isPostJobModalOpen]);
 
-  // --- LOCATION LOGIC (AUTO & HIGH ACCURACY) ---
+  // --- LOCATION LOGIC (AUTO & OPTIMIZED PERFORMANCE) ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
     setLocationError(null); 
@@ -108,7 +109,7 @@ const App: React.FC = () => {
     const isNative = Capacitor.isNativePlatform();
 
     try {
-        console.log(`Starting AUTO location check... (High Accuracy: ON)`);
+        console.log(`Starting AUTO location check...`);
         
         if (isNative) {
             // NATIVE LOGIC
@@ -121,8 +122,8 @@ const App: React.FC = () => {
             }
             const position = await Geolocation.getCurrentPosition({
                 enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+                timeout: 5000,
+                maximumAge: 10000 // Allow 10s cache
             });
             setUserLocation({
                 lat: position.coords.latitude,
@@ -130,16 +131,18 @@ const App: React.FC = () => {
             });
 
         } else {
-            // WEB BROWSER LOGIC
+            // WEB BROWSER LOGIC - OPTIMIZED SPEED
             if (!navigator.geolocation) {
                 throw new Error(t('map.error_browser_support'));
             }
 
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                 navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true, // AUTO HIGH ACCURACY
-                    timeout: 10000,
-                    maximumAge: 0
+                    // Tắt High Accuracy trên web để lấy vị trí nhanh hơn (dựa vào Wifi/IP)
+                    // High Accuracy = True tốn 2-5s để bật GPS, trong khi False chỉ tốn <500ms
+                    enableHighAccuracy: false, 
+                    timeout: 5000, // Fail fast if stuck
+                    maximumAge: 300000 // Chấp nhận cache trong 5 phút để tránh load lại GPS
                 });
             });
 
@@ -156,17 +159,15 @@ const App: React.FC = () => {
         let msg = t('map.error_generic');
         
         if (e.code === 1) { 
-             // THÔNG BÁO RÕ RÀNG KHI NGƯỜI DÙNG TỪ CHỐI
              msg = isNative 
                 ? t('map.error_permission_denied_native') 
-                : t('map.error_permission_denied'); // Chuỗi này đã được cập nhật trong file ngôn ngữ để hướng dẫn bấm Ổ khóa
+                : t('map.error_permission_denied');
         }
         else if (e.code === 2) msg = t('map.error_gps_off'); 
         else if (e.code === 3) msg = t('map.error_timeout'); 
         else if (e.message) msg = e.message;
 
         setUserLocation(prev => {
-            // Chỉ hiện lỗi nếu chưa có location
             if (!prev) setLocationError(msg);
             return prev;
         });
@@ -175,24 +176,18 @@ const App: React.FC = () => {
     }
   }, [t]);
 
-  // EFFECT 1: Handle Auto Location Trigger
+  // EFFECT 1: Handle Auto Location Trigger - REMOVED DELAY
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
     if (currentUser) {
-        timer = setTimeout(() => {
-            getUserLocation();
-        }, 1000);
+        // Gọi ngay lập tức, không dùng setTimeout 1s nữa
+        getUserLocation();
     }
-    return () => {
-        if (timer) clearTimeout(timer);
-    };
   }, [currentUser, getUserLocation]);
 
   // EFFECT 2: Handle Data Subscription & Service Worker (INDEPENDENT)
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
 
-    // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
         const swUrl = `/sw.js`; 
         const registerSW = () => {
@@ -211,7 +206,6 @@ const App: React.FC = () => {
         }
     }
 
-    // Subscribe to Jobs
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
       setAllJobs(jobs);
@@ -221,31 +215,11 @@ const App: React.FC = () => {
     return () => {
         unsubscribeJobs();
     };
-  }, [currentUser]); // Re-run when currentUser changes to ensure fresh auth state for listeners
+  }, [currentUser]); 
 
-  // Reset pagination when filters change
   useEffect(() => {
       setCurrentPage(1);
   }, [locationFilter, typeFilter]);
-
-  const handleHardReset = async () => {
-    if (window.confirm("Thao tác này sẽ xóa bộ nhớ đệm và tải lại trang để khắc phục lỗi. Bạn có muốn tiếp tục?")) {
-        try {
-            if ('serviceWorker' in navigator) {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (const registration of registrations) {
-                    await registration.unregister();
-                }
-            }
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.reload();
-        } catch (e) {
-            console.error(e);
-            window.location.reload();
-        }
-    }
-  };
 
   const handleSelectJobForDetail = (job: Job) => {
     setSelectedJob(job);
@@ -314,7 +288,9 @@ const App: React.FC = () => {
 
     const jobsWithDistance = userLocation
       ? openJobs.map(job => {
-          const jobCoords = parseLocationString(job.location);
+          // PERFORMANCE: Use pre-parsed coordinates if available, fallback to parsing
+          const jobCoords = job.coordinates || parseLocationString(job.location);
+          
           if (jobCoords) {
             const distance = calculateDistance(
               userLocation.lat,

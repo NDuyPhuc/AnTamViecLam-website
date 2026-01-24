@@ -1,8 +1,9 @@
 
-import { db, serverTimestamp } from './firebase';
+import { db, serverTimestamp, increment } from './firebase';
 import type { Job, UserData, UserRole } from '../types';
 import { NotificationType } from '../types';
 import { createNotification } from './notificationService';
+import { parseLocationString } from '../utils/formatters';
 import i18n from '../i18n';
 
 export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
@@ -22,6 +23,9 @@ export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
         // Convert Firestore Timestamp to ISO string to prevent serialization issues.
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
 
+        // Performance Optimization: Parse location ONCE here, instead of every render in the UI
+        const coords = parseLocationString(data.location);
+
         const job: Job = {
           id: doc.id,
           title: data.title,
@@ -31,6 +35,7 @@ export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
           employerProfileUrl: data.employerProfileUrl,
           addressString: data.addressString,
           location: data.location,
+          coordinates: coords || undefined, // Store pre-parsed coordinates
           payRate: data.payRate,
           payType: data.payType,
           jobType: data.jobType || 'Thời vụ',
@@ -67,6 +72,7 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
     querySnapshot.forEach((doc) => {
       const data = doc.data();
       const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      const coords = parseLocationString(data.location);
       
       const job: Job = {
         id: doc.id,
@@ -77,6 +83,7 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
         employerProfileUrl: data.employerProfileUrl,
         addressString: data.addressString,
         location: data.location,
+        coordinates: coords || undefined,
         payRate: data.payRate,
         payType: data.payType,
         jobType: data.jobType,
@@ -108,6 +115,7 @@ export const getJobById = async (jobId: string): Promise<Job | null> => {
         if (doc.exists) {
             const data = doc.data();
             const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+            const coords = parseLocationString(data?.location);
             
             return {
                 id: doc.id,
@@ -118,6 +126,7 @@ export const getJobById = async (jobId: string): Promise<Job | null> => {
                 employerProfileUrl: data?.employerProfileUrl,
                 addressString: data?.addressString,
                 location: data?.location,
+                coordinates: coords || undefined,
                 payRate: data?.payRate,
                 payType: data?.payType,
                 jobType: data?.jobType || 'Thời vụ',
@@ -141,7 +150,7 @@ export const updateJobStatus = async (jobId: string, status: 'OPEN' | 'CLOSED') 
 
 
 // Update NewJobData to accept coordinates, which we'll convert to a location string
-type NewJobData = Omit<Job, 'id' | 'createdAt' | 'employerId' | 'employerName' | 'employerProfileUrl' | 'status' | 'hiredWorkerId' | 'location' | 'applicantCount'> & {
+type NewJobData = Omit<Job, 'id' | 'createdAt' | 'employerId' | 'employerName' | 'employerProfileUrl' | 'status' | 'hiredWorkerId' | 'location' | 'applicantCount' | 'coordinates'> & {
     coordinates: { lat: number; lng: number };
 };
 

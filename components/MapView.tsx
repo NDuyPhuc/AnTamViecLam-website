@@ -31,7 +31,7 @@ const RouteInfoCard: React.FC<{
     userLocation?: { lat: number; lng: number } | null;
 }> = ({ job, routeInfo, onClose, userLocation }) => {
     const { t } = useTranslation();
-    const jobCoords = parseLocationString(job.location);
+    const jobCoords = job.coordinates || parseLocationString(job.location);
 
     const handleOpenGoogleMaps = () => {
         if (!jobCoords) return;
@@ -176,7 +176,7 @@ const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFo
   const calculateRoute = async (job: Job) => {
       if (!userLocation) return;
       
-      const jobCoords = parseLocationString(job.location);
+      const jobCoords = job.coordinates || parseLocationString(job.location);
       if (!jobCoords) return;
 
       const L = (window as any).L;
@@ -254,7 +254,8 @@ const MapView: React.FC<MapViewProps> = ({ jobs, onJobSelect, focusedJobId, onFo
     if (jobs.length === 0) return;
 
     jobs.forEach(job => {
-      const coords = parseLocationString(job.location);
+      // Use parsed coordinates if available for speed
+      const coords = job.coordinates || parseLocationString(job.location);
       if (!coords) return; 
 
       const popupNode = document.createElement('div');

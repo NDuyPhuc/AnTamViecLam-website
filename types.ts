@@ -18,7 +18,8 @@ export interface Job {
   employerProfileUrl: string | null;
 
   addressString: string;
-  location: string; // Changed from coordinates
+  location: string; // Chuỗi gốc từ DB
+  coordinates?: { lat: number; lng: number }; // Tối ưu: Parsed coordinates cho tính toán nhanh
 
   payRate: number | "Thỏa thuận";
   payType: 'THEO GIỜ' | 'THEO NGÀY' | 'THEO THÁNG';
