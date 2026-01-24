@@ -61,8 +61,11 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
     Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in km
-  return distance;
+  const distance = R * c; // Linear distance in km
+  
+  // Áp dụng hệ số uốn khúc (tortuosity factor) ~1.4 để ước tính khoảng cách đường bộ thực tế thay vì đường chim bay.
+  // Điều này giúp đồng bộ tốt hơn với khoảng cách hiển thị trên OSRM/Google Maps tại Việt Nam.
+  return distance * 1.4;
 };
 
 export const formatDuration = (seconds: number): string => {
