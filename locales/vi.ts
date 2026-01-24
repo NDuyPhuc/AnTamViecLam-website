@@ -215,10 +215,12 @@ export default {
     "type_month": "Theo tháng",
     "placeholder_address": "VD: 123 Đường ABC...",
     "error_location_required": "Vui lòng ghim vị trí trên bản đồ.",
-    "kyc_required_alert": "Bạn phải xác minh danh tính thành công thì mới được đăng tin tuyển dụng. Vui lòng kiểm tra trạng thái hồ sơ của bạn."
+    "kyc_required_alert": "Bạn phải xác minh danh tính thành công thì mới được đăng tin tuyển dụng. Vui lòng kiểm tra trạng thái hồ sơ của bạn.",
+    "go_to_profile": "Đến hồ sơ xác thực"
   },
   "profile": {
     "title": "Hồ sơ của bạn",
+    "subtitle": "Quản lý thông tin cá nhân và trạng thái tài khoản",
     "full_name": "Họ và Tên",
     "phone": "Số điện thoại",
     "address": "Địa chỉ",
@@ -489,7 +491,7 @@ export default {
     "placeholder_tax_code": "Nhập mã số thuế...",
     "error_tax_code": "Vui lòng nhập Mã số thuế.",
     "retry": "Làm lại",
-    "sending": "Đang gửi...",
+    "sending": "Sending...",
     "submit": "Gửi hồ sơ duyệt"
   }
 }

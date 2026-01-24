@@ -206,10 +206,12 @@ export default {
     "type_month": "按月",
     "placeholder_address": "例如：ABC路123号...",
     "error_location_required": "请在地图上标记位置。",
-    "kyc_required_alert": "您必须成功验证身份 (KYC) 才能发布职位。请检查您的个人资料状态。"
+    "kyc_required_alert": "您必须成功验证身份 (KYC) 才能发布职位。请检查您的个人资料状态。",
+    "go_to_profile": "立即去验证"
   },
   "profile": {
     "title": "您的个人资料",
+    "subtitle": "管理个人信息和账户状态",
     "full_name": "全名",
     "phone": "电话号码",
     "address": "地址",

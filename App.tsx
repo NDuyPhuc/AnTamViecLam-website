@@ -32,30 +32,32 @@ import { useTranslation } from 'react-i18next';
 
 type JobViewMode = 'list' | 'map';
 
-const ITEMS_PER_PAGE = 10; // Cập nhật số lượng việc làm lên 10/trang theo yêu cầu
+const ITEMS_PER_PAGE = 10;
 
 const ViewToggle: React.FC<{ activeMode: JobViewMode; setMode: (mode: JobViewMode) => void }> = ({ activeMode, setMode }) => {
     const { t } = useTranslation();
     return (
-        <div className="flex items-center bg-gray-200 rounded-lg p-1">
+        <div className="flex items-center bg-gray-100/80 p-1 rounded-lg shadow-inner border border-gray-200/50">
             <button
                 onClick={() => setMode('list')}
-                className={`flex items-center justify-center w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                    activeMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-indigo-600'
+                className={`relative flex items-center justify-center px-4 py-1.5 text-sm font-bold rounded-md transition-all duration-300 ease-out select-none ${
+                    activeMode === 'list' 
+                        ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' 
+                        : 'text-gray-500 hover:text-gray-700 bg-transparent'
                 }`}
-                aria-pressed={activeMode === 'list'}
             >
-                <ListIcon className="w-4 h-4 mr-2" />
+                <ListIcon className={`w-4 h-4 mr-1.5 transition-transform duration-300 ${activeMode === 'list' ? 'scale-110' : ''}`} />
                 {t('map.list_view')}
             </button>
             <button
                 onClick={() => setMode('map')}
-                className={`flex items-center justify-center w-full px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
-                    activeMode === 'map' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-indigo-600'
+                className={`relative flex items-center justify-center px-4 py-1.5 text-sm font-bold rounded-md transition-all duration-300 ease-out select-none ${
+                    activeMode === 'map' 
+                        ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' 
+                        : 'text-gray-500 hover:text-gray-700 bg-transparent'
                 }`}
-                aria-pressed={activeMode === 'map'}
             >
-                <MapIcon className="w-4 h-4 mr-2" />
+                <MapIcon className={`w-4 h-4 mr-1.5 transition-transform duration-300 ${activeMode === 'map' ? 'scale-110' : ''}`} />
                 {t('map.map_view')}
             </button>
         </div>
@@ -444,8 +446,8 @@ const App: React.FC = () => {
                         return (
                         <div className="space-y-6">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <h2 className="text-3xl font-bold text-gray-800">{t('app.search_jobs')}</h2>
-                            <ViewToggle activeMode={jobViewMode} setMode={setJobViewMode} />
+                                <h2 className="text-3xl font-extrabold text-gray-800 tracking-tight">{t('app.search_jobs')}</h2>
+                                <ViewToggle activeMode={jobViewMode} setMode={setJobViewMode} />
                             </div>
                             
                             <JobFilters 
@@ -496,7 +498,11 @@ const App: React.FC = () => {
 
                             {jobViewMode === 'list' && (
                             <div className="space-y-4 pb-20">
-                                <h3 className="text-2xl font-bold text-gray-800 pt-4">{t('app.available_jobs')}</h3>
+                                <h3 className="text-xl font-bold text-gray-800 pt-2 flex items-center gap-2">
+                                    <span className="w-1.5 h-6 bg-indigo-600 rounded-full"></span>
+                                    {t('app.available_jobs')}
+                                    <span className="text-sm font-normal text-gray-500 ml-2 bg-gray-100 px-2 py-0.5 rounded-full">{filteredJobs.length}</span>
+                                </h3>
                                 {jobsLoading ? <Spinner message={t('common.loading')}/> : filteredJobs.length > 0 ? (
                                     <>
                                         {currentJobs.map((job) => (
@@ -560,7 +566,10 @@ const App: React.FC = () => {
 
                             {jobViewMode === 'map' && (
                                 <div>
-                                    <h3 className="text-2xl font-bold text-gray-800 pt-4 mb-4">{t('app.job_locations')}</h3>
+                                    <h3 className="text-xl font-bold text-gray-800 pt-2 mb-4 flex items-center gap-2">
+                                        <span className="w-1.5 h-6 bg-indigo-600 rounded-full"></span>
+                                        {t('app.job_locations')}
+                                    </h3>
                                     {jobsLoading ? <Spinner /> : (
                                       <MapView 
                                           jobs={filteredJobs} 

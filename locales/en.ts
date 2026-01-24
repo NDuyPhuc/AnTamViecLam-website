@@ -149,16 +149,6 @@ export default {
     "error_browser_support": "Browser does not support geolocation.",
     "error_generic": "Unable to retrieve location. Please try again."
   },
-  "time": {
-    "just_now": "just now",
-    "seconds_ago": "{{count}} seconds ago",
-    "minutes_ago": "{{count}} minutes ago",
-    "hours_ago": "{{count}} hours ago",
-    "days_ago": "{{count}} days ago",
-    "yesterday": "yesterday",
-    "presence_active": "Active now",
-    "presence_active_ago": "Active {{time}}"
-  },
   "app": {
     "search_jobs": "Search Jobs",
     "available_jobs": "Available Jobs",
@@ -220,10 +210,12 @@ export default {
     "type_month": "Monthly",
     "placeholder_address": "Ex: 123 ABC Street...",
     "error_location_required": "Please pin a location on the map.",
-    "kyc_required_alert": "You must successfully verify your identity (KYC) to post jobs. Please check your profile status."
+    "kyc_required_alert": "You must successfully verify your identity (KYC) to post jobs. Please check your profile status.",
+    "go_to_profile": "Verify Now"
   },
   "profile": {
     "title": "Your Profile",
+    "subtitle": "Manage personal info and account status",
     "full_name": "Full Name",
     "phone": "Phone Number",
     "address": "Address",

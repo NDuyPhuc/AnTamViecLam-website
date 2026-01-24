@@ -543,7 +543,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onViewProfile, onJobSelect })
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div>
               <h2 className="text-3xl font-bold text-gray-800">{t('profile.title')}</h2>
-              <p className="text-gray-500 text-sm mt-1">Quản lý thông tin cá nhân và trạng thái tài khoản</p>
+              <p className="text-gray-500 text-sm mt-1">{t('profile.subtitle')}</p>
           </div>
           {renderKycStatus()}
       </div>
