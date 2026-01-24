@@ -137,7 +137,7 @@ export default {
     "retry": "Thử lại ngay",
     "retry_loading": "Đang thử lại...",
     "drag_to_pick": "Di chuyển bản đồ để chọn vị trí",
-    "error_permission_denied": "Quyền vị trí bị từ chối.\nVui lòng kiểm tra:\n1. Biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Chọn 'Cho phép' (Reset Permission).\n2. Cài đặt Vị trí của trình duyệt.",
+    "error_permission_denied": "QUYỀN VỊ TRÍ BỊ TỪ CHỐI.\nVui lòng nhấn biểu tượng ổ khóa 🔒 trên thanh địa chỉ -> Bật Vị trí (Location) -> Tải lại trang.",
     "error_permission_denied_native": "Quyền truy cập vị trí bị từ chối. Vui lòng cấp quyền trong Cài đặt điện thoại.",
     "error_gps_off": "Không tìm thấy tín hiệu GPS. Hãy kiểm tra kết nối mạng.",
     "error_timeout": "Quá thời gian lấy vị trí.",

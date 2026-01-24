@@ -136,6 +136,19 @@ const App: React.FC = () => {
                 throw new Error(t('map.error_browser_support'));
             }
 
+            // [FIX] Check Permissions API first to avoid instant failure loop
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+                    if (result.state === 'denied') {
+                        throw { code: 1, message: 'PermissionDeniedByBrowserSettings' };
+                    }
+                } catch (permErr) {
+                    console.debug("Permissions API not fully supported or error:", permErr);
+                    // Continue to try standard geolocation if this check fails/isn't supported
+                }
+            }
+
             // Helper to wrap geolocation in Promise
             const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
                 return new Promise((resolve, reject) => {
@@ -157,7 +170,7 @@ const App: React.FC = () => {
             } catch (err: any) {
                 console.warn("High Accuracy Location failed, trying fallback...", err.message);
                 
-                // If permission denied, stop immediately
+                // If permission denied explicitly (Code 1), stop immediately. Do not try fallback.
                 if (err.code === 1) throw err;
 
                 // Try 2: Low Accuracy (Wifi/IP) + Accept Cached Position (Infinity)
@@ -182,9 +195,11 @@ const App: React.FC = () => {
         let msg = t('map.error_generic');
         
         if (e.code === 1) { 
+             // IMPORTANT: Distinguish between Native and Web permission denial
              if (isNative) {
                  msg = t('map.error_permission_denied_native');
              } else {
+                 // Instruction for Web User to unblock
                  msg = t('map.error_permission_denied');
              }
         }
