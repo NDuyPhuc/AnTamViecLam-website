@@ -34,14 +34,6 @@ type JobViewMode = 'list' | 'map';
 
 const ITEMS_PER_PAGE = 10;
 
-// Global error handler for chunk loading failures (Fixes 404 script error)
-window.addEventListener('error', (e) => {
-    if (/Loading chunk [\d]+ failed/.test(e.message) || e.message.includes('Unexpected token') || e.message.includes('404')) {
-        console.error('Chunk load error detected, reloading...', e);
-        window.location.reload();
-    }
-});
-
 const ViewToggle: React.FC<{ activeMode: JobViewMode; setMode: (mode: JobViewMode) => void }> = ({ activeMode, setMode }) => {
     const { t } = useTranslation();
     return (
@@ -117,7 +109,7 @@ const App: React.FC = () => {
     const isNative = Capacitor.isNativePlatform();
 
     try {
-        console.log(`Starting location check... (Platform: ${isNative ? 'Native' : 'Web'})`);
+        console.log(`User triggered location check...`);
         
         if (isNative) {
             // NATIVE LOGIC
@@ -144,18 +136,7 @@ const App: React.FC = () => {
                 throw new Error(t('map.error_browser_support'));
             }
 
-            // Check Permissions API explicitly before calling
-            if (navigator.permissions && navigator.permissions.query) {
-                try {
-                    const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-                    if (result.state === 'denied') {
-                        throw { code: 1, message: 'PermissionDeniedByBrowserSettings' };
-                    }
-                } catch (permErr) {
-                    console.debug("Permissions API check skipped:", permErr);
-                }
-            }
-
+            // Simple Wrapper
             const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
                 return new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -174,8 +155,7 @@ const App: React.FC = () => {
             } catch (err: any) {
                 console.warn("High Accuracy Location failed:", err.message);
                 
-                // CRITICAL: If Error is Code 1 (Permission Denied), DO NOT TRY FALLBACK.
-                // Doing so triggers a second error and spam detection.
+                // If denied, throw immediately
                 if (err.code === 1) throw err;
 
                 console.log("Trying Low Accuracy/Cached fallback...");
@@ -238,32 +218,8 @@ const App: React.FC = () => {
         }
     }
 
-    // DELAYED Location Fetch to avoid conflict with Notifications permission
-    if (currentUser) {
-        const timer = setTimeout(() => {
-            // Only fetch if we don't have location and no error yet
-            if (!userLocation && !locationError) {
-                getUserLocation();
-            }
-        }, 2000); // 2 second delay allowed the page to settle
-        return () => clearTimeout(timer);
-    }
-
-    // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
-    let appListener: any;
-    const setupAppListener = async () => {
-        try {
-            appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-                if (isActive) {
-                    console.log('App resumed, re-checking location...');
-                    getUserLocation();
-                }
-            });
-        } catch (err) {
-            console.warn('App State Listener failed:', err);
-        }
-    };
-    setupAppListener();
+    // REMOVED AUTOMATIC getUserLocation() CALL HERE
+    // Browser policy requires a user gesture (click) to allow location prompt reliably.
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
@@ -273,11 +229,8 @@ const App: React.FC = () => {
     
     return () => {
         unsubscribeJobs();
-        if (appListener) {
-            appListener.remove();
-        }
     };
-  }, [currentUser]); // Removed getUserLocation from dependency to avoid loop
+  }, []);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -438,6 +391,35 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
+                            {/* LOCATION REQUEST BANNER - Replaces Auto Prompt */}
+                            {!userLocation && !locationError && (
+                                <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-fade-in">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-indigo-100 p-2 rounded-full">
+                                            <MapIcon className="w-6 h-6 text-indigo-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-800">Tìm việc làm gần bạn?</p>
+                                            <p className="text-sm text-gray-600">Bật định vị để xem khoảng cách chính xác.</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => getUserLocation()}
+                                        disabled={isLocating}
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-lg transition-all shadow-md active:scale-95 whitespace-nowrap flex items-center"
+                                    >
+                                        {isLocating ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                Đang xác định...
+                                            </>
+                                        ) : (
+                                            "Bật định vị ngay"
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
                             {locationError && (
                                 <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
                                     <div className="flex-1">
@@ -448,12 +430,6 @@ const App: React.FC = () => {
                                         <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
                                     </div>
                                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                                        <button
-                                            onClick={handleHardReset}
-                                            className="bg-red-100 hover:bg-red-200 text-red-800 font-semibold py-2 px-3 rounded-lg transition-colors text-sm whitespace-nowrap"
-                                        >
-                                            {t('map.fix_connection')}
-                                        </button>
                                         <button 
                                             onClick={() => {
                                                 // Manual trigger needs to be direct

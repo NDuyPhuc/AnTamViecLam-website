@@ -215,6 +215,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
   }, [currentUser]);
 
+  // Request notifications in a separate side-effect, non-blocking
+  useEffect(() => {
+      if (currentUser) {
+          const initNotifications = async () => {
+              try {
+                  // Small delay to ensure UI renders first
+                  await new Promise(r => setTimeout(r, 3000));
+                  await requestNotificationPermission(currentUser.uid);
+              } catch (e) {
+                  console.warn("Notification permission request suppressed or failed:", e);
+              }
+          };
+          initNotifications();
+      }
+  }, [currentUser]);
+
 
   useEffect(() => {
     let presenceCleanup: (() => void) | undefined;
@@ -229,7 +245,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user) {
             try {
                 await fetchUserData(user);
-                await requestNotificationPermission(user.uid);
+                // Notification request removed from critical path
                 presenceCleanup = updateUserPresence(user.uid);
             } catch (error: any) {
                 console.error("Auth check failed (likely disabled):", error.message);
