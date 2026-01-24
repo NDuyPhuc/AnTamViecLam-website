@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Notification, NotificationType } from '../types';
 import BriefcaseIcon from './icons/BriefcaseIcon';
@@ -81,7 +80,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ notifications, 
                         notifications.map(notification => {
                             // Check if dynamic translation is possible
                             const displayText = (notification.translationKey) 
-                                ? t(notification.translationKey, notification.translationParams || {})
+                                ? t(notification.translationKey, notification.translationParams || {}) as string
                                 : notification.message;
 
                             return (

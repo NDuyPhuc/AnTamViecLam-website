@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { View, UserRole, Notification } from '../types';
 import BriefcaseIcon from './icons/BriefcaseIcon';
@@ -265,8 +264,8 @@ const Header: React.FC<HeaderProps> = ({ activeView, setActiveView, onPostJobCli
                     {navItems.map(item => (
                         <MobileNavItem 
                             key={item.view}
-                            icon={React.cloneElement(item.icon as React.ReactElement, { className: "w-6 h-6" })}
-                            activeIcon={React.cloneElement(item.activeIcon as React.ReactElement, { className: "w-6 h-6" })}
+                            icon={React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6" })}
+                            activeIcon={React.cloneElement(item.activeIcon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6" })}
                             label={item.label} 
                             isActive={activeView === item.view} 
                             onClick={() => setActiveView(item.view)}
