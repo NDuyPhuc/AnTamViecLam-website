@@ -53,7 +53,8 @@ export default async function handler(req, res) {
       });
     }
 
-    const MODEL_NAME = "gemini-2.5-flash";
+    // UPDATE: Sử dụng model gemini-2.0-flash (bản ổn định hiện tại) thay vì 2.5 (có thể chưa public)
+    const MODEL_NAME = "gemini-2.0-flash";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${SERVER_API_KEY}`;
 
     const payload = {
@@ -73,9 +74,10 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("[API/Analyze] Google API Error:", JSON.stringify(data));
+      console.error("[API/Analyze] Google API Error Details:", JSON.stringify(data, null, 2));
       return res.status(response.status).json({
-        error: data.error?.message || "Google API Error"
+        error: data.error?.message || "Google API Error",
+        details: data.error
       });
     }
 

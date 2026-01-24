@@ -59,7 +59,8 @@ export default async function handler(req, res) {
       });
     }
 
-    const MODEL_NAME = "gemini-2.5-flash";
+    // UPDATE: Sử dụng model gemini-2.0-flash thay vì 2.5
+    const MODEL_NAME = "gemini-2.0-flash";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${SERVER_API_KEY}`;
 
     const payload = {
@@ -85,10 +86,11 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("[API/Chat] Google API Error:", JSON.stringify(data));
+      console.error("[API/Chat] Google API Error:", JSON.stringify(data, null, 2));
       // Nếu key bị lỗi 403, có thể do key bị chặn IP hoặc chưa enable API
       return res.status(response.status).json({
-        error: data.error?.message || "Google API Error"
+        error: data.error?.message || "Google API Error",
+        details: data.error
       });
     }
 
