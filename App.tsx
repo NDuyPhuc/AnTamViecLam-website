@@ -136,7 +136,7 @@ const App: React.FC = () => {
                 throw new Error(t('map.error_browser_support'));
             }
 
-            // Simple Wrapper
+            // Wrapper
             const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
                 return new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -146,24 +146,27 @@ const App: React.FC = () => {
             let position: GeolocationPosition;
 
             try {
-                // Try 1: High Accuracy (GPS)
-                position = await getPosition({ 
-                    enableHighAccuracy: true, 
-                    timeout: 8000, 
-                    maximumAge: 0 
-                });
-            } catch (err: any) {
-                console.warn("High Accuracy Location failed:", err.message);
-                
-                // If denied, throw immediately
-                if (err.code === 1) throw err;
-
-                console.log("Trying Low Accuracy/Cached fallback...");
-                // Try 2: Low Accuracy (Wifi/IP) + Accept Cached Position
+                // CHIẾN LƯỢC MỚI: Ưu tiên lấy vị trí nhanh (Wifi/IP) trước.
+                // enableHighAccuracy: false giúp tránh lỗi "Code 1" trên một số thiết bị
+                // khi người dùng cấp quyền nhưng phần cứng GPS chưa sẵn sàng hoặc bị chặn ở mức hệ thống.
+                console.log("Trying Low Accuracy (Wifi/IP) first...");
                 position = await getPosition({ 
                     enableHighAccuracy: false, 
+                    timeout: 8000, 
+                    maximumAge: 300000 // Chấp nhận vị trí cũ trong 5 phút
+                });
+            } catch (err: any) {
+                console.warn("Low Accuracy Location failed:", err.message);
+                
+                // Nếu bị từ chối quyền (Code 1), dừng ngay, không thử lại High Accuracy
+                if (err.code === 1) throw err;
+
+                console.log("Trying High Accuracy fallback...");
+                // Chỉ thử High Accuracy nếu lỗi không phải là do quyền
+                position = await getPosition({ 
+                    enableHighAccuracy: true, 
                     timeout: 10000, 
-                    maximumAge: Infinity 
+                    maximumAge: 0 
                 });
             }
 
@@ -203,23 +206,26 @@ const App: React.FC = () => {
 
     // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
-        const swUrl = `/sw.js`;
+        // Sử dụng đường dẫn tuyệt đối từ root để chắc chắn load đúng file từ thư mục public
+        const swUrl = `/sw.js`; 
+        
         const registerSW = () => {
-             navigator.serviceWorker.register(swUrl).then(registration => {
-                 console.log('SW registered: ', registration);
-             }).catch(registrationError => {
-                 console.log('SW registration failed: ', registrationError);
-             });
+             navigator.serviceWorker.register(swUrl)
+                .then(registration => {
+                    console.log('SW registered: ', registration);
+                })
+                .catch(registrationError => {
+                    console.warn('SW registration failed: ', registrationError);
+                    // Không chặn app nếu SW lỗi
+                });
         };
-        if (document.visibilityState !== 'visible' || document.readyState === 'loading') {
-             window.addEventListener('load', registerSW);
-        } else {
+        
+        if (document.readyState === 'complete') {
              registerSW();
+        } else {
+             window.addEventListener('load', registerSW);
         }
     }
-
-    // REMOVED AUTOMATIC getUserLocation() CALL HERE
-    // Browser policy requires a user gesture (click) to allow location prompt reliably.
 
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
