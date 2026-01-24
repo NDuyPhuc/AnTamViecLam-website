@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Header from './components/Header';
@@ -176,6 +175,20 @@ const App: React.FC = () => {
     }
   }, [t]);
 
+  // EFFECT 1: Handle Auto Location Trigger
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (currentUser) {
+        timer = setTimeout(() => {
+            getUserLocation();
+        }, 1000);
+    }
+    return () => {
+        if (timer) clearTimeout(timer);
+    };
+  }, [currentUser, getUserLocation]);
+
+  // EFFECT 2: Handle Data Subscription & Service Worker (INDEPENDENT)
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
 
@@ -198,14 +211,7 @@ const App: React.FC = () => {
         }
     }
 
-    // AUTO GET LOCATION ON LOAD
-    if (currentUser) {
-        const timer = setTimeout(() => {
-            getUserLocation();
-        }, 1000);
-        return () => clearTimeout(timer);
-    }
-
+    // Subscribe to Jobs
     setJobsLoading(true);
     const unsubscribeJobs = subscribeToJobs((jobs) => {
       setAllJobs(jobs);
@@ -215,7 +221,7 @@ const App: React.FC = () => {
     return () => {
         unsubscribeJobs();
     };
-  }, [currentUser]); // Re-run when currentUser changes (login)
+  }, [currentUser]); // Re-run when currentUser changes to ensure fresh auth state for listeners
 
   // Reset pagination when filters change
   useEffect(() => {
