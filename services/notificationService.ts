@@ -3,9 +3,8 @@ import { db, serverTimestamp, arrayUnion } from './firebase';
 import { messaging } from './firebase';
 import { Notification as NotificationData, NotificationType, UserData } from '../types';
 
-// QUAN TRỌNG: Thay thế giá trị này bằng VAPID key thực tế của bạn từ Firebase console
-// Firebase Console -> Project Settings -> Cloud Messaging -> Web configuration -> Web Push certificates
-const VAPID_KEY = 'BC0S6kKANv-QpY1c-5rXw1Xg_WfH3Z7T6t_g8C6Z4-F8r4w8S9tQ8n7w6X3Z7f7b5t3b3Y5F-E1d0D9k8H';
+// QUAN TRỌNG: Key này phải khớp với Key Pair trong Firebase Console -> Cloud Messaging -> Web Push certificates
+const VAPID_KEY = 'BDtL41wNHbkTSSPN1Rq87d0CX33pB4zMPDBTIt2dvgcOhQNZlgJNzQIygbjT413TqevamLQq5Lk_Sn82G7Bn8Pw';
 
 /**
  * Yêu cầu quyền hiển thị thông báo và lưu token nếu được cấp phép.
@@ -69,7 +68,7 @@ const saveMessagingDeviceToken = async (userId: string) => {
     } catch (error: any) {
         // Bắt lỗi cụ thể để thông báo rõ ràng
         if (error.code === 'messaging/invalid-vapid-key' || error.message?.includes('applicationServerKey')) {
-            console.error("LỖI CẤU HÌNH THÔNG BÁO: VAPID Key không hợp lệ. Vui lòng kiểm tra file notificationService.ts và Firebase Console.");
+            console.error("LỖI CẤU HÌNH THÔNG BÁO: VAPID Key không hợp lệ. Đã cập nhật key mới, vui lòng reload.", error);
         } else {
             console.error('An error occurred while retrieving token:', error);
         }

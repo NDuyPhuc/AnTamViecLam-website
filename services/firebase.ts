@@ -4,8 +4,6 @@ const firebase = (window as any).firebase;
 
 if (!firebase) {
   console.error("Firebase SDK not loaded. Ensure Firebase scripts are included in index.html");
-  // Throwing error here might crash the app entirely, better to log and let the UI handle empty states if possible,
-  // but since Auth is critical, we'll alert.
   throw new Error("Lỗi kết nối: Không thể tải thư viện Firebase. Vui lòng kiểm tra kết nối mạng và tải lại trang.");
 }
 
@@ -13,12 +11,12 @@ if (!firebase) {
 const firebaseConfig = {
   apiKey: "AIzaSyAsAmByLvLqfFAKPiAeen0UJWdjT9MnTxQ",
   authDomain: "antamvieclam.firebaseapp.com",
+  databaseURL: "https://antamvieclam-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "antamvieclam",
-  storageBucket: "antamvieclam.appspot.com",
+  storageBucket: "antamvieclam.firebasestorage.app",
   messagingSenderId: "221272132411",
   appId: "1:221272132411:web:83f7ab86a08823f3c8451e",
-  measurementId: "G-2PT3C0KQWB",
-  databaseURL: "https://antamvieclam-default-rtdb.asia-southeast1.firebasedatabase.app"
+  measurementId: "G-2PT3C0KQWB"
 };
 
 // Initialize Firebase using the compat SDK

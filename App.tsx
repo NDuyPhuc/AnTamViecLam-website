@@ -136,18 +136,9 @@ const App: React.FC = () => {
                 throw new Error(t('map.error_browser_support'));
             }
 
-            // DEBUG PERMISSION STATE
-            if (navigator.permissions && navigator.permissions.query) {
-                const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-                console.log("Current Permission State:", result.state); // granted, prompt, or denied
-                if (result.state === 'denied') {
-                    throw { code: 1, message: 'Permission explicitly denied in browser settings.' };
-                }
-            }
-
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                 navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true, // Bật lại độ chính xác cao theo yêu cầu
+                    enableHighAccuracy: true, // AUTO HIGH ACCURACY
                     timeout: 10000,
                     maximumAge: 0
                 });
@@ -166,13 +157,17 @@ const App: React.FC = () => {
         let msg = t('map.error_generic');
         
         if (e.code === 1) { 
-             msg = isNative ? t('map.error_permission_denied_native') : t('map.error_permission_denied');
+             // THÔNG BÁO RÕ RÀNG KHI NGƯỜI DÙNG TỪ CHỐI
+             msg = isNative 
+                ? t('map.error_permission_denied_native') 
+                : t('map.error_permission_denied'); // Chuỗi này đã được cập nhật trong file ngôn ngữ để hướng dẫn bấm Ổ khóa
         }
         else if (e.code === 2) msg = t('map.error_gps_off'); 
         else if (e.code === 3) msg = t('map.error_timeout'); 
         else if (e.message) msg = e.message;
 
         setUserLocation(prev => {
+            // Chỉ hiện lỗi nếu chưa có location
             if (!prev) setLocationError(msg);
             return prev;
         });
@@ -203,8 +198,7 @@ const App: React.FC = () => {
         }
     }
 
-    // Tự động gọi lấy vị trí khi App mount (hoặc user đăng nhập xong)
-    // Dùng timeout nhỏ để tránh tranh chấp tài nguyên lúc vừa render
+    // AUTO GET LOCATION ON LOAD
     if (currentUser) {
         const timer = setTimeout(() => {
             getUserLocation();
@@ -382,30 +376,23 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
-                            {/* LOCATION ERROR BANNER */}
+                            {/* LOCATION ERROR BANNER WITH INSTRUCTION */}
                             {locationError && (
-                                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <MapIcon className="w-5 h-5 text-red-600" />
-                                            <p className="font-bold">{t('map.location_permission_required')}</p>
+                                <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col items-start gap-3 animate-fade-in shadow-sm">
+                                    <div className="flex items-start gap-3">
+                                        <MapIcon className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+                                        <div className="flex-1">
+                                            <p className="font-bold mb-1">{t('map.location_permission_required')}</p>
+                                            <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
                                         </div>
-                                        <p className="text-sm opacity-90 whitespace-pre-line">{locationError}</p>
                                     </div>
-                                    <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                                    <div className="w-full flex justify-end gap-2">
                                         <button 
                                             onClick={() => getUserLocation()}
                                             disabled={isLocating}
-                                            className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm whitespace-nowrap"
+                                            className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm"
                                         >
-                                            {isLocating ? (
-                                                <>
-                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-red-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                    {t('map.retry_loading')}
-                                                </>
-                                            ) : (
-                                                t('map.retry')
-                                            )}
+                                            {isLocating ? t('map.retry_loading') : t('map.retry')}
                                         </button>
                                     </div>
                                 </div>

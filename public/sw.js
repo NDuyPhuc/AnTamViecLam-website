@@ -10,8 +10,9 @@ importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-com
 const firebaseConfig = {
   apiKey: "AIzaSyAsAmByLvLqfFAKPiAeen0UJWdjT9MnTxQ",
   authDomain: "antamvieclam.firebaseapp.com",
+  databaseURL: "https://antamvieclam-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "antamvieclam",
-  storageBucket: "antamvieclam.appspot.com",
+  storageBucket: "antamvieclam.firebasestorage.app",
   messagingSenderId: "221272132411",
   appId: "1:221272132411:web:83f7ab86a08823f3c8451e",
   measurementId: "G-2PT3C0KQWB"
