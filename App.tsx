@@ -101,7 +101,7 @@ const App: React.FC = () => {
       }
   }, [currentUserData, isPostJobModalOpen]);
 
-  // --- HYBRID LOCATION LOGIC ---
+  // --- LOCATION LOGIC (AUTO & HIGH ACCURACY) ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
     setLocationError(null); 
@@ -109,7 +109,7 @@ const App: React.FC = () => {
     const isNative = Capacitor.isNativePlatform();
 
     try {
-        console.log(`User triggered location check...`);
+        console.log(`Starting AUTO location check... (High Accuracy: ON)`);
         
         if (isNative) {
             // NATIVE LOGIC
@@ -136,40 +136,24 @@ const App: React.FC = () => {
                 throw new Error(t('map.error_browser_support'));
             }
 
-            // Wrapper
-            const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
-                return new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, options);
-                });
-            };
-
-            let position: GeolocationPosition;
-
-            try {
-                // CHIẾN LƯỢC MỚI: Ưu tiên lấy vị trí nhanh (Wifi/IP) trước.
-                // enableHighAccuracy: false giúp tránh lỗi "Code 1" trên một số thiết bị
-                // khi người dùng cấp quyền nhưng phần cứng GPS chưa sẵn sàng hoặc bị chặn ở mức hệ thống.
-                console.log("Trying Low Accuracy (Wifi/IP) first...");
-                position = await getPosition({ 
-                    enableHighAccuracy: false, 
-                    timeout: 8000, 
-                    maximumAge: 300000 // Chấp nhận vị trí cũ trong 5 phút
-                });
-            } catch (err: any) {
-                console.warn("Low Accuracy Location failed:", err.message);
-                
-                // Nếu bị từ chối quyền (Code 1), dừng ngay, không thử lại High Accuracy
-                if (err.code === 1) throw err;
-
-                console.log("Trying High Accuracy fallback...");
-                // Chỉ thử High Accuracy nếu lỗi không phải là do quyền
-                position = await getPosition({ 
-                    enableHighAccuracy: true, 
-                    timeout: 10000, 
-                    maximumAge: 0 
-                });
+            // DEBUG PERMISSION STATE
+            if (navigator.permissions && navigator.permissions.query) {
+                const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+                console.log("Current Permission State:", result.state); // granted, prompt, or denied
+                if (result.state === 'denied') {
+                    throw { code: 1, message: 'Permission explicitly denied in browser settings.' };
+                }
             }
 
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true, // Bật lại độ chính xác cao theo yêu cầu
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            });
+
+            console.log("Location obtained:", position.coords);
             setUserLocation({
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
@@ -182,11 +166,7 @@ const App: React.FC = () => {
         let msg = t('map.error_generic');
         
         if (e.code === 1) { 
-             if (isNative) {
-                 msg = t('map.error_permission_denied_native');
-             } else {
-                 msg = t('map.error_permission_denied');
-             }
+             msg = isNative ? t('map.error_permission_denied_native') : t('map.error_permission_denied');
         }
         else if (e.code === 2) msg = t('map.error_gps_off'); 
         else if (e.code === 3) msg = t('map.error_timeout'); 
@@ -206,9 +186,7 @@ const App: React.FC = () => {
 
     // Service Worker registration (Web only)
     if ('serviceWorker' in navigator && !isNative) {
-        // Sử dụng đường dẫn tuyệt đối từ root để chắc chắn load đúng file từ thư mục public
         const swUrl = `/sw.js`; 
-        
         const registerSW = () => {
              navigator.serviceWorker.register(swUrl)
                 .then(registration => {
@@ -216,15 +194,22 @@ const App: React.FC = () => {
                 })
                 .catch(registrationError => {
                     console.warn('SW registration failed: ', registrationError);
-                    // Không chặn app nếu SW lỗi
                 });
         };
-        
         if (document.readyState === 'complete') {
              registerSW();
         } else {
              window.addEventListener('load', registerSW);
         }
+    }
+
+    // Tự động gọi lấy vị trí khi App mount (hoặc user đăng nhập xong)
+    // Dùng timeout nhỏ để tránh tranh chấp tài nguyên lúc vừa render
+    if (currentUser) {
+        const timer = setTimeout(() => {
+            getUserLocation();
+        }, 1000);
+        return () => clearTimeout(timer);
     }
 
     setJobsLoading(true);
@@ -236,7 +221,7 @@ const App: React.FC = () => {
     return () => {
         unsubscribeJobs();
     };
-  }, []);
+  }, [currentUser]); // Re-run when currentUser changes (login)
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -397,35 +382,7 @@ const App: React.FC = () => {
                             onReset={handleResetFilters}
                             />
 
-                            {/* LOCATION REQUEST BANNER - Replaces Auto Prompt */}
-                            {!userLocation && !locationError && (
-                                <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-fade-in">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-indigo-100 p-2 rounded-full">
-                                            <MapIcon className="w-6 h-6 text-indigo-600" />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-gray-800">Tìm việc làm gần bạn?</p>
-                                            <p className="text-sm text-gray-600">Bật định vị để xem khoảng cách chính xác.</p>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => getUserLocation()}
-                                        disabled={isLocating}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-lg transition-all shadow-md active:scale-95 whitespace-nowrap flex items-center"
-                                    >
-                                        {isLocating ? (
-                                            <>
-                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                                Đang xác định...
-                                            </>
-                                        ) : (
-                                            "Bật định vị ngay"
-                                        )}
-                                    </button>
-                                </div>
-                            )}
-
+                            {/* LOCATION ERROR BANNER */}
                             {locationError && (
                                 <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-4 rounded-r-lg flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in shadow-sm">
                                     <div className="flex-1">
@@ -437,10 +394,7 @@ const App: React.FC = () => {
                                     </div>
                                     <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                                         <button 
-                                            onClick={() => {
-                                                // Manual trigger needs to be direct
-                                                getUserLocation();
-                                            }}
+                                            onClick={() => getUserLocation()}
                                             disabled={isLocating}
                                             className="bg-white border border-red-200 hover:bg-red-100 text-red-800 font-semibold py-2 px-4 rounded-lg transition-colors flex items-center shrink-0 disabled:opacity-50 shadow-sm whitespace-nowrap"
                                         >
@@ -475,7 +429,7 @@ const App: React.FC = () => {
                                             />
                                         ))}
                                         
-                                        {/* Pagination Controls - FLOATING FIXED BOTTOM VIA PORTAL */}
+                                        {/* Pagination Controls */}
                                         {totalPages > 1 && createPortal(
                                             <div className="fixed bottom-[88px] md:bottom-10 left-0 right-0 flex justify-center pointer-events-none z-40">
                                                 <div className="bg-white/95 backdrop-blur-md shadow-2xl border border-gray-200/50 rounded-full p-1.5 flex items-center space-x-1 pointer-events-auto transform transition-all animate-fade-in-up">

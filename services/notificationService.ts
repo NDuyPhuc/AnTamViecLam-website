@@ -43,26 +43,22 @@ export const requestNotificationPermission = async (userId: string) => {
  */
 const saveMessagingDeviceToken = async (userId: string) => {
     try {
-        // CỰC KỲ QUAN TRỌNG: Chờ Service Worker sẵn sàng trước khi gọi getToken
-        // Điều này sửa lỗi "AbortError: ... no active Service Worker"
         if ('serviceWorker' in navigator) {
             const registration = await navigator.serviceWorker.ready;
             
+            // getToken throw error if VAPID key is invalid
             const fcmToken = await messaging.getToken({ 
                 vapidKey: VAPID_KEY,
                 serviceWorkerRegistration: registration 
             });
 
             if (fcmToken) {
-                // console.log('FCM Token:', fcmToken); // Uncomment for debugging
                 const userDocRef = db.collection('users').doc(userId);
-                // Sử dụng arrayUnion để thêm token mà không tạo bản sao.
                 await userDocRef.update({
                     fcmTokens: arrayUnion(fcmToken),
                 });
                 console.log('FCM token saved for user.');
 
-                // Lắng nghe các tin nhắn khi ứng dụng đang mở (foreground)
                 messaging.onMessage((payload) => {
                     console.log('Foreground message received. ', payload);
                 });
@@ -70,8 +66,13 @@ const saveMessagingDeviceToken = async (userId: string) => {
                 console.log('No registration token available. Request permission to generate one.');
             }
         }
-    } catch (error) {
-        console.error('An error occurred while retrieving token:', error);
+    } catch (error: any) {
+        // Bắt lỗi cụ thể để thông báo rõ ràng
+        if (error.code === 'messaging/invalid-vapid-key' || error.message?.includes('applicationServerKey')) {
+            console.error("LỖI CẤU HÌNH THÔNG BÁO: VAPID Key không hợp lệ. Vui lòng kiểm tra file notificationService.ts và Firebase Console.");
+        } else {
+            console.error('An error occurred while retrieving token:', error);
+        }
     }
 };
 
