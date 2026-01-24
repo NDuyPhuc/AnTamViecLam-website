@@ -3,9 +3,11 @@ import { ChatMessage, MessageAuthor, Job, UserData } from "../types";
 import i18n from '../i18n';
 
 // --- CẤU HÌNH API URL ---
-// Sử dụng đường dẫn tuyệt đối để Mobile App gọi được Server Vercel
-const CHAT_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/chat";
-const ANALYZE_API_URL = "https://an-tam-viec-lam-website.vercel.app/api/analyze";
+// SỬA ĐỔI: Dùng đường dẫn tương đối.
+// - Khi chạy Local (nếu có cấu hình proxy) hoặc Deploy trên Vercel, nó sẽ tự gọi đúng backend của môi trường đó.
+// - Giúp tránh lỗi: Chạy local nhưng lại gọi API của Production (nơi key cũ bị lỗi).
+const CHAT_API_URL = "/api/chat";
+const ANALYZE_API_URL = "/api/analyze";
 
 /**
  * Gửi tin nhắn đến chatbot.
@@ -29,10 +31,7 @@ export const sendMessageToBot = async (
         HÃY TRẢ LỜI NGẮN GỌN, THÂN THIỆN.
     `;
 
-    // Lọc bỏ tin nhắn chào hỏi ban đầu của Bot
-    const historyToSend = history.filter((msg, index) => {
-        return true; 
-    });
+    const historyToSend = history.filter((msg, index) => true);
 
     const formattedHistory = historyToSend.map(msg => ({
         role: msg.author === MessageAuthor.User ? 'user' : 'model',
@@ -50,7 +49,7 @@ export const sendMessageToBot = async (
     };
 
     try {
-        console.log(`👉 [Step 1] Thử gọi Server Chat: ${CHAT_API_URL}`);
+        console.log(`👉 [Step 1] Calling API: ${CHAT_API_URL}`);
         
         const response = await fetchWithTimeout(CHAT_API_URL, {
             method: 'POST',
@@ -72,17 +71,33 @@ export const sendMessageToBot = async (
             }
         }
         
-        let errorMsg = `Backend Status: ${response.status}`;
+        let errorDetails = `Status: ${response.status}`;
         try {
             const errorData = await response.json();
-            if(errorData.error) errorMsg += ` - ${errorData.error}`;
+            if (errorData.error) errorDetails = errorData.error;
+            console.error("Backend Error Data:", errorData);
         } catch(e) {}
-        throw new Error(errorMsg);
 
-    } catch (backendError) {
+        // Hiển thị lỗi rõ ràng cho người dùng nếu thiếu Key
+        if (errorDetails.includes("Missing API Key")) {
+            return "⚠️ Lỗi Server: Chưa cấu hình API Key trên Vercel. Vui lòng vào Settings -> Environment Variables để thêm VITE_GEMINI_API_KEY.";
+        }
+        if (errorDetails.includes("suspended") || errorDetails.includes("API Key not valid")) {
+            return "⚠️ Dịch vụ AI đang bảo trì (Lỗi Key/Billing). Vui lòng thử lại sau.";
+        }
+
+        throw new Error(errorDetails);
+
+    } catch (backendError: any) {
         console.error("❌ [Backend Failed]", backendError);
         console.groupEnd();
-        return i18n.t('chat.error_connection');
+        if (backendError.message?.includes("Missing API Key")) {
+             return "⚠️ Lỗi: Server thiếu API Key. Vui lòng kiểm tra cấu hình Vercel.";
+        }
+        if (backendError.message?.includes("suspended")) {
+             return "⚠️ Dịch vụ AI tạm ngưng. Vui lòng liên hệ Admin để kiểm tra tài khoản Billing.";
+        }
+        return `${i18n.t('chat.error_connection')} (${backendError.message})`;
     }
 };
 
@@ -149,7 +164,7 @@ export const analyzeJobMatches = async (
     `;
 
     try {
-         console.log(`👉 [Step 1] Thử gọi Server Analyze: ${ANALYZE_API_URL}`);
+         console.log(`👉 [Step 1] Calling API: ${ANALYZE_API_URL}`);
          
          const response = await fetch(ANALYZE_API_URL, {
             method: 'POST',
@@ -162,15 +177,30 @@ export const analyzeJobMatches = async (
              const data = await response.json();
              console.log("✅ [Backend Analyze] Thành công!", data.length, "items");
              console.groupEnd();
-             // Server đã trả về JSON object, không cần parse lại
              return (data as JobRecommendation[]).sort((a, b) => b.matchScore - a.matchScore);
          }
          
-         throw new Error(`Analyze Server Failed: ${response.status}`);
+         let errorMsg = `Status ${response.status}`;
+         try {
+             const errData = await response.json();
+             if (errData.error) errorMsg = errData.error;
+         } catch(e) {}
 
-    } catch (serverError) {
+         throw new Error(errorMsg);
+
+    } catch (serverError: any) {
         console.error("❌ [Backend Analyze Failed]", serverError);
         console.groupEnd();
+        
+        let alertMsg = "Không thể phân tích dữ liệu lúc này.";
+        
+        if (serverError.message?.includes("Missing API Key")) {
+            alertMsg = "Lỗi Server: Chưa cấu hình API Key trên Vercel.";
+        } else if (serverError.message?.includes("suspended")) {
+            alertMsg = "Tài khoản Google Cloud API đã bị tạm ngưng (Billing/Quota). Vui lòng kiểm tra Console.";
+        }
+        
+        alert(alertMsg);
         return [];
     }
 };

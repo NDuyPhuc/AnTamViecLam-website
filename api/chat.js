@@ -1,7 +1,6 @@
 
 export default async function handler(req, res) {
   // --- CẤU HÌNH SERVER SIDE (VERCEL) ---
-  // Thử tất cả các tên biến môi trường có thể có để đảm bảo tìm thấy Key
   const SERVER_API_KEY = 
     process.env.VITE_GEMINI_API_KEY || 
     process.env.GEMINI_API_KEY || 
@@ -9,28 +8,20 @@ export default async function handler(req, res) {
     process.env.VITE_GOOGLE_API_KEY;
   // -------------------------------------
 
-  // CORS Setup
-  const allowedOrigins = [
-    'https://an-tam-viec-lam-website.vercel.app', 
-    'http://localhost:3000', 
-    'http://localhost', 
-    'capacitor://localhost'
-  ];
-  
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin) || !origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
+  // Log kiểm tra key (Chỉ hiện 8 ký tự đầu để bảo mật nhưng đủ để biết là key mới hay cũ)
+  const keyPrefix = SERVER_API_KEY ? SERVER_API_KEY.slice(0, 8) : "NONE";
+  console.log(`[API/Chat] Request received. Using Key starting with: ${keyPrefix}...`);
 
+  // 1. CORS: Cho phép tất cả (*) để tránh lỗi chặn khi debug
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,POST,PUT,DELETE");
   res.setHeader(
     "Access-Control-Allow-Headers",
     "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
   );
 
+  // Xử lý Preflight Request
   if (req.method === "OPTIONS") {
     res.status(200).end();
     return;
@@ -44,23 +35,16 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { message, history, systemInstruction } = body;
 
-    // Kiểm tra Key trên Server và log debug (chỉ hiện 4 ký tự cuối để bảo mật)
-    const keyStatus = SERVER_API_KEY 
-        ? `Found (ends with ...${SERVER_API_KEY.slice(-4)})` 
-        : "MISSING";
-    
-    console.log(`[API/Chat] API Key Status: ${keyStatus}`);
-
+    // 2. Kiểm tra API Key
     if (!SERVER_API_KEY) {
-      console.error("[API/Chat] ERROR: Không tìm thấy API Key trong Environment Variables.");
-      console.error("Checked: VITE_GEMINI_API_KEY, GEMINI_API_KEY, VITE_API_KEY, VITE_GOOGLE_API_KEY");
+      console.error("[API/Chat] LỖI: Chưa cấu hình API Key trên Vercel (Settings -> Environment Variables).");
       return res.status(500).json({ 
-        error: "Server configuration error. API Key is missing. Please check Vercel Environment Variables and Redeploy." 
+        error: "Server Error: Missing API Key. Please configure VITE_GEMINI_API_KEY in Vercel Settings." 
       });
     }
 
-    // UPDATE: Sử dụng model gemini-2.0-flash thay vì 2.5
-    const MODEL_NAME = "gemini-2.0-flash";
+    // 3. Chọn Model: Sử dụng bản ổn định 1.5 Flash
+    const MODEL_NAME = "gemini-1.5-flash"; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${SERVER_API_KEY}`;
 
     const payload = {
@@ -87,9 +71,29 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error("[API/Chat] Google API Error:", JSON.stringify(data, null, 2));
-      // Nếu key bị lỗi 403, có thể do key bị chặn IP hoặc chưa enable API
+      
+      let errorMessage = data.error?.message || "Google API Error";
+      // BẢO MẬT: Che giấu API Key
+      errorMessage = errorMessage.replace(/key:[^ ]+/, "key:***HIDDEN***");
+
+      // Fallback
+      if (response.status === 404) {
+          console.log("[API/Chat] Retrying with gemini-1.5-pro...");
+          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${SERVER_API_KEY}`;
+          const fallbackResponse = await fetch(fallbackUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+          });
+          const fallbackData = await fallbackResponse.json();
+          if (fallbackResponse.ok) {
+               const text = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text;
+               return res.status(200).json({ text: text || "Không có nội dung." });
+          }
+      }
+
       return res.status(response.status).json({
-        error: data.error?.message || "Google API Error",
+        error: errorMessage,
         details: data.error
       });
     }
