@@ -15,7 +15,6 @@ import ArrowLeftIcon from './components/icons/ArrowLeftIcon';
 import ArrowRightIcon from './components/icons/ArrowRightIcon';
 import ProfilePage from './components/ProfilePage';
 import PostJobModal from './components/PostJobModal';
-import ImageGenerator from './components/ImageGenerator'; // Import
 import { View, Job, Application } from './types';
 import { useAuth } from './contexts/AuthContext';
 import UnauthenticatedApp from './components/UnauthenticatedApp';
@@ -496,8 +495,6 @@ const App: React.FC = () => {
                                 <Chatbot allJobs={filteredJobs} />
                             </div>
                         );
-                    case View.AIImages: // Add case
-                        return <ImageGenerator />;
                     case View.Profile:
                         return <ProfilePage 
                             onViewProfile={(userId, application) => setViewingProfile({userId, applicationContext: application})} 

@@ -30,8 +30,7 @@ export default {
     "profile": "Profile",
     "ai_suggest": "AI Match",
     "post_job": "Post Job",
-    "hello": "Hi",
-    "ai_images": "AI Studio"
+    "hello": "Hi"
   },
   "landing": {
     "hero_title": "<1>Social Security</1> & <3>Job Platform</3> for Freelancers",
@@ -496,14 +495,5 @@ export default {
     "retry": "Redo",
     "sending": "Sending...",
     "submit": "Submit for Review"
-  },
-  "ai_studio": {
-    "title": "AI Studio - Image Generator",
-    "desc": "Create professional profile photos or portfolio images using just a text description.",
-    "prompt_label": "Describe the image you want",
-    "prompt_placeholder": "E.g., A construction worker wearing a safety helmet, realistic style, natural lighting...",
-    "generate_btn": "Generate Image",
-    "generating": "Painting...",
-    "placeholder": "Generated image will appear here"
   }
 }

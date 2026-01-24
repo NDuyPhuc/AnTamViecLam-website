@@ -168,34 +168,40 @@ export const analyzeJobMatches = async (
     }
 };
 
-// --- NEW FEATURE: IMAGE GENERATION ---
+// --- TÍNH NĂNG MỚI: TẠO ẢNH ---
 
 export const generateImage = async (prompt: string): Promise<string | null> => {
-    console.group("🎨 [GeminiService] Generate Image");
+    console.group("🎨 [GeminiService] Start Generate Image");
     try {
-        console.log(`👉 Calling Gemini 2.5 Flash Image with prompt: "${prompt}"`);
+        console.log(`👉 [Step 1] Calling Gemini SDK for Image Generation`);
+        
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: prompt }] },
+            contents: {
+                parts: [{ text: prompt }]
+            },
             config: {
-                imageConfig: { aspectRatio: "1:1" }
+                imageConfig: {
+                    aspectRatio: "1:1"
+                }
             }
         });
 
-        // Iterate through parts to find the image
-        if (response.candidates?.[0]?.content?.parts) {
+        if (response.candidates && response.candidates[0]?.content?.parts) {
             for (const part of response.candidates[0].content.parts) {
                 if (part.inlineData) {
-                    console.log("✅ [Gemini Image] Success!");
+                    const base64EncodeString = part.inlineData.data;
+                    const mimeType = part.inlineData.mimeType || 'image/png';
+                    const imageUrl = `data:${mimeType};base64,${base64EncodeString}`;
+                    console.log("✅ [Gemini Image] Thành công!");
                     console.groupEnd();
-                    return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                    return imageUrl;
                 }
             }
         }
         
-        console.warn("⚠️ No image data found in response");
-        console.groupEnd();
-        return null;
+        throw new Error("No image data found in response");
+
     } catch (error: any) {
         console.error("❌ [Gemini Image Failed]", error);
         console.groupEnd();
