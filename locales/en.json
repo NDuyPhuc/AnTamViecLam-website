@@ -153,7 +153,10 @@
     "location": "Location",
     "view_map": "View on map",
     "employer_post": "This is your post",
-    "detail_modal_title": "Job Details"
+    "detail_modal_title": "Job Details",
+    "urgent": "Urgent",
+    "deadline": "Deadline:",
+    "expired": "Expired"
   },
   "filters": {
     "location": "Location",
@@ -185,7 +188,10 @@
     "type_day": "Daily",
     "type_hour": "Hourly",
     "type_month": "Monthly",
-    "placeholder_address": "Ex: 123 ABC Street..."
+    "placeholder_address": "Ex: 123 ABC Street...",
+    "deadline_label": "Application Deadline",
+    "urgency_label": "Urgency Status",
+    "is_urgent": "Urgent Hiring (Highlighted)"
   },
   "profile": {
     "title": "Your Profile",

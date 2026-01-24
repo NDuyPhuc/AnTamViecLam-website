@@ -91,6 +91,8 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
   };
 
   const isEmployerViewingOwnJob = currentUserData?.uid === job.employerId;
+  const isExpired = job.deadline ? new Date(job.deadline) < new Date() : false;
+  const isClosed = job.status === 'CLOSED' || isExpired;
 
   const getPayString = () => {
       if (job.payRate === "Thỏa thuận") return t('job.salary_negotiable');
@@ -138,7 +140,14 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                     </div>
                 )}
                 <div className="min-w-0">
-                    <h2 className="text-xl font-bold text-gray-900 truncate leading-tight">{job.title}</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-gray-900 truncate leading-tight">{job.title}</h2>
+                        {job.isUrgent && (
+                            <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-600 animate-pulse">
+                                🔥 {t('job.urgent')}
+                            </span>
+                        )}
+                    </div>
                     <p className="text-gray-500 text-sm truncate mt-1">{job.employerName}</p>
                     <div className="flex items-center gap-2 mt-1.5">
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-md">
@@ -183,13 +192,18 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-8">
+            <div className="flex flex-wrap gap-2 mb-8 items-center">
                  <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium border border-gray-200">
                     {getJobTypeLabel(job.jobType)}
                  </span>
+                 {job.deadline && (
+                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${isExpired ? 'bg-red-50 text-red-600 border-red-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
+                         {isExpired ? t('job.expired') : `${t('job.deadline')} ${new Date(job.deadline).toLocaleDateString()}`}
+                     </span>
+                 )}
             </div>
 
-            {showApplyForm && !hasApplied && (
+            {showApplyForm && !hasApplied && !isClosed && (
                 <div className="mb-6 bg-indigo-50 p-5 rounded-xl border border-indigo-100 animate-fade-in">
                     <h3 className="font-bold text-indigo-800 mb-4 flex items-center text-lg">
                         <PaperAirplaneIcon className="w-5 h-5 mr-2" />
@@ -245,10 +259,12 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                  {currentUserData?.userType === 'WORKER' && !isEmployerViewingOwnJob && (
                     <button 
                         onClick={handleStartApply}
-                        disabled={isApplying || hasApplied}
+                        disabled={isApplying || hasApplied || isClosed}
                         className={`flex-1 font-bold py-3 px-4 rounded-xl transition-all duration-300 flex items-center justify-center shadow-md active:scale-95 ${
                             hasApplied 
                             ? 'bg-green-100 text-green-700 cursor-default' 
+                            : isClosed
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             : 'bg-indigo-600 text-white hover:bg-indigo-700'
                         }`}
                     >
@@ -256,6 +272,8 @@ const JobDetailModal: React.FC<JobDetailModalProps> = ({ job, onClose, onViewOnM
                             <>
                                 <span className="mr-2">✓</span> {t('job.applied')}
                             </>
+                        ) : isClosed ? (
+                            t('job.status_closed')
                         ) : (
                             t('job.apply_now')
                         )}

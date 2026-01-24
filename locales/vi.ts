@@ -3,7 +3,7 @@ export default {
   "app_name": "An Tâm Việc Làm",
   "common": {
     "loading": "Đang tải...",
-    "cancel": "Hủy",
+    "cancel": "Hủy bỏ",
     "close": "Đóng",
     "confirm": "Xác nhận",
     "login": "Đăng nhập",
@@ -14,7 +14,7 @@ export default {
     "saving": "Đang lưu...",
     "delete": "Xóa",
     "edit": "Chỉnh sửa",
-    "send": "Gửi",
+    "send": "Gửi đi",
     "search": "Tìm kiếm",
     "error": "Đã xảy ra lỗi",
     "success": "Thành công",
@@ -29,7 +29,7 @@ export default {
     "chatbot": "Hỏi Đáp",
     "profile": "Hồ Sơ",
     "ai_suggest": "Gợi ý AI",
-    "post_job": "Đăng tin",
+    "post_job": "Đăng Tin",
     "hello": "Chào"
   },
   "landing": {
@@ -186,7 +186,10 @@ export default {
     "view_map": "Xem trên bản đồ",
     "employer_post": "Đây là bài đăng của bạn",
     "detail_modal_title": "Chi tiết công việc",
-    "error_not_found": "Công việc này không còn tồn tại."
+    "error_not_found": "Công việc này không còn tồn tại.",
+    "urgent": "Tuyển gấp",
+    "deadline": "Hạn nộp:",
+    "expired": "Đã hết hạn"
   },
   "filters": {
     "location": "Địa điểm",
@@ -198,8 +201,8 @@ export default {
     "no_jobs": "Không tìm thấy công việc nào phù hợp với bộ lọc của bạn."
   },
   "post_job": {
-    "title": "Đăng tin tuyển dụng mới",
-    "subtitle": "Cung cấp thông tin chi tiết về công việc bạn muốn đăng.",
+    "title": "Đăng Tin Tuyển Dụng",
+    "subtitle": "Điền thông tin chi tiết để tìm người phù hợp nhất.",
     "job_title": "Tiêu đề công việc",
     "description": "Mô tả chi tiết",
     "province": "Tỉnh/Thành phố",
@@ -207,21 +210,24 @@ export default {
     "ward": "Phường/Xã",
     "street": "Số nhà, tên đường",
     "select_location": "Chọn Tỉnh/Thành",
-    "map_pin_label": "Ghim vị trí chính xác trên bản đồ",
-    "map_pin_desc": "Kéo bản đồ để ghim ở vị trí chính xác nhất của công việc.",
+    "map_pin_label": "Ghim vị trí trên bản đồ",
+    "map_pin_desc": "Kéo bản đồ để ghim chính xác nơi làm việc.",
     "job_type": "Loại hình công việc",
     "pay_type": "Hình thức trả lương",
     "salary": "Mức lương (VNĐ)",
     "negotiable": "Thỏa thuận",
-    "submit": "Đăng tin",
-    "submitting": "Đang đăng tin...",
+    "submit": "Đăng Tin Ngay",
+    "submitting": "Đang đăng...",
     "type_day": "Theo ngày",
     "type_hour": "Theo giờ",
     "type_month": "Theo tháng",
-    "placeholder_address": "VD: 123 Đường ABC...",
+    "placeholder_address": "VD: 123 Đường Nguyễn Huệ...",
     "error_location_required": "Vui lòng ghim vị trí trên bản đồ.",
     "kyc_required_alert": "Bạn phải xác minh danh tính thành công thì mới được đăng tin tuyển dụng. Vui lòng kiểm tra trạng thái hồ sơ của bạn.",
-    "go_to_profile": "Đến hồ sơ xác thực"
+    "go_to_profile": "Đến hồ sơ xác thực",
+    "deadline_label": "Hạn chót nhận hồ sơ",
+    "urgency_label": "Tùy chọn hiển thị",
+    "is_urgent": "Đánh dấu Tuyển Gấp"
   },
   "profile": {
     "title": "Hồ sơ của bạn",
@@ -474,7 +480,6 @@ export default {
     "step_license_desc": "Chụp rõ hoặc tải lên bản scan Giấy phép đăng ký kinh doanh.",
     "step_emp_id_title": "CCCD Người đại diện",
     "step_emp_id_desc": "Mặt trước CCCD của chủ doanh nghiệp hoặc người đại diện.",
-    
     "note_title": "Lưu ý quan trọng:",
     "note_1": "Sử dụng ảnh gốc, không chỉnh sửa/filter.",
     "note_2": "Tên tài khoản phải trùng với tên trên giấy tờ.",

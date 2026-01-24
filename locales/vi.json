@@ -153,7 +153,10 @@
     "location": "Địa điểm làm việc",
     "view_map": "Xem trên bản đồ",
     "employer_post": "Đây là bài đăng của bạn",
-    "detail_modal_title": "Chi tiết công việc"
+    "detail_modal_title": "Chi tiết công việc",
+    "urgent": "Tuyển gấp",
+    "deadline": "Hạn nộp:",
+    "expired": "Đã hết hạn"
   },
   "filters": {
     "location": "Địa điểm",
@@ -185,7 +188,10 @@
     "type_day": "Theo ngày",
     "type_hour": "Theo giờ",
     "type_month": "Theo tháng",
-    "placeholder_address": "VD: 123 Đường ABC..."
+    "placeholder_address": "VD: 123 Đường ABC...",
+    "deadline_label": "Hạn nộp hồ sơ",
+    "urgency_label": "Trạng thái tin",
+    "is_urgent": "Tuyển gấp (Hiển thị nổi bật)"
   },
   "profile": {
     "title": "Hồ sơ của bạn",

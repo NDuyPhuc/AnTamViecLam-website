@@ -19,6 +19,10 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, applicantCount }) => {
   const { t } = useTranslation();
   const isClosed = job.status === 'CLOSED';
 
+  // Check expiration if deadline exists
+  const isExpired = job.deadline ? new Date(job.deadline) < new Date() : false;
+  const displayStatus = isClosed ? 'CLOSED' : (isExpired ? 'EXPIRED' : 'OPEN');
+
   // Helper to translate pay rate
   const getPayString = () => {
       if (job.payRate === "Thỏa thuận") return t('job.salary_negotiable');
@@ -64,7 +68,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, applicantCount }) => {
           onClick();
         }
       }}
-      className={`bg-white p-5 rounded-xl border border-gray-200 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-5 transition-all duration-300 ${isClosed ? 'opacity-60' : 'hover:shadow-lg hover:border-indigo-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform hover:-translate-y-1'}`}
+      className={`bg-white p-5 rounded-xl border border-gray-200 flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-5 transition-all duration-300 ${displayStatus !== 'OPEN' ? 'opacity-60 grayscale-[0.5]' : 'hover:shadow-lg hover:border-indigo-300 cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transform hover:-translate-y-1'}`}
       role="button"
       tabIndex={0}
       aria-label={`${t('job.detail_modal_title')}: ${job.title}`}
@@ -80,15 +84,29 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, applicantCount }) => {
       <div className="flex-grow flex flex-col">
         <div className="flex justify-between items-start">
             <div className="flex-grow">
-                <h3 className="font-bold text-lg text-gray-800">{job.title}</h3>
+                <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-lg text-gray-800 line-clamp-1">{job.title}</h3>
+                    {job.isUrgent && displayStatus === 'OPEN' && (
+                        <span className="flex-shrink-0 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-600 animate-pulse">
+                            🔥 {t('job.urgent')}
+                        </span>
+                    )}
+                </div>
                 <p className="text-sm text-gray-600">{job.employerName}</p>
             </div>
-            <div className="flex items-center text-xs text-gray-500 flex-shrink-0 ml-4 pt-1" title={`${t('job.posted_at')} ${new Date(job.createdAt).toLocaleString()}`}>
-                <ClockIcon className="w-4 h-4 mr-1"/>
-                <span>{formatTimeAgo(job.createdAt)}</span>
+            <div className="flex flex-col items-end flex-shrink-0 ml-4">
+                <div className="flex items-center text-xs text-gray-500 pt-1" title={`${t('job.posted_at')} ${new Date(job.createdAt).toLocaleString()}`}>
+                    <ClockIcon className="w-4 h-4 mr-1"/>
+                    <span>{formatTimeAgo(job.createdAt)}</span>
+                </div>
+                {job.deadline && (
+                    <span className={`text-[10px] font-medium mt-1 ${isExpired ? 'text-red-500' : 'text-gray-400'}`}>
+                        {isExpired ? t('job.expired') : `${t('job.deadline')} ${new Date(job.deadline).toLocaleDateString()}`}
+                    </span>
+                )}
             </div>
         </div>
-        <p className="text-sm text-gray-500 mt-1">{job.addressString}</p>
+        <p className="text-sm text-gray-500 mt-1 line-clamp-1">{job.addressString}</p>
         
         <div className="mt-3 flex items-center justify-between pt-3 border-t border-gray-100 sm:mt-auto flex-wrap gap-y-2">
           <div className="flex items-center gap-3 flex-wrap">
@@ -107,9 +125,14 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, applicantCount }) => {
               </div>
             )}
             {job.jobType && <span className="text-xs text-indigo-700 font-medium bg-indigo-100 px-3 py-1 rounded-full">{getJobTypeLabel(job.jobType)}</span>}
-            {isClosed ? (
+            
+            {displayStatus === 'CLOSED' && (
               <span className="text-xs font-medium text-gray-700 bg-gray-200 px-3 py-1 rounded-full">{t('job.status_closed')}</span>
-            ) : (
+            )}
+            {displayStatus === 'EXPIRED' && (
+              <span className="text-xs font-medium text-white bg-red-400 px-3 py-1 rounded-full">{t('job.expired')}</span>
+            )}
+            {displayStatus === 'OPEN' && !job.isUrgent && (
               <span className="text-xs font-medium text-green-700 bg-green-100 px-3 py-1 rounded-full">{t('job.status_open')}</span>
             )}
           </div>

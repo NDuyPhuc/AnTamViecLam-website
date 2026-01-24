@@ -31,6 +31,10 @@ export interface Job {
 
   distance?: number; // Distance in km from the user
   applicantCount?: number;
+
+  // New fields
+  deadline?: string; // ISO Date string for expiration
+  isUrgent?: boolean; // Flag for urgent hiring
 }
 
 

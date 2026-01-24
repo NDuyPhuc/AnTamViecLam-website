@@ -43,6 +43,8 @@ export const subscribeToJobs = (callback: (jobs: Job[]) => void) => {
           createdAt: createdAt, // Use the serializable ISO string
           hiredWorkerId: data.hiredWorkerId,
           applicantCount: data.applicantCount || 0,
+          deadline: data.deadline,
+          isUrgent: data.isUrgent,
         };
         jobs.push(job);
       }
@@ -91,6 +93,8 @@ export const subscribeToJobsByEmployer = (employerId: string, callback: (jobs: J
         createdAt: createdAt,
         hiredWorkerId: data.hiredWorkerId,
         applicantCount: data.applicantCount || 0,
+        deadline: data.deadline,
+        isUrgent: data.isUrgent,
       };
       jobs.push(job);
     });
@@ -134,6 +138,8 @@ export const getJobById = async (jobId: string): Promise<Job | null> => {
                 createdAt: createdAt,
                 hiredWorkerId: data?.hiredWorkerId,
                 applicantCount: data?.applicantCount || 0,
+                deadline: data?.deadline,
+                isUrgent: data?.isUrgent,
             } as Job;
         }
         return null;
