@@ -34,6 +34,14 @@ type JobViewMode = 'list' | 'map';
 
 const ITEMS_PER_PAGE = 10;
 
+// Global error handler for chunk loading failures (Fixes 404 script error)
+window.addEventListener('error', (e) => {
+    if (/Loading chunk [\d]+ failed/.test(e.message) || e.message.includes('Unexpected token') || e.message.includes('404')) {
+        console.error('Chunk load error detected, reloading...', e);
+        window.location.reload();
+    }
+});
+
 const ViewToggle: React.FC<{ activeMode: JobViewMode; setMode: (mode: JobViewMode) => void }> = ({ activeMode, setMode }) => {
     const { t } = useTranslation();
     return (
@@ -101,7 +109,7 @@ const App: React.FC = () => {
       }
   }, [currentUserData, isPostJobModalOpen]);
 
-  // --- HYBRID LOCATION LOGIC (Strict Separation & Robust Fallback) ---
+  // --- HYBRID LOCATION LOGIC ---
   const getUserLocation = useCallback(async () => {
     setIsLocating(true);
     setLocationError(null); 
@@ -131,12 +139,12 @@ const App: React.FC = () => {
             });
 
         } else {
-            // WEB BROWSER LOGIC (Robust Implementation)
+            // WEB BROWSER LOGIC
             if (!navigator.geolocation) {
                 throw new Error(t('map.error_browser_support'));
             }
 
-            // [FIX] Check Permissions API first to avoid instant failure loop
+            // Check Permissions API explicitly before calling
             if (navigator.permissions && navigator.permissions.query) {
                 try {
                     const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
@@ -144,12 +152,10 @@ const App: React.FC = () => {
                         throw { code: 1, message: 'PermissionDeniedByBrowserSettings' };
                     }
                 } catch (permErr) {
-                    console.debug("Permissions API not fully supported or error:", permErr);
-                    // Continue to try standard geolocation if this check fails/isn't supported
+                    console.debug("Permissions API check skipped:", permErr);
                 }
             }
 
-            // Helper to wrap geolocation in Promise
             const getPosition = (options: PositionOptions): Promise<GeolocationPosition> => {
                 return new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(resolve, reject, options);
@@ -159,28 +165,26 @@ const App: React.FC = () => {
             let position: GeolocationPosition;
 
             try {
-                // Try 1: High Accuracy (GPS), Timeout increased to 12s
-                // Warning: mobile browsers often throttle this if screen is dim or tab is background
+                // Try 1: High Accuracy (GPS)
                 position = await getPosition({ 
                     enableHighAccuracy: true, 
-                    timeout: 12000, 
+                    timeout: 8000, 
                     maximumAge: 0 
                 });
-                console.log("Got High Accuracy Position");
             } catch (err: any) {
-                console.warn("High Accuracy Location failed, trying fallback...", err.message);
+                console.warn("High Accuracy Location failed:", err.message);
                 
-                // If permission denied explicitly (Code 1), stop immediately. Do not try fallback.
+                // CRITICAL: If Error is Code 1 (Permission Denied), DO NOT TRY FALLBACK.
+                // Doing so triggers a second error and spam detection.
                 if (err.code === 1) throw err;
 
-                // Try 2: Low Accuracy (Wifi/IP) + Accept Cached Position (Infinity)
-                // This is crucial for fixing "Vercel hosted" issues where GPS is flaky
+                console.log("Trying Low Accuracy/Cached fallback...");
+                // Try 2: Low Accuracy (Wifi/IP) + Accept Cached Position
                 position = await getPosition({ 
                     enableHighAccuracy: false, 
-                    timeout: 15000, 
+                    timeout: 10000, 
                     maximumAge: Infinity 
                 });
-                console.log("Got Low Accuracy/Cached Position");
             }
 
             setUserLocation({
@@ -195,11 +199,9 @@ const App: React.FC = () => {
         let msg = t('map.error_generic');
         
         if (e.code === 1) { 
-             // IMPORTANT: Distinguish between Native and Web permission denial
              if (isNative) {
                  msg = t('map.error_permission_denied_native');
              } else {
-                 // Instruction for Web User to unblock
                  msg = t('map.error_permission_denied');
              }
         }
@@ -208,7 +210,6 @@ const App: React.FC = () => {
         else if (e.message) msg = e.message;
 
         setUserLocation(prev => {
-            // Only set error if we don't have a previous location
             if (!prev) setLocationError(msg);
             return prev;
         });
@@ -217,27 +218,6 @@ const App: React.FC = () => {
     }
   }, [t]);
 
-  // --- Web Permission Listener (Auto-Recovery) ---
-  useEffect(() => {
-    // Only run on Web
-    if (Capacitor.isNativePlatform()) return;
-
-    if (navigator.permissions && navigator.permissions.query) {
-        navigator.permissions.query({ name: 'geolocation' as PermissionName })
-            .then((permissionStatus) => {
-                const handlePermissionChange = () => {
-                    console.log("Permission state changed to:", permissionStatus.state);
-                    if (permissionStatus.state === 'granted') {
-                        setLocationError(null);
-                        getUserLocation();
-                    }
-                };
-                permissionStatus.onchange = handlePermissionChange;
-            })
-            .catch(err => console.debug("Permissions API check skipped:", err));
-    }
-  }, [getUserLocation]);
-
   useEffect(() => {
     const isNative = Capacitor.isNativePlatform();
 
@@ -245,7 +225,11 @@ const App: React.FC = () => {
     if ('serviceWorker' in navigator && !isNative) {
         const swUrl = `/sw.js`;
         const registerSW = () => {
-             navigator.serviceWorker.register(swUrl).catch(() => {});
+             navigator.serviceWorker.register(swUrl).then(registration => {
+                 console.log('SW registered: ', registration);
+             }).catch(registrationError => {
+                 console.log('SW registration failed: ', registrationError);
+             });
         };
         if (document.visibilityState !== 'visible' || document.readyState === 'loading') {
              window.addEventListener('load', registerSW);
@@ -254,10 +238,15 @@ const App: React.FC = () => {
         }
     }
 
-    // Initial Location Fetch
+    // DELAYED Location Fetch to avoid conflict with Notifications permission
     if (currentUser) {
-        setLocationError(null);
-        getUserLocation();
+        const timer = setTimeout(() => {
+            // Only fetch if we don't have location and no error yet
+            if (!userLocation && !locationError) {
+                getUserLocation();
+            }
+        }, 2000); // 2 second delay allowed the page to settle
+        return () => clearTimeout(timer);
     }
 
     // --- APP STATE LISTENER (AUTO-REFRESH LOCATION ON RESUME) ---
@@ -267,7 +256,6 @@ const App: React.FC = () => {
             appListener = await CapacitorApp.addListener('appStateChange', ({ isActive }) => {
                 if (isActive) {
                     console.log('App resumed, re-checking location...');
-                    // Chỉ gọi lại nếu chưa có location hoặc đang bị lỗi
                     getUserLocation();
                 }
             });
@@ -289,7 +277,7 @@ const App: React.FC = () => {
             appListener.remove();
         }
     };
-  }, [getUserLocation, currentUser]);
+  }, [currentUser]); // Removed getUserLocation from dependency to avoid loop
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -468,6 +456,7 @@ const App: React.FC = () => {
                                         </button>
                                         <button 
                                             onClick={() => {
+                                                // Manual trigger needs to be direct
                                                 getUserLocation();
                                             }}
                                             disabled={isLocating}

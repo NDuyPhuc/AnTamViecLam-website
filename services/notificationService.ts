@@ -43,25 +43,32 @@ export const requestNotificationPermission = async (userId: string) => {
  */
 const saveMessagingDeviceToken = async (userId: string) => {
     try {
-        const fcmToken = await messaging.getToken({ vapidKey: VAPID_KEY });
-        if (fcmToken) {
-            // console.log('FCM Token:', fcmToken); // Uncomment for debugging
-            const userDocRef = db.collection('users').doc(userId);
-            // Sử dụng arrayUnion để thêm token mà không tạo bản sao.
-            await userDocRef.update({
-                fcmTokens: arrayUnion(fcmToken),
+        // CỰC KỲ QUAN TRỌNG: Chờ Service Worker sẵn sàng trước khi gọi getToken
+        // Điều này sửa lỗi "AbortError: ... no active Service Worker"
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            
+            const fcmToken = await messaging.getToken({ 
+                vapidKey: VAPID_KEY,
+                serviceWorkerRegistration: registration 
             });
-            console.log('FCM token saved for user.');
 
-            // Lắng nghe các tin nhắn khi ứng dụng đang mở (foreground)
-            messaging.onMessage((payload) => {
-                console.log('Foreground message received. ', payload);
-                // Trong ứng dụng thực tế, bạn nên hiển thị một thông báo tùy chỉnh trong ứng dụng (ví dụ: toast)
-                // thay vì một alert mặc định.
-                // alert(`Tin nhắn mới từ ${payload.notification?.title}:\n${payload.notification?.body}`);
-            });
-        } else {
-            console.log('No registration token available. Request permission to generate one.');
+            if (fcmToken) {
+                // console.log('FCM Token:', fcmToken); // Uncomment for debugging
+                const userDocRef = db.collection('users').doc(userId);
+                // Sử dụng arrayUnion để thêm token mà không tạo bản sao.
+                await userDocRef.update({
+                    fcmTokens: arrayUnion(fcmToken),
+                });
+                console.log('FCM token saved for user.');
+
+                // Lắng nghe các tin nhắn khi ứng dụng đang mở (foreground)
+                messaging.onMessage((payload) => {
+                    console.log('Foreground message received. ', payload);
+                });
+            } else {
+                console.log('No registration token available. Request permission to generate one.');
+            }
         }
     } catch (error) {
         console.error('An error occurred while retrieving token:', error);
