@@ -3,7 +3,7 @@ export default async function handler(req, res) {
   const SERVER_API_KEY = 
     process.env.VITE_GEMINI_API_KEY || 
     process.env.GEMINI_API_KEY || 
-    "AIzaSyCB_MqUl4A1k8SNTkrf5vwmmBtvCpSi5IM";
+    "AIzaSyDp7_oXncX7wtS-My_IVUPgpmHDzW5urdE"; // Updated Key
 
   // Danh sách model ưu tiên. Nếu cái đầu lỗi 429, sẽ thử cái sau.
   // gemini-2.0-flash: Thông minh hơn nhưng quota ít.
