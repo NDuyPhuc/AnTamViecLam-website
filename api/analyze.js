@@ -4,13 +4,11 @@ export default async function handler(req, res) {
   const SERVER_API_KEY = 
     process.env.VITE_GEMINI_API_KEY || 
     process.env.GEMINI_API_KEY || 
-    process.env.VITE_API_KEY || 
-    process.env.VITE_GOOGLE_API_KEY;
+    "AIzaSyCB_MqUl4A1k8SNTkrf5vwmmBtvCpSi5IM";
   // -------------------------------------
 
-  // Log kiểm tra Key
   const keyPrefix = SERVER_API_KEY ? SERVER_API_KEY.slice(0, 8) : "NONE";
-  console.log(`[API/Analyze] Request received. Using Key starting with: ${keyPrefix}...`);
+  console.log(`[API/Analyze] Request received. Using Key: ${keyPrefix}...`);
 
   // 1. CORS: Cho phép tất cả
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,14 +33,11 @@ export default async function handler(req, res) {
     const { prompt } = body;
 
     if (!SERVER_API_KEY) {
-      console.error("[API/Analyze] ERROR: Missing API Key.");
-      return res.status(500).json({ 
-        error: "Server Error: Missing API Key. Check Vercel Settings." 
-      });
+      return res.status(500).json({ error: "Missing API Key." });
     }
 
-    // 2. Chọn Model: Sử dụng bản ổn định 1.5 Flash
-    const MODEL_NAME = "gemini-1.5-flash";
+    // 2. Chọn Model: gemini-2.0-flash
+    const MODEL_NAME = "gemini-2.0-flash";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${SERVER_API_KEY}`;
 
     const payload = {
@@ -63,27 +58,8 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       console.error("[API/Analyze] Google API Error:", JSON.stringify(data, null, 2));
-      
       let errorMessage = data.error?.message || "Google API Error";
-      // BẢO MẬT: Che giấu API Key nếu nó xuất hiện trong thông báo lỗi
       errorMessage = errorMessage.replace(/key:[^ ]+/, "key:***HIDDEN***");
-
-      // Fallback nếu model chính lỗi 404
-      if (response.status === 404) {
-          console.log("[API/Analyze] Retrying with gemini-1.5-pro...");
-          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${SERVER_API_KEY}`;
-          const fallbackResponse = await fetch(fallbackUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-          });
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackResponse.ok) {
-               const text = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text;
-               const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-               return res.status(200).json(JSON.parse(cleanText));
-          }
-      }
 
       return res.status(response.status).json({
         error: errorMessage,

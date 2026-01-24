@@ -1,16 +1,16 @@
 
 export default async function handler(req, res) {
   // --- CẤU HÌNH SERVER SIDE (VERCEL) ---
+  // Ưu tiên biến môi trường, nếu không có sẽ dùng Key dự phòng bạn vừa cung cấp
   const SERVER_API_KEY = 
     process.env.VITE_GEMINI_API_KEY || 
     process.env.GEMINI_API_KEY || 
-    process.env.VITE_API_KEY || 
-    process.env.VITE_GOOGLE_API_KEY;
+    "AIzaSyCB_MqUl4A1k8SNTkrf5vwmmBtvCpSi5IM"; 
   // -------------------------------------
 
-  // Log kiểm tra key (Chỉ hiện 8 ký tự đầu để bảo mật nhưng đủ để biết là key mới hay cũ)
+  // Log kiểm tra key (Chỉ hiện 8 ký tự đầu)
   const keyPrefix = SERVER_API_KEY ? SERVER_API_KEY.slice(0, 8) : "NONE";
-  console.log(`[API/Chat] Request received. Using Key starting with: ${keyPrefix}...`);
+  console.log(`[API/Chat] Request received. Using Key: ${keyPrefix}...`);
 
   // 1. CORS: Cho phép tất cả (*) để tránh lỗi chặn khi debug
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -35,16 +35,12 @@ export default async function handler(req, res) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { message, history, systemInstruction } = body;
 
-    // 2. Kiểm tra API Key
     if (!SERVER_API_KEY) {
-      console.error("[API/Chat] LỖI: Chưa cấu hình API Key trên Vercel (Settings -> Environment Variables).");
-      return res.status(500).json({ 
-        error: "Server Error: Missing API Key. Please configure VITE_GEMINI_API_KEY in Vercel Settings." 
-      });
+      return res.status(500).json({ error: "Missing API Key configuration." });
     }
 
-    // 3. Chọn Model: Sử dụng bản ổn định 1.5 Flash
-    const MODEL_NAME = "gemini-1.5-flash"; 
+    // 2. Chọn Model: Sử dụng gemini-2.0-flash (bản ổn định mới nhất)
+    const MODEL_NAME = "gemini-2.0-flash"; 
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${SERVER_API_KEY}`;
 
     const payload = {
@@ -57,7 +53,7 @@ export default async function handler(req, res) {
         : undefined,
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 800,
+        maxOutputTokens: 1000,
       }
     };
 
@@ -75,22 +71,6 @@ export default async function handler(req, res) {
       let errorMessage = data.error?.message || "Google API Error";
       // BẢO MẬT: Che giấu API Key
       errorMessage = errorMessage.replace(/key:[^ ]+/, "key:***HIDDEN***");
-
-      // Fallback
-      if (response.status === 404) {
-          console.log("[API/Chat] Retrying with gemini-1.5-pro...");
-          const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${SERVER_API_KEY}`;
-          const fallbackResponse = await fetch(fallbackUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-          });
-          const fallbackData = await fallbackResponse.json();
-          if (fallbackResponse.ok) {
-               const text = fallbackData.candidates?.[0]?.content?.parts?.[0]?.text;
-               return res.status(200).json({ text: text || "Không có nội dung." });
-          }
-      }
 
       return res.status(response.status).json({
         error: errorMessage,
